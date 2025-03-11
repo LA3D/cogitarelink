@@ -5,15 +5,6 @@
 # %% auto 0
 __all__ = ['LinkedDataKnowledge']
 
-# %% ../00_core.ipynb 3
-from fastcore.basics import *
-from fastcore.meta import *
-from fastcore.test import *
-import json
-from rdflib import Graph
-from pyld import jsonld
-from typing import List, Dict, Any, Optional, Union
-
 # %% ../00_core.ipynb 4
 from fastcore.basics import *
 from fastcore.meta import *
@@ -22,48 +13,6 @@ import json
 from rdflib import Graph
 from pyld import jsonld
 from typing import List, Dict, Any, Optional, Union
-
-#| export
-class LinkedDataKnowledge:
-    "Represents a knowledge base of linked data in JSON-LD format"
-    def __init__(self, 
-                 data:Dict=None, # Initial knowledge data
-                ):
-        self.data = data or {"@context": {}, "@graph": []}
-        
-    def __repr__(self): return f"LinkedDataKnowledge with {len(self.data.get('@graph', []))} entities"
-    
-    #| export
-    def _repr_markdown_(self) -> str:
-        "Rich markdown representation for notebook display"
-        # Implementation...
-        
-    #| export
-    def find_entity(self, entity_id:str=None, term_type:str=None, label:str=None) -> list:
-        "Find entities in the graph by ID, type, or label"
-        # Implementation...
-        
-    #| export
-    def get_entity_description(self, entity:dict) -> str:
-        "Get a formatted description of an entity"
-        # Implementation...
-        
-    #| export
-    def describe(self, path:str="") -> str:
-        "Describe the structure at the given path in a human-readable format"
-        # Implementation that combines exploration and visualization
-        
-    #| export
-    def view(self, entity_id:str=None, term_type:str=None, label:str=None) -> None:
-        "Find and display entities in a rich format"
-        entities = self.find_entity(entity_id, term_type, label)
-        if not entities:
-            print(f"No entities found matching the criteria")
-            return
-        
-        for entity in entities:
-            display(Markdown(self.get_entity_description(entity)))
-
 
 # %% ../00_core.ipynb 5
 class LinkedDataKnowledge:
@@ -74,3 +23,213 @@ class LinkedDataKnowledge:
         self.data = data or {"@context": {}, "@graph": []}
         
     def __repr__(self): return f"LinkedDataKnowledge with {len(self.data.get('@graph', []))} entities"
+
+# %% ../00_core.ipynb 6
+@patch
+def _repr_markdown_(self:LinkedDataKnowledge) -> str:
+    "Rich markdown representation for notebook display"
+    md = [f"## LinkedDataKnowledge"]
+    
+    # Context summary
+    context = self.data.get('@context', {})
+    md.append(f"### Context ({len(context)} prefixes)")
+    
+    # Show the first few context entries
+    if context:
+        md.append("```json")
+        context_preview = dict(list(context.items())[:5])
+        if len(context) > 5:
+            md.append(json.dumps(context_preview, indent=2) + "\n... and more")
+        else:
+            md.append(json.dumps(context, indent=2))
+        md.append("```")
+    
+    # Graph summary
+    graph = self.data.get('@graph', [])
+    md.append(f"### Graph ({len(graph)} entities)")
+    
+    # Show types of entities in the graph
+    if graph:
+        types = {}
+        for entity in graph:
+            entity_type = entity.get('@type')
+            if isinstance(entity_type, list):
+                for t in entity_type:
+                    types[t] = types.get(t, 0) + 1
+            elif entity_type:
+                types[entity_type] = types.get(entity_type, 0) + 1
+        
+        if types:
+            md.append("**Entity types:**")
+            for t, count in sorted(types.items(), key=lambda x: x[1], reverse=True):
+                md.append(f"- {t}: {count}")
+    
+    # Show a sample entity if available
+    if graph:
+        md.append("\n**Sample entity:**")
+        md.append("```json")
+        md.append(json.dumps(graph[0], indent=2))
+        md.append("```")
+    
+    # If using @included, show that too
+    if '@included' in self.data:
+        included = self.data['@included']
+        md.append(f"\n### Included ({len(included)} entities)")
+        md.append("**Types of included entities:**")
+        
+        # Count types of included entities
+        included_types = {}
+        for entity in included:
+            entity_type = entity.get('@type')
+            if isinstance(entity_type, list):
+                for t in entity_type:
+                    included_types[t] = included_types.get(t, 0) + 1
+            elif entity_type:
+                included_types[entity_type] = included_types.get(entity_type, 0) + 1
+        
+        for t, count in sorted(included_types.items(), key=lambda x: x[1], reverse=True):
+            md.append(f"- {t}: {count}")
+    
+    return "\n".join(md)
+
+
+# %% ../00_core.ipynb 7
+def _format_entity_markdown(entity:Dict) -> str:
+    "Format a single entity as markdown"
+    md = []
+    
+    # Entity ID and type
+    entity_id = entity.get('@id', 'No ID')
+    entity_type = entity.get('@type', ['Unknown'])
+    if isinstance(entity_type, list):
+        entity_type = ', '.join(entity_type)
+    
+    md.append(f"### {entity_type}: {entity_id}")
+    
+    # Properties
+    for prop, values in entity.items():
+        if prop in ['@id', '@type']:
+            continue
+            
+        # Format the property name
+        prop_name = prop.split('/')[-1] if '/' in prop else prop
+        md.append(f"**{prop_name}**:")
+        
+        # Format values
+        for val in values:
+            if isinstance(val, dict):
+                if '@value' in val:
+                    value_text = val['@value']
+                    if '@language' in val:
+                        value_text += f" @{val['@language']}"
+                    md.append(f"- {value_text}")
+                elif '@id' in val:
+                    md.append(f"- [{val['@id']}]({val['@id']})")
+                else:
+                    md.append(f"- {val}")
+            else:
+                md.append(f"- {val}")
+    
+    return "\n".join(md)
+
+@patch
+def query_markdown(self:LinkedDataKnowledge,
+                  query_type:str, # Type of query: "property", "type", "value" 
+                  query_value:str, # Value to search for
+                  ) -> str:
+    "Query the knowledge base and return results as markdown"
+    results = self.query(query_type, query_value)
+    
+    if not results:
+        return f"*No results found for {query_type}='{query_value}'*"
+    
+    md = [f"# Query Results: {query_type}='{query_value}'", 
+          f"Found {len(results)} matching entities"]
+    
+    # Format each result entity
+    for i, entity in enumerate(results[:5]):  # Limit to first 5 for readability
+        md.append(f"\n## Result {i+1}")
+        md.append(_format_entity_markdown(entity))
+    
+    if len(results) > 5:
+        md.append(f"\n*...and {len(results)-5} more results*")
+    
+    return "\n".join(md)
+
+
+# %% ../00_core.ipynb 8
+@patch
+def display_entity(self:LinkedDataKnowledge, entity_id:str) -> str:
+    "Display a specific entity by ID as markdown"
+    
+    # First try in @graph
+    for entity in self.data.get('@graph', []):
+        if entity.get('@id') == entity_id:
+            return _format_entity_markdown(entity)
+    
+    # Then try in @included if present
+    for entity in self.data.get('@included', []):
+        if entity.get('@id') == entity_id:
+            return _format_entity_markdown(entity)
+    
+    # If it's the main entity in a resource-centric view
+    if self.data.get('@id') == entity_id:
+        return _format_entity_markdown(self.data)
+    
+    return f"*Entity with ID '{entity_id}' not found*"
+
+@patch
+def summarize_markdown(self:LinkedDataKnowledge) -> str:
+    "Provide a concise markdown summary of the knowledge base"
+    
+    md = ["# Knowledge Base Summary"]
+    
+    # Count contexts, entities, and included entities
+    context_count = len(self.data.get('@context', {}))
+    graph_count = len(self.data.get('@graph', []))
+    included_count = len(self.data.get('@included', [])) if '@included' in self.data else 0
+    
+    md.append(f"- **Contexts:** {context_count}")
+    md.append(f"- **Graph Entities:** {graph_count}")
+    if included_count:
+        md.append(f"- **Included Entities:** {included_count}")
+    
+    # Summarize entity types
+    all_types = {}
+    
+    # Check @graph
+    for entity in self.data.get('@graph', []):
+        entity_type = entity.get('@type')
+        if isinstance(entity_type, list):
+            for t in entity_type:
+                all_types[t] = all_types.get(t, 0) + 1
+        elif entity_type:
+            all_types[entity_type] = all_types.get(entity_type, 0) + 1
+    
+    # Check @included
+    for entity in self.data.get('@included', []):
+        entity_type = entity.get('@type')
+        if isinstance(entity_type, list):
+            for t in entity_type:
+                all_types[t] = all_types.get(t, 0) + 1
+        elif entity_type:
+            all_types[entity_type] = all_types.get(entity_type, 0) + 1
+    
+    # Check main entity if resource-centric
+    if '@id' in self.data and '@type' in self.data:
+        entity_type = self.data.get('@type')
+        if isinstance(entity_type, list):
+            for t in entity_type:
+                all_types[t] = all_types.get(t, 0) + 1
+        elif entity_type:
+            all_types[entity_type] = all_types.get(entity_type, 0) + 1
+    
+    if all_types:
+        md.append("\n## Entity Types")
+        for t, count in sorted(all_types.items(), key=lambda x: x[1], reverse=True)[:10]:
+            md.append(f"- **{t}**: {count}")
+        if len(all_types) > 10:
+            md.append(f"- *...and {len(all_types)-10} more types*")
+    
+    return "\n".join(md)
+
