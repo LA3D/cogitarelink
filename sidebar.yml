@@ -1,0 +1,11 @@
+website:
+  sidebar:
+    contents:
+      - index.ipynb
+      - 00_core.ipynb
+      - 01_vocabulary.ipynb
+      - 02_dataset.ipynb
+      - 03_navigation.ipynb
+      - 04_tools.ipynb
+      - 05_workflows.ipynb
+      - 06_agents.ipynb

@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "Linked Data Navigation with AI Agents"
+  site-url: "https://la3d.github.io/cogitarelink/"
+  description: "Linked Data Navigation with AI Agents"
+  repo-branch: main
+  repo-url: "https://github.com/la3d/cogitarelink/"

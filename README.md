@@ -75,14 +75,11 @@ result = agent.toolloop('''
 
 ## Architecture
 
-JSON-LD Agent is built around a core
-[`LinkedDataKnowledge`](https://la3d.github.io/cogitarelink/core.html#linkeddataknowledge)
-class that provides methods for working with JSON-LD data. The library
-is organized into several modules:
+JSON-LD Agent is built around a core `LinkedDataKnowledge` class that
+provides methods for working with JSON-LD data. The library is organized
+into several modules:
 
-- **Core**: The
-  [`LinkedDataKnowledge`](https://la3d.github.io/cogitarelink/core.html#linkeddataknowledge)
-  class and basic utilities
+- **Core**: The `LinkedDataKnowledge` class and basic utilities
 - **Vocabulary**: Methods for fetching and processing RDF vocabularies
 - **Dataset**: Tools for exploring and manipulating dataset structures
 - **Display**: Rich visualization of linked data in human-readable
