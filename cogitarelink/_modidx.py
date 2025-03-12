@@ -62,4 +62,8 @@ d = { 'settings': { 'branch': 'main',
                                                                                                                'cogitarelink/vocabulary.py'),
                                          'cogitarelink.vocabulary._determine_rdf_format': ( 'vocabulary.html#_determine_rdf_format',
                                                                                             'cogitarelink/vocabulary.py')},
-            'cogitarelink.workflows': {'cogitarelink.workflows.foo': ('workflows.html#foo', 'cogitarelink/workflows.py')}}}
+            'cogitarelink.workflows': { 'cogitarelink.workflows.create_agent': ('workflows.html#create_agent', 'cogitarelink/workflows.py'),
+                                        'cogitarelink.workflows.create_workflow': ( 'workflows.html#create_workflow',
+                                                                                    'cogitarelink/workflows.py'),
+                                        'cogitarelink.workflows.run_workflow': ( 'workflows.html#run_workflow',
+                                                                                 'cogitarelink/workflows.py')}}}
