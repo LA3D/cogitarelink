@@ -39,7 +39,7 @@ naturally, similar to how humans navigate the web:
 
 1.  **Start with a concept** → Find its definition in a vocabulary
 2.  **Discover relationships** → See how concepts connect to each other
-3.  **Follow connections** → Navigate to rel#ated concepts and build
+3.  **Follow connections** → Navigate to related concepts and build
     understanding
 4.  **Examine implementations** → See how abstract concepts are used in
     real datasets
