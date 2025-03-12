@@ -159,6 +159,16 @@ def query_markdown(self:LinkedDataKnowledge,
 
 # %% ../00_core.ipynb 11
 @patch
+def _has_type(self:LinkedDataKnowledge, entity:dict, type_str:str) -> bool:
+    "Check if entity has the specified type"
+    entity_type = entity.get('@type', [])
+    if not isinstance(entity_type, list):
+        entity_type = [entity_type]
+    
+    return any(type_str in t for t in entity_type)
+
+# %% ../00_core.ipynb 12
+@patch
 def display_entity(self:LinkedDataKnowledge, entity_id:str) -> str:
     "Display a specific entity by ID as markdown"
     
@@ -234,7 +244,7 @@ def summarize_markdown(self:LinkedDataKnowledge) -> str:
     return "\n".join(md)
 
 
-# %% ../00_core.ipynb 12
+# %% ../00_core.ipynb 13
 @patch
 def find_entity(self:LinkedDataKnowledge, 
                entity_id:str=None, # Full or partial entity ID to find
@@ -269,6 +279,88 @@ def find_entity(self:LinkedDataKnowledge,
                             break
     
     return results
+
+# %% ../00_core.ipynb 16
+@patch
+def get_entity_description(self:LinkedDataKnowledge, entity:dict) -> str:
+    "Get a formatted description of an entity"
+    if not entity:
+        return "No entity provided"
+    
+    lines = []
+    
+    # Entity ID
+    entity_id = entity.get('@id', 'Unknown ID')
+    lines.append(f"## Entity: {entity_id}")
+    
+    # Entity type
+    entity_type = entity.get('@type', [])
+    if not isinstance(entity_type, list):
+        entity_type = [entity_type]
+    lines.append(f"**Type**: {', '.join(entity_type)}")
+    
+    # Labels
+    labels = []
+    for key, value in entity.items():
+        if 'label' in key.lower():
+            if isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict) and '@value' in item:
+                        labels.append(f"{item.get('@value')} ({item.get('@language', 'no language')})")
+                    else:
+                        labels.append(str(item))
+            else:
+                labels.append(str(value))
+    
+    if labels:
+        lines.append(f"**Labels**: {', '.join(labels)}")
+    
+    # Comments/Definitions
+    comments = []
+    for key, value in entity.items():
+        if 'comment' in key.lower() or 'definition' in key.lower():
+            if isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict) and '@value' in item:
+                        comments.append(item.get('@value'))
+                    else:
+                        comments.append(str(item))
+            else:
+                comments.append(str(value))
+    
+    if comments:
+        lines.append("\n**Definition**:")
+        for comment in comments:
+            lines.append(f"- {comment}")
+    
+    # Relationships
+    relationships = []
+    for key, value in entity.items():
+        if key not in ['@id', '@type'] and not any(x in key.lower() for x in ['label', 'comment', 'definition']):
+            relationships.append((key, value))
+    
+    if relationships:
+        lines.append("\n**Relationships**:")
+        for rel_name, rel_value in relationships:
+            if isinstance(rel_value, list):
+                lines.append(f"- {rel_name}:")
+                for item in rel_value:
+                    if isinstance(item, dict) and '@id' in item:
+                        lines.append(f"  - {item['@id']}")
+                    elif isinstance(item, dict) and '@value' in item:
+                        lines.append(f"  - {item['@value']}")
+                    else:
+                        lines.append(f"  - {item}")
+            else:
+                if isinstance(rel_value, dict) and '@id' in rel_value:
+                    lines.append(f"- {rel_name}: {rel_value['@id']}")
+                elif isinstance(rel_value, dict) and '@value' in rel_value:
+                    lines.append(f"- {rel_name}: {rel_value['@value']}")
+                else:
+                    lines.append(f"- {rel_name}: {rel_value}")
+    
+    return "\n".join(lines)
+
 
 # %% ../00_core.ipynb 17
 @patch
