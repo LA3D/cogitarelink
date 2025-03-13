@@ -160,12 +160,99 @@ def query_markdown(self:LinkedDataKnowledge,
 # %% ../00_core.ipynb 11
 @patch
 def _has_type(self:LinkedDataKnowledge, entity:dict, type_str:str) -> bool:
-    "Check if entity has the specified type"
-    entity_type = entity.get('@type', [])
-    if not isinstance(entity_type, list):
-        entity_type = [entity_type]
+    """Check if entity has the specified type, handling various type formats."""
+    if not entity or not type_str:
+        return False
+        
+    entity_types = entity.get('@type', [])
+    if not isinstance(entity_types, list):
+        entity_types = [entity_types]
     
-    return any(type_str in t for t in entity_type)
+    # Handle empty types
+    if not entity_types:
+        return False
+    
+    # Try exact match first (most efficient)
+    if type_str in entity_types:
+        return True
+    
+    # For prefixed names like "rdfs:Class" or "rdf:Property", try direct string matching
+    # This handles cases where the prefix isn't in the context but is used in entity types
+    if ':' in type_str and any(t.endswith(type_str.split(':')[1]) for t in entity_types):
+        return True
+    
+    # Prepare for URI and prefixed name handling
+    context = self.data.get('@context', {})
+    
+    # Standard RDF prefixes that might not be in the context
+    standard_prefixes = {
+        "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+        "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+        "owl": "http://www.w3.org/2002/07/owl#",
+        "xsd": "http://www.w3.org/2001/XMLSchema#"
+    }
+    
+    # Add standard prefixes to context if not already present
+    for prefix, uri in standard_prefixes.items():
+        if prefix not in context:
+            context[prefix] = uri
+    
+    # Convert type_str to expanded URI if it's a prefixed name
+    expanded_type_str = None
+    if ':' in type_str and not type_str.startswith(('http://', 'https://')):
+        prefix, local = type_str.split(':', 1)
+        if prefix in context:
+            prefix_uri = context[prefix]
+            if isinstance(prefix_uri, str):
+                if prefix_uri.endswith('/') or prefix_uri.endswith('#'):
+                    expanded_type_str = f"{prefix_uri}{local}"
+                else:
+                    expanded_type_str = f"{prefix_uri}/{local}"
+    
+    # Convert entity_types to expanded URIs and prefixed names for comparison
+    for entity_type in entity_types:
+        # Check if expanded type_str matches entity_type
+        if expanded_type_str and (expanded_type_str == entity_type or expanded_type_str in entity_type):
+            return True
+            
+        # If entity_type is a full URI and type_str is a prefixed name
+        if entity_type.startswith(('http://', 'https://')) and ':' in type_str and not type_str.startswith(('http://', 'https://')):
+            # Extract the local name from the URI to match against prefixed name
+            for prefix, uri in context.items():
+                if isinstance(uri, str) and entity_type.startswith(uri):
+                    local_part = entity_type[len(uri):]
+                    if local_part.startswith('/') or local_part.startswith('#'):
+                        local_part = local_part[1:]
+                    prefixed = f"{prefix}:{local_part}"
+                    if prefixed == type_str:
+                        return True
+                        
+        # If type_str is a full URI and entity_type is a prefixed name
+        if type_str.startswith(('http://', 'https://')) and ':' in entity_type and not entity_type.startswith(('http://', 'https://')):
+            prefix, local = entity_type.split(':', 1)
+            if prefix in context:
+                prefix_uri = context[prefix]
+                if isinstance(prefix_uri, str):
+                    if prefix_uri.endswith('/') or prefix_uri.endswith('#'):
+                        expanded = f"{prefix_uri}{local}"
+                    else:
+                        expanded = f"{prefix_uri}/{local}"
+                    if expanded == type_str or expanded in type_str:
+                        return True
+    
+    # Check for local name match (e.g., "Class" matches "rdfs:Class" or "http://.../Class")
+    if not type_str.startswith(('http://', 'https://')) and not ':' in type_str:
+        # Check if any type ends with the local name
+        if any(t.split('/')[-1] == type_str or 
+               t.split('#')[-1] == type_str or
+               ((':' in t) and t.split(':')[-1] == type_str)
+               for t in entity_types):
+            return True
+    
+    # Finally, try substring match as a fallback
+    # This is less reliable but catches some edge cases
+    return any(type_str in t for t in entity_types)
+
 
 # %% ../00_core.ipynb 12
 @patch
@@ -249,38 +336,129 @@ def summarize_markdown(self:LinkedDataKnowledge) -> str:
 def find_entity(self:LinkedDataKnowledge, 
                entity_id:str=None, # Full or partial entity ID to find
                term_type:str=None, # Filter by type (e.g., "Class", "Property")
-               label:str=None # Find by label text
+               label:str=None, # Find by label text
+               prioritize_label:bool=True, # Whether to prioritize label matches over ID matches
+               case_sensitive:bool=False # Whether searches should be case sensitive
               ) -> list: # Matching entities
-    "Find entities in the graph by ID, type, or label"
+    """Find entities in the graph by ID, type, or label.
+    
+    This function provides flexible entity lookup by:
+    - ID (full URI, prefixed name, or local name)
+    - Type (class or property type)
+    - Label (exact or partial match)
+    
+    Args:
+        entity_id: Full or partial entity ID to find
+        term_type: Filter by type (e.g., "Class", "Property")
+        label: Find by label text
+        prioritize_label: Whether to prioritize label matches over ID matches
+        case_sensitive: Whether searches should be case sensitive
+        
+    Returns:
+        list: Matching entities
+    """
     results = []
+    label_results = []
+    id_results = []
     graph = self.data.get('@graph', [])
     
+    # Handle case sensitivity
+    if entity_id and not case_sensitive:
+        entity_id = entity_id.lower()
+    if label and not case_sensitive:
+        label = label.lower()
+    
+    # Process each entity, checking ID, type, and label as needed
     for entity in graph:
+        # First check if entity matches the type filter (if specified)
+        if term_type and not self._has_type(entity, term_type):
+            continue  # Skip entities that don't match the type filter
+        
+        # Track if this entity matched any criteria
+        matched = False
+        
         # Match by ID if specified
         if entity_id and isinstance(entity.get('@id'), str):
-            if entity_id in entity['@id']:
-                if term_type is None or self._has_type(entity, term_type):
-                    results.append(entity)
-                    continue
+            entity_uri = entity.get('@id')
+            
+            # Handle case sensitivity for URI
+            if not case_sensitive:
+                compare_uri = entity_uri.lower()
+            else:
+                compare_uri = entity_uri
+            
+            # Check for exact match, substring match, or path segment match
+            if (entity_id == compare_uri or
+                entity_id in compare_uri or
+                compare_uri.split('/')[-1] == entity_id or
+                compare_uri.split('#')[-1] == entity_id):
+                
+                id_results.append(entity)
+                matched = True
         
-        # Match by label if specified
-        if label and not entity_id:
+        # Match by label (even if we already matched by ID)
+        if label or (prioritize_label and entity_id):
+            search_term = label if label else entity_id
+            
             for key, value in entity.items():
                 if 'label' in key.lower():
+                    # Handle different label formats
                     if isinstance(value, list):
                         for item in value:
-                            if isinstance(item, dict) and item.get('@value') == label:
-                                if term_type is None or self._has_type(entity, term_type):
-                                    results.append(entity)
+                            if isinstance(item, dict) and '@value' in item:
+                                item_value = str(item.get('@value', ''))
+                                if not case_sensitive:
+                                    item_value = item_value.lower()
+                                
+                                if search_term in item_value:
+                                    label_results.append(entity)
+                                    matched = True
                                     break
-                    elif isinstance(value, str) and label in value:
-                        if term_type is None or self._has_type(entity, term_type):
-                            results.append(entity)
+                            else:
+                                item_str = str(item)
+                                if not case_sensitive:
+                                    item_str = item_str.lower()
+                                    
+                                if search_term in item_str:
+                                    label_results.append(entity)
+                                    matched = True
+                                    break
+                    elif isinstance(value, str):
+                        if not case_sensitive:
+                            compare_value = value.lower()
+                        else:
+                            compare_value = value
+                            
+                        if search_term in compare_value:
+                            label_results.append(entity)
+                            matched = True
                             break
+        
+        # If only term_type is specified (no ID or label), add any matching entity
+        if term_type and not entity_id and not label and not matched:
+            results.append(entity)
+    
+    # Special case: if only term_type is specified, return all entities that matched the type
+    if term_type and not entity_id and not label:
+        return results
+    
+    # Combine results with label matches first (if prioritizing labels)
+    if prioritize_label:
+        # Remove duplicates while preserving order
+        seen = set()
+        for entity in label_results + id_results:
+            entity_id = entity.get('@id')
+            if entity_id not in seen:
+                seen.add(entity_id)
+                results.append(entity)
+    else:
+        # Traditional approach: ID matches first, then label matches
+        results = id_results + [e for e in label_results if e not in id_results]
     
     return results
 
-# %% ../00_core.ipynb 16
+
+# %% ../00_core.ipynb 17
 @patch
 def get_entity_description(self:LinkedDataKnowledge, entity:dict) -> str:
     "Get a formatted description of an entity"
@@ -362,7 +540,7 @@ def get_entity_description(self:LinkedDataKnowledge, entity:dict) -> str:
     return "\n".join(lines)
 
 
-# %% ../00_core.ipynb 17
+# %% ../00_core.ipynb 18
 @patch
 def query(self:LinkedDataKnowledge,
          query_type:str, # Type of query: "property", "type", "value"
@@ -436,13 +614,13 @@ def query(self:LinkedDataKnowledge,
     return results
 
 
-# %% ../00_core.ipynb 18
+# %% ../00_core.ipynb 19
 def describe(self, path:str="") -> str:
     "Describe the structure at the given path in a human-readable format"
     # Implementation that combines exploration and visualization
     pass
 
-# %% ../00_core.ipynb 19
+# %% ../00_core.ipynb 20
 def view(self, entity_id:str=None, term_type:str=None, label:str=None) -> None:
     "Find and display entities in a rich format"
     entities = self.find_entity(entity_id, term_type, label)

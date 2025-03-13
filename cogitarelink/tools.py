@@ -4,7 +4,7 @@
 
 # %% auto 0
 __all__ = ['find_vocabulary_term', 'follow_relationship', 'explore_dataset', 'search_dataset', 'get_dataset_evidence',
-           'collect_evidence', 'summarize_evidence']
+           'collect_evidence', 'summarize_evidence', 'find_term']
 
 # %% ../04_tools.ipynb 3
 from fastcore.basics import *
@@ -590,3 +590,144 @@ def summarize_evidence(topic:str=None) -> str:
     result += "Consider how these topics relate to each other to form a complete data model.\n\n"
     
     return result
+
+# %% ../04_tools.ipynb 25
+@tool
+def find_term(
+    term:str=None, # Term to find (can be an ID, label, or local name)
+    term_type:str=None, # Filter by type (e.g., "Class", "Property")
+    search_by:str="all", # How to search: "id", "label", "type", or "all"
+    case_sensitive:bool=False, # Whether the search should be case-sensitive
+    max_results:int=10 # Maximum number of results to return
+) -> str: # Markdown-formatted search results
+    """Find terms in the knowledge base by ID, label, or type.
+    
+    Args:
+        term: Term to search for (can be an ID, label, or local name)
+        term_type: Filter by type (e.g., "Class", "Property")
+        search_by: How to search: "id", "label", "type", or "all"
+        case_sensitive: Whether the search should be case-sensitive
+        max_results: Maximum number of results to return
+    
+    Returns:
+        Markdown-formatted search results
+    """
+    global kb
+    if 'kb' not in globals() or kb is None:
+        return "No knowledge base loaded. Please load a vocabulary first."
+    
+    try:
+        # Determine search parameters based on search_by
+        entity_id = term if search_by in ["id", "all"] else None
+        label = term if search_by in ["label", "all"] else None
+        
+        # Special case for type-only search
+        if search_by == "type":
+            term_type = term
+            term = None
+        
+        # Find matching entities
+        results = kb.find_entity(
+            entity_id=entity_id,
+            term_type=term_type,
+            label=label,
+            case_sensitive=case_sensitive
+        )
+        
+        if not results:
+            if term and term_type:
+                return f"No terms found matching '{term}' with type '{term_type}'."
+            elif term:
+                return f"No terms found matching '{term}'."
+            elif term_type:
+                return f"No terms found with type '{term_type}'."
+            else:
+                return "No search criteria provided."
+        
+        # Format results in markdown
+        md = [f"# Search Results"]
+        
+        if term and term_type:
+            md.append(f"Found {len(results)} terms matching '{term}' with type '{term_type}'")
+        elif term:
+            md.append(f"Found {len(results)} terms matching '{term}'")
+        elif term_type:
+            md.append(f"Found {len(results)} terms with type '{term_type}'")
+        
+        # Limit results
+        results = results[:max_results]
+        
+        # Format each result
+        for i, entity in enumerate(results, 1):
+            entity_id = entity.get('@id', 'No ID')
+            
+            # Get label if available
+            labels = []
+            for key, value in entity.items():
+                if 'label' in key.lower():
+                    if isinstance(value, list):
+                        for item in value:
+                            if isinstance(item, dict) and '@value' in item:
+                                labels.append(f"{item.get('@value')} ({item.get('@language', 'no language')})")
+                            else:
+                                labels.append(str(item))
+                    else:
+                        labels.append(str(value))
+            
+            label_text = ", ".join(labels) if labels else "No label"
+            
+            # Get type
+            entity_type = entity.get('@type', 'Unknown type')
+            if isinstance(entity_type, list):
+                entity_type = ", ".join(entity_type)
+            
+            md.append(f"\n## Result {i}: {label_text}")
+            md.append(f"**ID**: {entity_id}")
+            md.append(f"**Type**: {entity_type}")
+            
+            # Add definition/comment if available
+            for key, value in entity.items():
+                if any(x in key.lower() for x in ['comment', 'definition', 'description']):
+                    if isinstance(value, list):
+                        for item in value:
+                            if isinstance(item, dict) and '@value' in item:
+                                md.append(f"**Definition**: {item.get('@value')}")
+                                break
+                            else:
+                                md.append(f"**Definition**: {item}")
+                                break
+                    else:
+                        md.append(f"**Definition**: {value}")
+                    break
+            
+            # Add a few key relationships
+            relationships = []
+            for key, value in entity.items():
+                if key not in ['@id', '@type'] and not any(x in key.lower() for x in ['label', 'comment', 'definition']):
+                    if len(relationships) < 3:  # Limit to 3 relationships for brevity
+                        relationships.append((key, value))
+            
+            if relationships:
+                md.append("\n**Key relationships:**")
+                for rel_name, rel_value in relationships:
+                    rel_name_short = rel_name.split('/')[-1] if '/' in rel_name else rel_name
+                    if isinstance(rel_value, list):
+                        if len(rel_value) > 0:
+                            first_val = rel_value[0]
+                            if isinstance(first_val, dict) and '@id' in first_val:
+                                md.append(f"- {rel_name_short}: {first_val['@id']}" + (f" (and {len(rel_value)-1} more)" if len(rel_value) > 1 else ""))
+                            else:
+                                md.append(f"- {rel_name_short}: {str(first_val)}" + (f" (and {len(rel_value)-1} more)" if len(rel_value) > 1 else ""))
+                    elif isinstance(rel_value, dict) and '@id' in rel_value:
+                        md.append(f"- {rel_name_short}: {rel_value['@id']}")
+                    else:
+                        md.append(f"- {rel_name_short}: {str(rel_value)}")
+        
+        if len(results) < len(results):
+            md.append(f"\n*...and {len(results) - max_results} more results not shown*")
+            
+        return "\n".join(md)
+    
+    except Exception as e:
+        return f"Error searching for terms: {str(e)}"
+
