@@ -75,11 +75,14 @@ result = agent.toolloop('''
 
 ## Architecture
 
-JSON-LD Agent is built around a core `LinkedDataKnowledge` class that
-provides methods for working with JSON-LD data. The library is organized
-into several modules:
+JSON-LD Agent is built around a core
+[`LinkedDataKnowledge`](https://la3d.github.io/cogitarelink/core.html#linkeddataknowledge)
+class that provides methods for working with JSON-LD data. The library
+is organized into several modules:
 
-- **Core**: The `LinkedDataKnowledge` class and basic utilities
+- **Core**: The
+  [`LinkedDataKnowledge`](https://la3d.github.io/cogitarelink/core.html#linkeddataknowledge)
+  class and basic utilities
 - **Vocabulary**: Methods for fetching and processing RDF vocabularies
 - **Dataset**: Tools for exploring and manipulating dataset structures
 - **Display**: Rich visualization of linked data in human-readable
@@ -189,6 +192,34 @@ kb.use_included(
     ]
 )
 ```
+
+``` python
+# Create a knowledge base
+kb = LinkedDataKnowledge()
+
+# Fetch a vocabulary (e.g., Schema.org)
+kb.fetch_vocabulary("https://schema.org/")
+
+# Find a specific entity
+person_entities = kb.find_entity(entity_id="Person")
+
+# Display information about the entity
+if person_entities:
+    description = kb.get_entity_description(person_entities[0])
+    print(description)
+    
+    # Follow relationships to discover related concepts
+    related = kb.follow_relationship(person_entities[0]["@id"], "rdfs:subClassOf")
+    print(f"Person is a subclass of: {related[0].get('rdfs:label', related[0].get('@id'))}")
+    
+    # Find properties that can be used with Person
+    properties = kb.follow_relationship(person_entities[0]["@id"], "^rdfs:domain", include_inverse=True)
+    print(f"Found {len(properties)} properties for Person")
+```
+
+    Found 1 JSON-LD script tags
+    Extracted 1 valid JSON-LD objects
+    Found Schema.org single entity
 
 ## Developer Guide
 
