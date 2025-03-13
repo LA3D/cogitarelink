@@ -574,3 +574,82 @@ def summarize_vocabulary(self:LinkedDataKnowledge) -> str:
     
     return "\n".join(lines)
 
+
+# %% ../01_vocabulary.ipynb 23
+@patch
+def resolve_context(self:LinkedDataKnowledge, context_url:str=None) -> 'LinkedDataKnowledge':
+    "Resolve a context URL to the actual context definitions"
+    if context_url is None:
+        if '@context' not in self.data: return self
+        context = self.data.get('@context')
+        if isinstance(context, str): context_url = context
+        else: return self
+    
+    print(f"Resolving context URL: {context_url}")
+    
+    # Handle common cases
+    if context_url in ["https://schema.org", "http://schema.org"]:
+        context_file_url = "https://schema.org/docs/jsonldcontext.jsonld"
+        print(f"Using known context file for Schema.org: {context_file_url}")
+    elif context_url == "https://www.w3.org/2018/credentials/v1":
+        context_file_url = context_url
+        print(f"Using W3C VC v1 context URL: {context_file_url}")
+    elif context_url == "https://www.w3.org/ns/credentials/v2":
+        context_file_url = context_url
+        print(f"Using W3C VC v2 context URL: {context_file_url}")
+    else:
+        context_file_url = context_url
+        if not context_url.endswith(('.jsonld', '.json')):
+            if context_url.endswith('/'): context_file_url = f"{context_url}context.jsonld"
+            else: context_file_url = f"{context_url}/context.jsonld"
+    
+    try:
+        print(f"Fetching context from: {context_file_url}")
+        response = httpx.get(context_file_url, headers={"Accept": "application/ld+json"}, follow_redirects=True)
+        
+        if response.status_code == 200:
+            print(f"Received response with content type: {response.headers.get('content-type', 'unknown')}")
+            
+            try:
+                context_data = response.json()
+                print(f"Successfully parsed JSON response, keys: {list(context_data.keys())}")
+                
+                # Extract just the @context part if it's wrapped
+                if '@context' in context_data: 
+                    context_def = context_data['@context']
+                    print(f"Found @context in response with {len(context_def) if isinstance(context_def, dict) else 'non-dict'} items")
+                else: 
+                    context_def = context_data
+                    print(f"Using entire response as context with {len(context_def) if isinstance(context_def, dict) else 'non-dict'} items")
+                
+                # Update our knowledge base context
+                if '@context' not in self.data: self.data['@context'] = {}
+                
+                if isinstance(self.data['@context'], dict) and isinstance(context_def, dict):
+                    before_count = len(self.data['@context'])
+                    self.data['@context'].update(context_def)
+                    after_count = len(self.data['@context'])
+                    print(f"Updated context dictionary: {before_count} → {after_count} items")
+                else: 
+                    self.data['@context'] = context_def
+                    print(f"Replaced context with new definition")
+                
+                # Verify the context was updated
+                if isinstance(self.data['@context'], dict):
+                    print(f"Context now has {len(self.data['@context'])} items")
+                    if len(self.data['@context']) < 5:
+                        print(f"Context keys: {list(self.data['@context'].keys())}")
+                else:
+                    print(f"Context is not a dictionary: {type(self.data['@context'])}")
+                
+            except json.JSONDecodeError as e:
+                print(f"Failed to parse JSON response: {e}")
+                print(f"Response preview: {response.text[:200]}...")
+        else:
+            print(f"Failed to fetch context: HTTP {response.status_code}")
+            
+    except Exception as e:
+        print(f"Error resolving context: {e}")
+    
+    return self
+
