@@ -19,6 +19,173 @@ import httpx
 # %% ../01_vocabulary.ipynb 7
 from .core import *
 
+# %% ../01_vocabulary.ipynb 8
+@patch
+def fetch_vocabulary(self:LinkedDataKnowledge, 
+                    uri:str, # URI of vocabulary to fetch
+                    follow_link_header:bool=True, # Whether to follow Link headers
+                    debug:bool=False # Enable detailed debug output
+                    ) -> 'LinkedDataKnowledge':
+    "Fetch a vocabulary and add it to the knowledge base"
+    client = httpx.Client(follow_redirects=True)
+    
+    if debug:
+        print(f"Requesting {uri} with content negotiation...")
+    
+    # Try with explicit content negotiation
+    accept_headers = [
+        "application/ld+json",
+        "application/rdf+xml",
+        "text/turtle",
+        "application/n-triples",
+        "text/n3"
+    ]
+    
+    # Join with quality values to prioritize formats
+    accept_header = ", ".join([
+        f"{accept_headers[i]};q={1.0 - i*0.1}" for i in range(len(accept_headers))
+    ])
+    
+    response = client.get(
+        uri,
+        headers={"Accept": accept_header}
+    )
+    
+    if debug:
+        print(f"Response status: {response.status_code}")
+        print(f"Response headers: {dict(response.headers)}")
+        print(f"Content preview: {response.text[:200]}...")
+    
+    if response.status_code != 200:
+        raise ValueError(f"Failed to fetch vocabulary: {response.status_code}")
+    
+    # Special case for Schema.org - follow the link header
+    if follow_link_header and 'link' in response.headers:
+        link_header = response.headers['link']
+        if debug:
+            print(f"Found Link header: {link_header}")
+        
+        # Parse the link header
+        import re
+        links = re.findall(r'<([^>]+)>;\s*rel="([^"]+)"(?:;\s*type="([^"]+)")?', link_header)
+        
+        for link_uri, rel, content_type in links:
+            if rel == "alternate" and content_type == "application/ld+json":
+                if debug:
+                    print(f"Following link to JSON-LD: {link_uri}")
+                
+                # Make the link absolute if it's relative
+                if link_uri.startswith("/"):
+                    from urllib.parse import urlparse
+                    parsed_uri = urlparse(uri)
+                    base_url = f"{parsed_uri.scheme}://{parsed_uri.netloc}"
+                    link_uri = base_url + link_uri
+                
+                # Fetch the JSON-LD context
+                jsonld_response = client.get(link_uri)
+                
+                if jsonld_response.status_code == 200:
+                    try:
+                        jsonld_data = jsonld_response.json()
+                        if debug:
+                            print(f"Successfully loaded JSON-LD from link")
+                        
+                        # Merge with existing knowledge
+                        self.data = jsonld_merge([self.data, jsonld_data])
+                        return self
+                    except Exception as e:
+                        if debug:
+                            print(f"Error parsing JSON-LD from link: {e}")
+    
+    # Get content type ONCE, before using it multiple times
+    content_type = response.headers.get('Content-Type', '').split(';')[0].strip()
+    
+    # Special case for HTML responses - check for embedded RDFa or JSON-LD
+    if content_type == 'text/html':
+        if debug:
+            print("Response is HTML - checking for embedded structured data")
+        self.extract_jsonld_from_html(response.text)
+        
+        # If we found some data, return
+        if '@graph' in self.data and len(self.data['@graph']) > 0:
+            if debug:
+                print(f"Found {len(self.data['@graph'])} entities in embedded JSON-LD")
+            return self
+        
+        # Also check for RDFa
+        try:
+            g = Graph()
+            g.parse(data=response.text, format='rdfa', publicID=uri)
+            if len(g) > 0:
+                if debug:
+                    print(f"Found {len(g)} RDFa triples in HTML")
+                jsonld_data = json.loads(g.serialize(format='json-ld'))
+                self.data = jsonld_merge([self.data, jsonld_data])
+                return self
+        except Exception as e:
+            if debug:
+                print(f"Error parsing RDFa: {e}")
+    
+    # Try to determine format from content type or content
+    rdf_format = _determine_rdf_format(content_type, response.text)
+    
+    if not rdf_format:
+        # Special case for Schema.org
+        if 'schema.org' in uri:
+            # Try to fetch the JSON-LD context directly
+            jsonld_uri = "https://schema.org/docs/jsonldcontext.jsonld"
+            if debug:
+                print(f"Trying to fetch Schema.org JSON-LD context directly: {jsonld_uri}")
+            
+            jsonld_response = client.get(jsonld_uri)
+            if jsonld_response.status_code == 200:
+                try:
+                    jsonld_data = jsonld_response.json()
+                    if debug:
+                        print(f"Successfully loaded Schema.org JSON-LD context")
+                    
+                    # Merge with existing knowledge
+                    self.data = jsonld_merge([self.data, jsonld_data])
+                    return self
+                except Exception as e:
+                    if debug:
+                        print(f"Error parsing Schema.org JSON-LD context: {e}")
+        
+        # Try each format until one works
+        for fmt in ['xml', 'turtle', 'n3', 'nt', 'json-ld']:
+            try:
+                if debug:
+                    print(f"Trying to parse as {fmt}...")
+                g = Graph()
+                g.parse(data=response.text, format=fmt)
+                if len(g) > 0:
+                    if debug:
+                        print(f"Successfully parsed as {fmt}, found {len(g)} triples")
+                    rdf_format = fmt
+                    break
+            except Exception as e:
+                if debug:
+                    print(f"Failed to parse as {fmt}: {e}")
+    
+    if not rdf_format:
+        raise ValueError(f"Could not determine format for {uri}")
+    
+    g = Graph()
+    g.parse(data=response.text, format=rdf_format)
+    jsonld_data = json.loads(g.serialize(format='json-ld'))
+    
+    # Handle the case where RDFLib returns a list instead of a document with @graph
+    if isinstance(jsonld_data, list):
+        if '@graph' in self.data:
+            self.data['@graph'].extend(jsonld_data)
+        else:
+            self.data['@graph'] = jsonld_data
+    else:
+        self.data = jsonld_merge([self.data, jsonld_data])
+    
+    return self
+
+
 # %% ../01_vocabulary.ipynb 9
 @patch
 def extract_jsonld_from_html(self:LinkedDataKnowledge, html:str) -> 'LinkedDataKnowledge':
