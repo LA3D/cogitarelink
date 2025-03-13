@@ -20,6 +20,42 @@ import httpx
 from .core import *
 
 # %% ../01_vocabulary.ipynb 8
+def jsonld_merge(docs:list) -> dict:
+    """Merge multiple JSON-LD documents into one."""
+    if not docs:
+        return {"@context": {}, "@graph": []}
+    
+    # Start with a copy of the first document
+    result = docs[0].copy() if docs else {"@context": {}, "@graph": []}
+    
+    # Initialize @graph if not present
+    if '@graph' not in result:
+        result['@graph'] = []
+    
+    # Initialize @context if not present
+    if '@context' not in result:
+        result['@context'] = {}
+    
+    # Process the remaining documents
+    for doc in docs[1:]:
+        # Handle @graph
+        if '@graph' in doc:
+            result['@graph'].extend(doc['@graph'])
+        elif isinstance(doc, list):
+            # Handle case where doc is a list of entities
+            result['@graph'].extend(doc)
+        elif '@id' in doc:
+            # Handle case where doc is a single entity
+            result['@graph'].append(doc)
+        
+        # Merge @context if present
+        if '@context' in doc and isinstance(doc['@context'], dict):
+            result['@context'].update(doc['@context'])
+    
+    return result
+
+
+# %% ../01_vocabulary.ipynb 9
 @patch
 def fetch_vocabulary(self:LinkedDataKnowledge, 
                     uri:str, # URI of vocabulary to fetch
@@ -186,7 +222,7 @@ def fetch_vocabulary(self:LinkedDataKnowledge,
     return self
 
 
-# %% ../01_vocabulary.ipynb 9
+# %% ../01_vocabulary.ipynb 10
 @patch
 def extract_jsonld_from_html(self:LinkedDataKnowledge, html:str) -> 'LinkedDataKnowledge':
     "Extract JSON-LD from HTML script tags and add to knowledge base"
@@ -240,42 +276,6 @@ def extract_jsonld_from_html(self:LinkedDataKnowledge, html:str) -> 'LinkedDataK
                         self.data['@context'].update(data['@context'])
     
     return self
-
-
-# %% ../01_vocabulary.ipynb 10
-def jsonld_merge(docs:list) -> dict:
-    """Merge multiple JSON-LD documents into one."""
-    if not docs:
-        return {"@context": {}, "@graph": []}
-    
-    # Start with a copy of the first document
-    result = docs[0].copy() if docs else {"@context": {}, "@graph": []}
-    
-    # Initialize @graph if not present
-    if '@graph' not in result:
-        result['@graph'] = []
-    
-    # Initialize @context if not present
-    if '@context' not in result:
-        result['@context'] = {}
-    
-    # Process the remaining documents
-    for doc in docs[1:]:
-        # Handle @graph
-        if '@graph' in doc:
-            result['@graph'].extend(doc['@graph'])
-        elif isinstance(doc, list):
-            # Handle case where doc is a list of entities
-            result['@graph'].extend(doc)
-        elif '@id' in doc:
-            # Handle case where doc is a single entity
-            result['@graph'].append(doc)
-        
-        # Merge @context if present
-        if '@context' in doc and isinstance(doc['@context'], dict):
-            result['@context'].update(doc['@context'])
-    
-    return result
 
 
 # %% ../01_vocabulary.ipynb 11
