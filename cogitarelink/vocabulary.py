@@ -15,6 +15,7 @@ from pyld import jsonld
 from typing import List, Dict, Any, Optional, Union
 from bs4 import BeautifulSoup as bs
 import httpx
+import datetime
 
 # %% ../01_vocabulary.ipynb 7
 from .core import *
@@ -653,3 +654,218 @@ def resolve_context(self:LinkedDataKnowledge, context_url:str=None) -> 'LinkedDa
     
     return self
 
+
+# %% ../01_vocabulary.ipynb 27
+@patch
+def search_wikidata(self:LinkedDataKnowledge, 
+                   query:str, # Search query
+                   limit:int=5, # Maximum number of results
+                   entity_type:str="item", # "item" or "property"
+                   language:str="en" # Language code
+                  ) -> str:
+    "Search Wikidata for entities matching the query"
+    url = "https://www.wikidata.org/w/api.php"
+    
+    params = {
+        "action": "wbsearchentities",
+        "format": "json",
+        "search": query,
+        "language": language,
+        "type": entity_type,
+        "limit": limit
+    }
+    
+    response = httpx.get(url, params=params)
+    
+    if response.status_code != 200:
+        return f"Error: {response.status_code}"
+    
+    data = response.json()
+    results = data.get("search", [])
+    
+    if not results:
+        return f"No results found for '{query}'"
+    
+    output = [f"# Wikidata Search Results for '{query}'", ""]
+    
+    for i, result in enumerate(results, 1):
+        output.append(f"## Result {i}: {result.get('label', 'No label')}")
+        output.append(f"**ID**: {result.get('id', 'Unknown ID')}")
+        output.append(f"**Description**: {result.get('description', 'No description')}")
+        output.append(f"**URL**: {result.get('url', '')}")
+        output.append("")
+    
+    return "\n".join(output)
+
+# %% ../01_vocabulary.ipynb 29
+@patch
+def fetch_wikidata_entity(self:LinkedDataKnowledge, 
+                         entity_id:str, # Wikidata entity ID (QID or PID)
+                         flavor:str="simple" # Data completeness (full, simple, dump)
+                        ) -> str:
+    "Fetch a Wikidata entity and store it as a named graph"
+    # Clean the entity_id
+    if entity_id.startswith('Q') or entity_id.startswith('P'):
+        clean_id = entity_id
+    elif ':' in entity_id:
+        clean_id = entity_id.split(':')[-1]
+    else:
+        clean_id = entity_id
+    
+    # Construct URL with explicit format extension
+    url = f"https://www.wikidata.org/wiki/Special:EntityData/{clean_id}.jsonld"
+    
+    # Add flavor parameter if specified
+    if flavor and flavor != "full":
+        url += f"?flavor={flavor}"
+    
+    response = httpx.get(url)
+    
+    if response.status_code != 200:
+        return f"Error fetching entity {entity_id}: {response.status_code}"
+    
+    try:
+        # Parse the JSON-LD response
+        jsonld_data = json.loads(response.text)
+        
+        # Create a graph ID for this entity
+        graph_id = f"did:cogitarelink:graph:wikidata:{clean_id}"
+        
+        # Add the named graph with minimal metadata
+        self.add_named_graph(graph_id, jsonld_data, {
+            "title": f"Wikidata: {clean_id}",
+            "source": f"https://www.wikidata.org/wiki/{clean_id}",
+            "vocabulary": "https://www.wikidata.org/",
+            "entityCount": len(jsonld_data.get('@graph', [])),
+            "lastUpdated": datetime.datetime.now().isoformat(),
+            "completeness": flavor,
+            "priority": 2
+        })
+        
+        # Count the entities
+        entity_count = len(jsonld_data.get('@graph', []))
+        
+        # Return a summary for the agent
+        output = [
+            f"# Wikidata Entity: {clean_id}",
+            f"Fetched entity and stored as graph: `{graph_id}`",
+            f"Contains {entity_count} related entities",
+            "",
+            "To explore this entity, use the `explore_graph` tool with this graph ID."
+        ]
+        
+        return "\n".join(output)
+        
+    except json.JSONDecodeError as e:
+        return f"Error parsing JSON-LD: {e}"
+
+# %% ../01_vocabulary.ipynb 32
+@patch
+def explore_graph(self:LinkedDataKnowledge,
+                 graph_id:str, # Graph ID to explore
+                 entity_id:str=None, # Specific entity to examine (optional)
+                 property_name:str=None, # Specific property to examine (optional)
+                 sample_size:int=5 # Number of sample entities to show
+                ) -> str:
+    "Explore a graph or specific entity within a graph"
+    # Ensure graph_id is properly formatted
+    if not graph_id.startswith(('did:', 'http://', 'https://')):
+        graph_id = f"did:cogitarelink:graph:{graph_id}"
+    
+    # Check if graph exists
+    if not hasattr(self, 'graphs') or graph_id not in self.graphs:
+        # Check if we're trying to explore the main graph
+        if graph_id == "did:cogitarelink:graph:main":
+            graph_data = self.data
+        else:
+            return f"Graph not found: {graph_id}"
+    else:
+        graph_data = self.graphs[graph_id]['data']
+    
+    # If a specific entity is requested
+    if entity_id:
+        # Find the entity in the graph
+        entity = None
+        
+        # Look in @graph
+        for e in graph_data.get('@graph', []):
+            if e.get('@id') == entity_id or e.get('@id').endswith(entity_id):
+                entity = e
+                break
+        
+        # If not found, look in @included if present
+        if not entity and '@included' in graph_data:
+            for e in graph_data['@included']:
+                if e.get('@id') == entity_id or e.get('@id').endswith(entity_id):
+                    entity = e
+                    break
+        
+        # If not found, check if the main entity itself matches
+        if not entity and '@id' in graph_data and (graph_data['@id'] == entity_id or graph_data['@id'].endswith(entity_id)):
+            entity = graph_data
+        
+        if entity:
+            # If a specific property is requested
+            if property_name:
+                if property_name in entity:
+                    return f"# Property: {property_name}\n\n```json\n{json.dumps(entity[property_name], indent=2)}\n```"
+                else:
+                    return f"Property not found: {property_name}"
+            
+            # Return the full entity
+            return f"# Entity: {entity.get('@id')}\n\n```json\n{json.dumps(entity, indent=2)}\n```"
+        
+        return f"Entity not found: {entity_id}"
+    
+    # Otherwise, provide an overview of the graph
+    entities = graph_data.get('@graph', [])
+    
+    # Also include entities from @included if present
+    included_entities = graph_data.get('@included', [])
+    
+    # Include the main entity if it has an @id
+    if '@id' in graph_data:
+        main_entity = {k: v for k, v in graph_data.items() if k not in ['@graph', '@included', '@context']}
+        if '@id' in main_entity:
+            entities = [main_entity] + entities
+    
+    total_entities = len(entities) + len(included_entities)
+    
+    output = [
+        f"# Graph: {graph_id}",
+        f"Contains {total_entities} entities ({len(entities)} in @graph, {len(included_entities)} in @included)",
+        ""
+    ]
+    
+    # Count entity types across both @graph and @included
+    type_counts = {}
+    for entity in entities + included_entities:
+        entity_type = entity.get('@type')
+        if isinstance(entity_type, list):
+            for t in entity_type:
+                type_counts[t] = type_counts.get(t, 0) + 1
+        elif entity_type:
+            type_counts[entity_type] = type_counts.get(entity_type, 0) + 1
+    
+    if type_counts:
+        output.append("## Entity Types")
+        for t, count in sorted(type_counts.items(), key=lambda x: x[1], reverse=True)[:10]:
+            output.append(f"- {t}: {count}")
+        if len(type_counts) > 10:
+            output.append(f"- ... and {len(type_counts) - 10} more types")
+        output.append("")
+    
+    # Sample entities from both @graph and @included
+    all_entities = entities + included_entities
+    sample_entities = all_entities[:min(sample_size, len(all_entities))]
+    
+    output.append(f"## Sample Entities (showing {len(sample_entities)} of {total_entities})")
+    for entity in sample_entities:
+        entity_id = entity.get('@id', 'Unknown ID')
+        entity_type = entity.get('@type', 'Unknown Type')
+        if isinstance(entity_type, list):
+            entity_type = ', '.join(entity_type)
+        
+        output.append(f"- **{entity_id}** (Type: {entity_type})")
+    
+    return "\n".join(output)
