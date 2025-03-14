@@ -4,8 +4,9 @@ website:
       - index.ipynb
       - 00_core.ipynb
       - 01_vocabulary.ipynb
-      - 02_dataset.ipynb
-      - 03_navigation.ipynb
+      - 02_navigation.ipynb
+      - 03_dataset.ipynb
       - 04_tools.ipynb
       - 05_workflows.ipynb
       - 06_agents.ipynb
+      - 08_utils.ipynb

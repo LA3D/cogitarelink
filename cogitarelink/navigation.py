@@ -10,11 +10,14 @@ from fastcore.basics import *
 from fastcore.meta import *
 from fastcore.test import *
 from IPython.display import Markdown, display
+import matplotlib
+import matplotlib.pyplot
 import json
 from typing import List, Dict, Any, Optional, Union, Set
 
 # %% ../02_navigation.ipynb 5
 from .core import *
+from .vocabulary import *
 
 
 # %% ../02_navigation.ipynb 7
@@ -34,55 +37,6 @@ def _is_reference_to(self:LinkedDataKnowledge,
     return False
 
 # %% ../02_navigation.ipynb 9
-@patch
-def follow_relationship_across_graphs(self:LinkedDataKnowledge,
-                                     entity_id:str, # ID of the entity to start from
-                                     relationship:str=None, # Relationship to follow (or None to list all)
-                                     include_inverse:bool=False, # Whether to include inverse relationships
-                                     graph_id:str=None # Specific graph to search, or None for all
-                                    ) -> Union[List[str], List[Dict]]:
-    "Follow a relationship from an entity across all graphs or in a specific graph"
-    results = []
-    
-    # Determine which graphs to search
-    if graph_id:
-        if not graph_id.startswith(('did:', 'http://', 'https://')):
-            graph_id = f"did:cogitarelink:graph:{graph_id}"
-        
-        if hasattr(self, 'graphs') and graph_id in self.graphs:
-            graph_data = self.graphs[graph_id]['data']
-            temp_kb = LinkedDataKnowledge(graph_data)
-            graph_results = temp_kb.follow_relationship(entity_id, relationship, include_inverse)
-            results.extend(graph_results)
-    else:
-        # Search in main graph
-        main_results = self.follow_relationship(entity_id, relationship, include_inverse)
-        results.extend(main_results)
-        
-        # Search in all named graphs
-        if hasattr(self, 'graphs'):
-            for gid, graph_info in self.graphs.items():
-                graph_data = graph_info['data']
-                temp_kb = LinkedDataKnowledge(graph_data)
-                graph_results = temp_kb.follow_relationship(entity_id, relationship, include_inverse)
-                results.extend(graph_results)
-    
-    # Remove duplicates while preserving order
-    if relationship is not None:
-        # For entity results, deduplicate by @id
-        seen_ids = set()
-        unique_results = []
-        for entity in results:
-            entity_id = entity.get('@id')
-            if entity_id and entity_id not in seen_ids:
-                seen_ids.add(entity_id)
-                unique_results.append(entity)
-        return unique_results
-    else:
-        # For relationship names, deduplicate by string value
-        return list(dict.fromkeys(results))
-
-# %% ../02_navigation.ipynb 10
 @patch
 def follow_relationship(self:LinkedDataKnowledge,
                        entity_id:str, # ID of entity to start from
@@ -184,7 +138,56 @@ def follow_relationship(self:LinkedDataKnowledge,
     
     return related_entities
 
-# %% ../02_navigation.ipynb 12
+# %% ../02_navigation.ipynb 11
+@patch
+def follow_relationship_across_graphs(self:LinkedDataKnowledge,
+                                     entity_id:str, # ID of the entity to start from
+                                     relationship:str=None, # Relationship to follow (or None to list all)
+                                     include_inverse:bool=False, # Whether to include inverse relationships
+                                     graph_id:str=None # Specific graph to search, or None for all
+                                    ) -> Union[List[str], List[Dict]]:
+    "Follow a relationship from an entity across all graphs or in a specific graph"
+    results = []
+    
+    # Determine which graphs to search
+    if graph_id:
+        if not graph_id.startswith(('did:', 'http://', 'https://')):
+            graph_id = f"did:cogitarelink:graph:{graph_id}"
+        
+        if hasattr(self, 'graphs') and graph_id in self.graphs:
+            graph_data = self.graphs[graph_id]['data']
+            temp_kb = LinkedDataKnowledge(graph_data)
+            graph_results = temp_kb.follow_relationship(entity_id, relationship, include_inverse)
+            results.extend(graph_results)
+    else:
+        # Search in main graph
+        main_results = self.follow_relationship(entity_id, relationship, include_inverse)
+        results.extend(main_results)
+        
+        # Search in all named graphs
+        if hasattr(self, 'graphs'):
+            for gid, graph_info in self.graphs.items():
+                graph_data = graph_info['data']
+                temp_kb = LinkedDataKnowledge(graph_data)
+                graph_results = temp_kb.follow_relationship(entity_id, relationship, include_inverse)
+                results.extend(graph_results)
+    
+    # Remove duplicates while preserving order
+    if relationship is not None:
+        # For entity results, deduplicate by @id
+        seen_ids = set()
+        unique_results = []
+        for entity in results:
+            entity_id = entity.get('@id')
+            if entity_id and entity_id not in seen_ids:
+                seen_ids.add(entity_id)
+                unique_results.append(entity)
+        return unique_results
+    else:
+        # For relationship names, deduplicate by string value
+        return list(dict.fromkeys(results))
+
+# %% ../02_navigation.ipynb 13
 @patch
 def navigate_path(self:LinkedDataKnowledge,
                  start_entity:str, # Starting entity ID
@@ -227,7 +230,119 @@ def navigate_path(self:LinkedDataKnowledge,
     
     return current_entities
 
-# %% ../02_navigation.ipynb 14
+# %% ../02_navigation.ipynb 15
+@patch
+def explore_graph(self:LinkedDataKnowledge,
+                 graph_id:str, # Graph ID to explore
+                 entity_id:str=None, # Specific entity to examine (optional)
+                 property_name:str=None, # Specific property to examine (optional)
+                 sample_size:int=5 # Number of sample entities to show
+                ) -> str:
+    "Explore a graph or specific entity within a graph"
+    # Ensure graph_id is properly formatted
+    if not graph_id.startswith(('did:', 'http://', 'https://')):
+        graph_id = f"did:cogitarelink:graph:{graph_id}"
+    
+    # Check if graph exists
+    if not hasattr(self, 'graphs') or graph_id not in self.graphs:
+        # Check if we're trying to explore the main graph
+        if graph_id == "did:cogitarelink:graph:main":
+            graph_data = self.data
+        else:
+            return f"Graph not found: {graph_id}"
+    else:
+        graph_data = self.graphs[graph_id]['data']
+    
+    # If a specific entity is requested
+    if entity_id:
+        # Find the entity in the graph
+        entity = None
+        
+        # Look in @graph
+        for e in graph_data.get('@graph', []):
+            if e.get('@id') == entity_id or e.get('@id').endswith(entity_id):
+                entity = e
+                break
+        
+        # If not found, look in @included if present
+        if not entity and '@included' in graph_data:
+            for e in graph_data['@included']:
+                if e.get('@id') == entity_id or e.get('@id').endswith(entity_id):
+                    entity = e
+                    break
+        
+        # If not found, check if the main entity itself matches
+        if not entity and '@id' in graph_data and (graph_data['@id'] == entity_id or graph_data['@id'].endswith(entity_id)):
+            entity = graph_data
+        
+        if entity:
+            # If a specific property is requested
+            if property_name:
+                if property_name in entity:
+                    return f"# Property: {property_name}\n\n```json\n{json.dumps(entity[property_name], indent=2)}\n```"
+                else:
+                    return f"Property not found: {property_name}"
+            
+            # Return the full entity
+            return f"# Entity: {entity.get('@id')}\n\n```json\n{json.dumps(entity, indent=2)}\n```"
+        
+        return f"Entity not found: {entity_id}"
+    
+    # Otherwise, provide an overview of the graph
+    entities = graph_data.get('@graph', [])
+    
+    # Also include entities from @included if present
+    included_entities = graph_data.get('@included', [])
+    
+    # Include the main entity if it has an @id
+    if '@id' in graph_data:
+        main_entity = {k: v for k, v in graph_data.items() if k not in ['@graph', '@included', '@context']}
+        if '@id' in main_entity:
+            entities = [main_entity] + entities
+    
+    total_entities = len(entities) + len(included_entities)
+    
+    output = [
+        f"# Graph: {graph_id}",
+        f"Contains {total_entities} entities ({len(entities)} in @graph, {len(included_entities)} in @included)",
+        ""
+    ]
+    
+    # Count entity types across both @graph and @included
+    type_counts = {}
+    for entity in entities + included_entities:
+        entity_type = entity.get('@type')
+        if isinstance(entity_type, list):
+            for t in entity_type:
+                type_counts[t] = type_counts.get(t, 0) + 1
+        elif entity_type:
+            type_counts[entity_type] = type_counts.get(entity_type, 0) + 1
+    
+    if type_counts:
+        output.append("## Entity Types")
+        for t, count in sorted(type_counts.items(), key=lambda x: x[1], reverse=True)[:10]:
+            output.append(f"- {t}: {count}")
+        if len(type_counts) > 10:
+            output.append(f"- ... and {len(type_counts) - 10} more types")
+        output.append("")
+    
+    # Sample entities from both @graph and @included
+    all_entities = entities + included_entities
+    sample_entities = all_entities[:min(sample_size, len(all_entities))]
+    
+    output.append(f"## Sample Entities (showing {len(sample_entities)} of {total_entities})")
+    for entity in sample_entities:
+        entity_id = entity.get('@id', 'Unknown ID')
+        entity_type = entity.get('@type', 'Unknown Type')
+        if isinstance(entity_type, list):
+            entity_type = ', '.join(entity_type)
+        
+        output.append(f"- **{entity_id}** (Type: {entity_type})")
+    
+    return "\n".join(output)
+
+
+# %% ../02_navigation.ipynb 16
 @patch
 def get_neighborhood(self:LinkedDataKnowledge,
                     entity_id:str, # Central entity
@@ -301,7 +416,108 @@ def get_neighborhood(self:LinkedDataKnowledge,
     return subgraph
 
 
-# %% ../02_navigation.ipynb 16
+# %% ../02_navigation.ipynb 18
+@patch
+def get_neighborhood_across_graphs(self:LinkedDataKnowledge,
+                                  entity_id:str, # Central entity
+                                  depth:int=1, # How many relationship steps to include
+                                  max_relations:int=None, # Maximum number of relations to follow per entity
+                                  include_inverse:bool=False, # Whether to include inverse relationships
+                                  include_all_graphs:bool=True, # Whether to include all graphs
+                                  graph_ids:List[str]=None, # Specific graphs to include, or None for all if include_all_graphs=True
+                                  debug:bool=False # Enable debug output
+                                 ) -> Dict:
+    "Get a subgraph centered around an entity, searching across multiple graphs"
+    result = {"@context": {}, "@graph": []}
+    
+    # Find the entity in all graphs
+    entity_found = False
+    seen_entity_ids = set()
+    
+    # First check the main graph
+    main_neighborhood = self.get_neighborhood(entity_id, depth, max_relations, include_inverse)
+    if debug:
+        print(f"Main neighborhood entities: {len(main_neighborhood.get('@graph', []))}")
+        for e in main_neighborhood.get('@graph', []):
+            print(f"  - {e.get('@id')}")
+            
+    if main_neighborhood and len(main_neighborhood.get('@graph', [])) > 0:
+        entity_found = True
+        
+        # Add entities, avoiding duplicates
+        for entity in main_neighborhood.get('@graph', []):
+            entity_id = entity.get('@id')
+            if entity_id and entity_id not in seen_entity_ids:
+                seen_entity_ids.add(entity_id)
+                result["@graph"].append(entity)
+        
+        # Merge contexts
+        if '@context' in main_neighborhood and '@context' in result:
+            if isinstance(main_neighborhood['@context'], dict) and isinstance(result['@context'], dict):
+                result['@context'].update(main_neighborhood['@context'])
+    
+    if debug:
+        print(f"After main graph, result has {len(result.get('@graph', []))} entities")
+        print(f"Seen IDs: {seen_entity_ids}")
+    
+    # Then check named graphs
+    if hasattr(self, 'graphs'):
+        graphs_to_check = []
+        if include_all_graphs:
+            graphs_to_check = list(self.graphs.keys())
+        elif graph_ids:
+            graphs_to_check = [
+                gid if gid.startswith(('did:', 'http://', 'https://')) else f"did:cogitarelink:graph:{gid}"
+                for gid in graph_ids
+            ]
+        
+        if debug:
+            print(f"Checking {len(graphs_to_check)} named graphs")
+            
+        for graph_id in graphs_to_check:
+            if graph_id in self.graphs:
+                if debug:
+                    print(f"Processing graph: {graph_id}")
+                    
+                graph_data = self.graphs[graph_id]['data']
+                temp_kb = LinkedDataKnowledge(graph_data)
+                graph_neighborhood = temp_kb.get_neighborhood(entity_id, depth, max_relations, include_inverse)
+                
+                if debug:
+                    print(f"  Graph neighborhood entities: {len(graph_neighborhood.get('@graph', []))}")
+                    for e in graph_neighborhood.get('@graph', []):
+                        print(f"    - {e.get('@id')}")
+                
+                if graph_neighborhood and len(graph_neighborhood.get('@graph', [])) > 0:
+                    entity_found = True
+                    
+                    # Add entities, avoiding duplicates
+                    for entity in graph_neighborhood.get('@graph', []):
+                        entity_id = entity.get('@id')
+                        if entity_id and entity_id not in seen_entity_ids:
+                            if debug:
+                                print(f"  Adding new entity: {entity_id}")
+                            seen_entity_ids.add(entity_id)
+                            result["@graph"].append(entity)
+                        elif debug:
+                            print(f"  Skipping duplicate: {entity_id}")
+                    
+                    # Merge contexts
+                    if '@context' in graph_neighborhood and '@context' in result:
+                        if isinstance(graph_neighborhood['@context'], dict) and isinstance(result['@context'], dict):
+                            result['@context'].update(graph_neighborhood['@context'])
+    
+    if not entity_found:
+        return {"@context": {}, "@graph": []}
+    
+    if debug:
+        print(f"Final result has {len(result.get('@graph', []))} entities")
+        print(f"Final seen IDs: {seen_entity_ids}")
+    
+    return result
+
+
+# %% ../02_navigation.ipynb 21
 @patch
 def visualize_neighborhood(self:LinkedDataKnowledge,
                           entity_id:str, # Central entity
@@ -426,7 +642,7 @@ def visualize_neighborhood(self:LinkedDataKnowledge,
     plt.tight_layout()
     plt.show()
 
-# %% ../02_navigation.ipynb 21
+# %% ../02_navigation.ipynb 26
 @patch
 def find_paths(self:LinkedDataKnowledge,
               start_entity:str, # Starting entity ID
