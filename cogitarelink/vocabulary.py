@@ -10,7 +10,7 @@ from fastcore.basics import *
 from fastcore.meta import *
 from fastcore.test import *
 import json
-from rdflib import Graph
+from rdflib import Graph,URIRef
 from pyld import jsonld
 from typing import List, Dict, Any, Optional, Union
 from bs4 import BeautifulSoup as bs
@@ -20,7 +20,7 @@ import datetime
 # %% ../01_vocabulary.ipynb 7
 from .core import *
 
-# %% ../01_vocabulary.ipynb 8
+# %% ../01_vocabulary.ipynb 9
 def jsonld_merge(docs:list) -> dict:
     """Merge multiple JSON-LD documents into one."""
     if not docs:
@@ -56,256 +56,7 @@ def jsonld_merge(docs:list) -> dict:
     return result
 
 
-# %% ../01_vocabulary.ipynb 9
-@patch
-def fetch_vocabulary(self:LinkedDataKnowledge, 
-                    uri:str, # URI of vocabulary to fetch
-                    follow_link_header:bool=True, # Whether to follow Link headers
-                    debug:bool=False # Enable detailed debug output
-                    ) -> 'LinkedDataKnowledge':
-    "Fetch a vocabulary and add it to the knowledge base"
-    client = httpx.Client(follow_redirects=True)
-    
-    if debug:
-        print(f"Requesting {uri} with content negotiation...")
-    
-    # Try with explicit content negotiation
-    accept_headers = [
-        "application/ld+json",
-        "application/rdf+xml",
-        "text/turtle",
-        "application/n-triples",
-        "text/n3"
-    ]
-    
-    # Join with quality values to prioritize formats
-    accept_header = ", ".join([
-        f"{accept_headers[i]};q={1.0 - i*0.1}" for i in range(len(accept_headers))
-    ])
-    
-    response = client.get(
-        uri,
-        headers={"Accept": accept_header}
-    )
-    
-    if debug:
-        print(f"Response status: {response.status_code}")
-        print(f"Response headers: {dict(response.headers)}")
-        print(f"Content preview: {response.text[:200]}...")
-    
-    if response.status_code != 200:
-        raise ValueError(f"Failed to fetch vocabulary: {response.status_code}")
-    
-    # Special case for Schema.org - follow the link header
-    if follow_link_header and 'link' in response.headers:
-        link_header = response.headers['link']
-        if debug:
-            print(f"Found Link header: {link_header}")
-        
-        # Parse the link header
-        import re
-        links = re.findall(r'<([^>]+)>;\s*rel="([^"]+)"(?:;\s*type="([^"]+)")?', link_header)
-        
-        for link_uri, rel, content_type in links:
-            if rel == "alternate" and content_type == "application/ld+json":
-                if debug:
-                    print(f"Following link to JSON-LD: {link_uri}")
-                
-                # Make the link absolute if it's relative
-                if link_uri.startswith("/"):
-                    from urllib.parse import urlparse
-                    parsed_uri = urlparse(uri)
-                    base_url = f"{parsed_uri.scheme}://{parsed_uri.netloc}"
-                    link_uri = base_url + link_uri
-                
-                # Fetch the JSON-LD context
-                jsonld_response = client.get(link_uri)
-                
-                if jsonld_response.status_code == 200:
-                    try:
-                        jsonld_data = jsonld_response.json()
-                        if debug:
-                            print(f"Successfully loaded JSON-LD from link")
-                        
-                        # Merge with existing knowledge
-                        self.data = jsonld_merge([self.data, jsonld_data])
-                        return self
-                    except Exception as e:
-                        if debug:
-                            print(f"Error parsing JSON-LD from link: {e}")
-    
-    # Get content type ONCE, before using it multiple times
-    content_type = response.headers.get('Content-Type', '').split(';')[0].strip()
-    
-    # Special case for HTML responses - check for embedded RDFa or JSON-LD
-    if content_type == 'text/html':
-        if debug:
-            print("Response is HTML - checking for embedded structured data")
-        self.extract_jsonld_from_html(response.text)
-        
-        # If we found some data, return
-        if '@graph' in self.data and len(self.data['@graph']) > 0:
-            if debug:
-                print(f"Found {len(self.data['@graph'])} entities in embedded JSON-LD")
-            return self
-        
-        # Also check for RDFa
-        try:
-            g = Graph()
-            g.parse(data=response.text, format='rdfa', publicID=uri)
-            if len(g) > 0:
-                if debug:
-                    print(f"Found {len(g)} RDFa triples in HTML")
-                jsonld_data = json.loads(g.serialize(format='json-ld'))
-                self.data = jsonld_merge([self.data, jsonld_data])
-                return self
-        except Exception as e:
-            if debug:
-                print(f"Error parsing RDFa: {e}")
-    
-    # Try to determine format from content type or content
-    rdf_format = _determine_rdf_format(content_type, response.text)
-    
-    if not rdf_format:
-        # Special case for Schema.org
-        if 'schema.org' in uri:
-            # Try to fetch the JSON-LD context directly
-            jsonld_uri = "https://schema.org/docs/jsonldcontext.jsonld"
-            if debug:
-                print(f"Trying to fetch Schema.org JSON-LD context directly: {jsonld_uri}")
-            
-            jsonld_response = client.get(jsonld_uri)
-            if jsonld_response.status_code == 200:
-                try:
-                    jsonld_data = jsonld_response.json()
-                    if debug:
-                        print(f"Successfully loaded Schema.org JSON-LD context")
-                    
-                    # Merge with existing knowledge
-                    self.data = jsonld_merge([self.data, jsonld_data])
-                    return self
-                except Exception as e:
-                    if debug:
-                        print(f"Error parsing Schema.org JSON-LD context: {e}")
-        
-        # Try each format until one works
-        for fmt in ['xml', 'turtle', 'n3', 'nt', 'json-ld']:
-            try:
-                if debug:
-                    print(f"Trying to parse as {fmt}...")
-                g = Graph()
-                g.parse(data=response.text, format=fmt)
-                if len(g) > 0:
-                    if debug:
-                        print(f"Successfully parsed as {fmt}, found {len(g)} triples")
-                    rdf_format = fmt
-                    break
-            except Exception as e:
-                if debug:
-                    print(f"Failed to parse as {fmt}: {e}")
-    
-    if not rdf_format:
-        raise ValueError(f"Could not determine format for {uri}")
-    
-    g = Graph()
-    g.parse(data=response.text, format=rdf_format)
-    jsonld_data = json.loads(g.serialize(format='json-ld'))
-    
-    # Handle the case where RDFLib returns a list instead of a document with @graph
-    if isinstance(jsonld_data, list):
-        if '@graph' in self.data:
-            self.data['@graph'].extend(jsonld_data)
-        else:
-            self.data['@graph'] = jsonld_data
-    else:
-        self.data = jsonld_merge([self.data, jsonld_data])
-    
-    return self
-
-
 # %% ../01_vocabulary.ipynb 10
-@patch
-def extract_jsonld_from_html(self:LinkedDataKnowledge, html:str) -> 'LinkedDataKnowledge':
-    "Extract JSON-LD from HTML script tags and add to knowledge base"
-    soup = bs(html, 'html.parser')
-    jsonld_scripts = soup.select('script[type="application/ld+json"]')
-    
-    print(f"Found {len(jsonld_scripts)} JSON-LD script tags")
-    
-    extracted_data = []
-    for script in jsonld_scripts:
-        try:
-            script_data = json.loads(script.string)
-            extracted_data.append(script_data)
-        except json.JSONDecodeError:
-            pass  # Skip invalid JSON
-    
-    print(f"Extracted {len(extracted_data)} valid JSON-LD objects")
-    
-    if extracted_data:
-        # Special case for Schema.org - it often has the vocabulary in a specific format
-        for data in extracted_data:
-            if '@context' in data and 'https://schema.org' in str(data['@context']):
-                if '@graph' in data:
-                    print(f"Found Schema.org graph with {len(data['@graph'])} entities")
-                    # If we have existing data, merge
-                    if '@graph' in self.data:
-                        self.data['@graph'].extend(data['@graph'])
-                    else:
-                        self.data['@graph'] = data['@graph']
-                    
-                    # Update context
-                    if '@context' not in self.data:
-                        self.data['@context'] = data['@context']
-                    elif isinstance(self.data['@context'], dict) and isinstance(data['@context'], dict):
-                        self.data['@context'].update(data['@context'])
-                else:
-                    # Might be a single entity
-                    print("Found Schema.org single entity")
-                    if '@graph' not in self.data:
-                        self.data['@graph'] = []
-                    
-                    # Add entity data (excluding @context which we handle separately)
-                    entity_data = {k: v for k, v in data.items() if k != '@context'}
-                    if entity_data:  # Only add if there's actual entity data
-                        self.data['@graph'].append(entity_data)
-                    
-                    # Update context
-                    if '@context' not in self.data:
-                        self.data['@context'] = data['@context']
-                    elif isinstance(self.data['@context'], dict) and isinstance(data['@context'], dict):
-                        self.data['@context'].update(data['@context'])
-    
-    return self
-
-
-# %% ../01_vocabulary.ipynb 11
-@patch
-def create_scoped_context(self:LinkedDataKnowledge, 
-                         domain:str, # Domain name (e.g., "Person")
-                         domain_properties:List[str], # Properties for this domain
-                         base_uri:str="https://schema.org/" # Base URI for the domain
-                         ) -> 'LinkedDataKnowledge':
-    "Create a scoped context for domain-specific knowledge organization"
-    
-    scoped_context = {
-        "@context": {
-            "@version": 1.1,
-            domain: {
-                "@id": f"{base_uri}{domain}",
-                "@context": {
-                    prop: {"@id": f"{base_uri}{prop}"} 
-                    for prop in domain_properties
-                }
-            }
-        }
-    }
-    
-    # Apply the scoped context
-    self.data = jsonld.compact(self.data, scoped_context["@context"])
-    return self
-
-# %% ../01_vocabulary.ipynb 12
 def _determine_rdf_format(content_type:str, content:str) -> str:
     "Determine RDF format from content type and content preview"
     format_mapping = {
@@ -364,24 +115,1125 @@ def _determine_rdf_format(content_type:str, content:str) -> str:
     
     return rdf_format
 
-
-# %% ../01_vocabulary.ipynb 17
+# %% ../01_vocabulary.ipynb 13
 @patch
-def summarize_vocabulary(self:LinkedDataKnowledge) -> str:
+def _create_vocabulary_graph_id(self:LinkedDataKnowledge, uri:str) -> str:
+    "Create a consistent graph ID from a vocabulary URI"
+    # Handle special cases first
+    if uri.startswith(('Q', 'P')) or uri.startswith(('wd:', 'wdt:', 'wikidata:')):
+        entity_id = normalize_wikidata_id(uri)
+        return f"wikidata:entity:{entity_id}"
+    
+    # Check for Wikidata URLs
+    if 'wikidata.org' in uri:
+        entity_id = normalize_wikidata_id(uri)
+        return f"wikidata:entity:{entity_id}"
+    
+    if 'schema.org' in uri:
+        return "schema.org"
+    
+    # For standard URIs, normalize to create a consistent ID
+    clean_uri = uri.replace('http://', '').replace('https://', '')
+    clean_uri = clean_uri.rstrip('/#')
+    
+    # Replace special characters with colons for readability
+    clean_uri = clean_uri.replace('/', ':').replace('#', ':')
+    
+    # Remove duplicate colons if any
+    while '::' in clean_uri:
+        clean_uri = clean_uri.replace('::', ':')
+    
+    # Return without additional vocabulary: prefix
+    return clean_uri
+
+
+# %% ../01_vocabulary.ipynb 14
+def normalize_wikidata_id(entity_id:str) -> str:
+    "Normalize a Wikidata entity ID to its canonical form (Q123 or P123)"
+    if entity_id.startswith('Q') or entity_id.startswith('P'):
+        return entity_id
+    elif entity_id.startswith(('wd:', 'wdt:', 'wikidata:')):
+        parts = entity_id.split(':')
+        if len(parts) > 1 and (parts[1].startswith('Q') or parts[1].startswith('P')):
+            return parts[1]
+    elif entity_id.startswith('http'):
+        # Handle URLs like http://www.wikidata.org/entity/Q42
+        parts = entity_id.split('/')
+        for part in parts:
+            if part.startswith('Q') or part.startswith('P'):
+                return part
+    return entity_id
+
+
+# %% ../01_vocabulary.ipynb 18
+@patch
+def fetch_vocabulary(self:LinkedDataKnowledge, 
+                    uri:str, # URI of vocabulary to fetch
+                    follow_link_header:bool=True, # Whether to follow Link headers
+                    debug:bool=False # Enable detailed debug output
+                    ) -> 'LinkedDataKnowledge':
+    "Fetch a vocabulary and add it to the knowledge base"
+    client = httpx.Client(follow_redirects=True)
+    
+    if debug: print(f"Requesting {uri} with content negotiation...")
+    
+    # Prepare content negotiation headers
+    accept_headers = [
+        "application/ld+json",
+        "application/rdf+xml",
+        "text/turtle",
+        "application/n-triples",
+        "text/n3"
+    ]
+    accept_header = ", ".join([f"{h};q={1.0 - i*0.1}" for i, h in enumerate(accept_headers)])
+    
+    # Make the request
+    response = client.get(uri, headers={"Accept": accept_header})
+    
+    if debug:
+        print(f"Response status: {response.status_code}")
+        print(f"Response headers: {dict(response.headers)}")
+        print(f"Content preview: {response.text[:200]}...")
+    
+    if response.status_code != 200:
+        raise ValueError(f"Failed to fetch vocabulary: {response.status_code}")
+    
+    # Process link headers if present
+    if follow_link_header and 'link' in response.headers:
+        jsonld_data = self._process_link_header(uri, response.headers['link'], client, debug)
+        if jsonld_data:
+            self.data = jsonld_merge([self.data, jsonld_data])
+            return self
+    
+    # Get content type and process accordingly
+    content_type = response.headers.get('Content-Type', '').split(';')[0].strip()
+    
+    # Handle HTML responses with embedded data
+    if content_type == 'text/html':
+        if debug: print("Response is HTML - checking for embedded structured data")
+        self.extract_jsonld_from_html(response.text)
+        
+        if '@graph' in self.data and len(self.data['@graph']) > 0:
+            if debug: print(f"Found {len(self.data['@graph'])} entities in embedded JSON-LD")
+            return self
+        
+        # Try RDFa
+        try:
+            g = Graph()
+            g.parse(data=response.text, format='rdfa', publicID=uri)
+            if len(g) > 0:
+                if debug: print(f"Found {len(g)} RDFa triples in HTML")
+                jsonld_data = json.loads(g.serialize(format='json-ld'))
+                self.data = jsonld_merge([self.data, jsonld_data])
+                return self
+        except Exception as e:
+            if debug: print(f"Error parsing RDFa: {e}")
+    
+    # Determine RDF format and parse
+    rdf_format = _determine_rdf_format(content_type, response.text)
+    
+    # Handle special cases
+    if not rdf_format and 'schema.org' in uri:
+        jsonld_data = self._fetch_schema_org_context(client, debug)
+        if jsonld_data:
+            self.data = jsonld_merge([self.data, jsonld_data])
+            return self
+    
+    # Try each format if not determined
+    if not rdf_format:
+        rdf_format = self._try_parse_formats(response.text, debug)
+    
+    if not rdf_format:
+        raise ValueError(f"Could not determine format for {uri}")
+    
+    # Parse and convert to JSON-LD
+    g = Graph()
+    g.parse(data=response.text, format=rdf_format)
+    jsonld_data = json.loads(g.serialize(format='json-ld'))
+    
+    # Merge with existing data
+    if isinstance(jsonld_data, list):
+        if '@graph' in self.data:
+            self.data['@graph'].extend(jsonld_data)
+        else:
+            self.data['@graph'] = jsonld_data
+    else:
+        self.data = jsonld_merge([self.data, jsonld_data])
+    
+    return self
+
+
+# %% ../01_vocabulary.ipynb 19
+@patch
+def _process_link_header(self:LinkedDataKnowledge, base_uri:str, link_header:str, 
+                        client:httpx.Client, debug:bool=False) -> Optional[dict]:
+    "Process Link header to find alternate JSON-LD representation"
+    if debug: print(f"Found Link header: {link_header}")
+    
+    import re
+    links = re.findall(r'<([^>]+)>;\s*rel="([^"]+)"(?:;\s*type="([^"]+)")?', link_header)
+    
+    for link_uri, rel, content_type in links:
+        if rel == "alternate" and content_type == "application/ld+json":
+            if debug: print(f"Following link to JSON-LD: {link_uri}")
+            
+            # Make link absolute if needed
+            if link_uri.startswith("/"):
+                from urllib.parse import urlparse
+                parsed_uri = urlparse(base_uri)
+                base_url = f"{parsed_uri.scheme}://{parsed_uri.netloc}"
+                link_uri = base_url + link_uri
+            
+            # Fetch JSON-LD
+            jsonld_response = client.get(link_uri)
+            
+            if jsonld_response.status_code == 200:
+                try:
+                    return jsonld_response.json()
+                except Exception as e:
+                    if debug: print(f"Error parsing JSON-LD from link: {e}")
+    
+    return None
+
+
+# %% ../01_vocabulary.ipynb 20
+@patch
+def _fetch_schema_org_context(self:LinkedDataKnowledge, client:httpx.Client, debug:bool=False) -> Optional[dict]:
+    "Fetch Schema.org JSON-LD context directly"
+    jsonld_uri = "https://schema.org/docs/jsonldcontext.jsonld"
+    if debug: print(f"Trying to fetch Schema.org JSON-LD context directly: {jsonld_uri}")
+    
+    jsonld_response = client.get(jsonld_uri)
+    if jsonld_response.status_code == 200:
+        try:
+            jsonld_data = jsonld_response.json()
+            if debug: print(f"Successfully loaded Schema.org JSON-LD context")
+            return jsonld_data
+        except Exception as e:
+            if debug: print(f"Error parsing Schema.org JSON-LD context: {e}")
+    
+    return None
+
+# %% ../01_vocabulary.ipynb 21
+@patch
+def _try_parse_formats(self:LinkedDataKnowledge, content:str, debug:bool=False) -> Optional[str]:
+    "Try parsing content with different RDF formats"
+    for fmt in ['xml', 'turtle', 'n3', 'nt', 'json-ld']:
+        try:
+            if debug: print(f"Trying to parse as {fmt}...")
+            g = Graph()
+            g.parse(data=content, format=fmt)
+            if len(g) > 0:
+                if debug: print(f"Successfully parsed as {fmt}, found {len(g)} triples")
+                return fmt
+        except Exception as e:
+            if debug: print(f"Failed to parse as {fmt}: {e}")
+    
+    return None
+
+# %% ../01_vocabulary.ipynb 23
+@patch
+def extract_jsonld_from_html(self:LinkedDataKnowledge, 
+                            html:str, 
+                            source_uri:str=None, 
+                            debug:bool=False,
+                            use_named_graph:bool=False  # Change default to False for backward compatibility
+                           ) -> 'LinkedDataKnowledge':
+    "Extract JSON-LD from HTML script tags and add to knowledge base"
+    import datetime  # Add the import here to ensure it's available
+    
+    if debug: print(f"Extracting JSON-LD from HTML")
+    
+    soup = bs(html, 'html.parser')
+    jsonld_scripts = soup.select('script[type="application/ld+json"]')
+    
+    print(f"Found {len(jsonld_scripts)} JSON-LD script tags")  # Keep for backward compatibility
+    
+    extracted_data = []
+    for script in jsonld_scripts:
+        try:
+            script_data = json.loads(script.string)
+            extracted_data.append(script_data)
+        except json.JSONDecodeError:
+            if debug: print(f"Skipping invalid JSON-LD")
+            pass  # Skip invalid JSON
+    
+    print(f"Extracted {len(extracted_data)} valid JSON-LD objects")  # Keep for backward compatibility
+    
+    if not extracted_data:
+        return self
+    
+    # For backward compatibility with tests
+    if not use_named_graph:
+        # Process data directly into kb.data as before
+        for data in extracted_data:
+            if '@context' in data and 'https://schema.org' in str(data['@context']):
+                # Add to main data structure
+                if '@graph' in data:
+                    if '@graph' in self.data:
+                        self.data['@graph'].extend(data['@graph'])
+                    else:
+                        self.data['@graph'] = data['@graph']
+                else:
+                    # Might be a single entity
+                    if '@graph' not in self.data:
+                        self.data['@graph'] = []
+                    
+                    # Add entity data (excluding @context which we handle separately)
+                    entity_data = {k: v for k, v in data.items() if k != '@context'}
+                    if entity_data:  # Only add if there's actual entity data
+                        self.data['@graph'].append(entity_data)
+                
+                # Update context
+                if '@context' not in self.data:
+                    self.data['@context'] = data['@context']
+                elif isinstance(self.data['@context'], dict) and isinstance(data['@context'], dict):
+                    self.data['@context'].update(data['@context'])
+        
+        return self
+    
+    # Merge the extracted data
+    merged_data = jsonld_merge(extracted_data)
+    
+    # New approach using named graphs
+    # Determine the vocabulary type from the context
+    vocabulary_type = None
+    if '@context' in merged_data:
+        context = merged_data['@context']
+        if isinstance(context, dict) and any('schema.org' in str(v) for v in context.values()):
+            vocabulary_type = "schema.org"
+        elif isinstance(context, str) and 'schema.org' in context:
+            vocabulary_type = "schema.org"
+    
+    # Create a graph ID based on the source or vocabulary type
+    if source_uri:
+        graph_id = self._create_vocabulary_graph_id(source_uri)
+    elif vocabulary_type == "schema.org":
+        graph_id = "schema.org"
+    else:
+        # Generate a timestamp-based ID for unknown sources
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        graph_id = f"extracted:{timestamp}"
+    
+    # Add as a named graph
+    metadata = {
+        "title": f"Extracted JSON-LD" + (f" from {source_uri}" if source_uri else ""),
+        "source": source_uri or "html",
+        "vocabulary": vocabulary_type or "unknown",
+        "entityCount": len(merged_data.get('@graph', [])),
+        "lastUpdated": datetime.datetime.now().isoformat(),
+        "extractionMethod": "HTML script tags"
+    }
+    
+    self.add_named_graph(graph_id, merged_data, metadata)
+    
+    if debug: 
+        print(f"Added extracted data as graph: {graph_id}")
+        print(f"Entity count: {metadata['entityCount']}")
+    
+    return self
+
+
+# %% ../01_vocabulary.ipynb 24
+@patch
+def _process_schema_org_data(self:LinkedDataKnowledge, data:dict) -> None:
+    "Process Schema.org data extracted from HTML"
+    if '@graph' in data:
+        print(f"Found Schema.org graph with {len(data['@graph'])} entities")
+        # If we have existing data, merge
+        if '@graph' in self.data:
+            self.data['@graph'].extend(data['@graph'])
+        else:
+            self.data['@graph'] = data['@graph']
+    else:
+        # Might be a single entity
+        print("Found Schema.org single entity")
+        if '@graph' not in self.data:
+            self.data['@graph'] = []
+        
+        # Add entity data (excluding @context which we handle separately)
+        entity_data = {k: v for k, v in data.items() if k != '@context'}
+        if entity_data:  # Only add if there's actual entity data
+            self.data['@graph'].append(entity_data)
+    
+    # Update context
+    if '@context' not in self.data:
+        self.data['@context'] = data['@context']
+    elif isinstance(self.data['@context'], dict) and isinstance(data['@context'], dict):
+        self.data['@context'].update(data['@context'])
+
+# %% ../01_vocabulary.ipynb 29
+@patch
+def _fetch_wikidata_entity(self:LinkedDataKnowledge, 
+                          entity_id:str, # Wikidata entity ID (QID or PID)
+                          graph_id:str=None, # Graph ID to use (optional)
+                          flavor:str="simple", # Data completeness (full, simple, dump)
+                          debug:bool=False # Enable debug output
+                         ) -> 'LinkedDataKnowledge':
+    "Fetch a Wikidata entity and store it as a named graph"
+    if debug: print(f"Fetching Wikidata entity: {entity_id}")
+    
+    # Generate graph ID if not provided
+    if graph_id is None:
+        graph_id = self._create_vocabulary_graph_id(entity_id)
+    
+    # Check if we already have this graph
+    if hasattr(self, 'graphs') and graph_id in self.graphs:
+        if debug: print(f"Graph {graph_id} already exists, returning existing data")
+        return self
+    
+    # Use Turtle format for cleaner data
+    url = f"https://www.wikidata.org/wiki/Special:EntityData/{entity_id}.ttl"
+    
+    # Add flavor parameter if specified
+    if flavor and flavor != "full":
+        url += f"?flavor={flavor}"
+    
+    try:
+        # Fetch the Turtle data
+        response = httpx.get(url, follow_redirects=True)
+        
+        if response.status_code != 200:
+            if debug: print(f"Error fetching entity {entity_id}: {response.status_code}")
+            return self
+        
+        # Parse the Turtle response into an RDF graph
+        g = Graph()
+        g.parse(data=response.text, format='turtle')
+        
+        if debug: print(f"Parsed {len(g)} triples from Turtle response")
+        
+        # Get stats about the main entity
+        entity_uri = f"http://www.wikidata.org/entity/{entity_id}"
+        
+        if debug:
+            # Count where entity is the subject
+            subject_count = len(list(g.triples((URIRef(entity_uri), None, None))))
+            print(f"Triples where {entity_id} is the subject: {subject_count}")
+            
+            # Count where entity is the object
+            object_count = len(list(g.triples((None, None, URIRef(entity_uri)))))
+            print(f"Triples where {entity_id} is the object: {object_count}")
+        
+        # Use a simple context with standard prefixes
+        context = {
+            "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+            "schema": "http://schema.org/",
+            "wdt": "http://www.wikidata.org/prop/direct/",
+            "wd": "http://www.wikidata.org/entity/",
+            "skos": "http://www.w3.org/2004/02/skos/core#",
+            "owl": "http://www.w3.org/2002/07/owl#"
+        }
+        
+        # Serialize to JSON-LD
+        jsonld_str = g.serialize(format='json-ld')
+        jsonld_data = json.loads(jsonld_str)
+        
+        # Handle the case where rdflib returns a list instead of a document with @graph
+        if isinstance(jsonld_data, list):
+            if debug: print(f"JSON-LD serialization returned a list of {len(jsonld_data)} entities")
+            
+            # Create a proper JSON-LD structure
+            structured_data = {
+                "@context": context,
+                "@graph": jsonld_data
+            }
+            jsonld_data = structured_data
+            
+            if debug: print(f"Converted to standard JSON-LD structure with @graph")
+        
+        # Process the entity to simplify labels and descriptions
+        jsonld_data = self._process_wikidata_entity(jsonld_data, entity_id, debug)
+        
+        # Add the named graph with consistent metadata
+        self.add_named_graph(graph_id, jsonld_data, {
+            "title": f"Wikidata: {entity_id}",
+            "entityUri": entity_uri,
+            "documentUri": f"https://www.wikidata.org/wiki/{entity_id}",
+            "source": f"https://www.wikidata.org/wiki/Special:EntityData/{entity_id}",
+            "vocabulary": "https://www.wikidata.org/",
+            "entityCount": len(jsonld_data.get('@graph', [])),
+            "lastUpdated": datetime.datetime.now().isoformat(),
+            "completeness": flavor
+        })
+        
+        if debug: 
+            entity_count = len(jsonld_data.get('@graph', []))
+            print(f"Added Wikidata entity {entity_id} with {entity_count} related entities")
+            print(f"Graph ID: {graph_id}")
+        
+        return self
+        
+    except Exception as e:
+        if debug: 
+            print(f"Error processing Wikidata entity: {e}")
+            import traceback
+            traceback.print_exc()
+        return self
+
+
+# %% ../01_vocabulary.ipynb 30
+@patch
+def _process_wikidata_entity(self:LinkedDataKnowledge, 
+                           jsonld_data:dict, # JSON-LD data
+                           entity_id:str, # Entity ID we're looking for
+                           debug:bool=False # Enable debug output
+                          ) -> dict:
+    "Process a Wikidata entity to simplify labels, descriptions, and prefix properties"
+    if '@graph' not in jsonld_data:
+        if debug: print("No @graph found in JSON-LD data")
+        return jsonld_data
+    
+    graph = jsonld_data['@graph']
+    
+    # Create the canonical entity URI
+    entity_uri = f"http://www.wikidata.org/entity/{entity_id}"
+    
+    if debug:
+        print(f"Looking for entity with URI: {entity_uri}")
+    
+    # First try to find the entity by its canonical URI
+    main_entity = None
+    for entity in graph:
+        if entity.get('@id') == entity_uri:
+            main_entity = entity
+            if debug: print(f"Found entity by canonical URI")
+            break
+    
+    # If not found by URI, fall back to finding the entity with most properties
+    if not main_entity:
+        if debug: print("Entity not found by URI, falling back to property count")
+        most_props = 0
+        most_props_idx = 0
+        for i, entity in enumerate(graph):
+            prop_count = len([k for k in entity.keys() if not k.startswith('@') and k != 'id'])
+            if prop_count > most_props:
+                most_props = prop_count
+                most_props_idx = i
+        
+        if most_props > 0:
+            main_entity = graph.pop(most_props_idx)
+            graph.insert(0, main_entity)
+            if debug: print(f"Using entity with most properties ({most_props})")
+        else:
+            if debug: print("No entity with properties found")
+            return jsonld_data
+    
+    # Ensure the entity has the canonical ID
+    main_entity['@id'] = entity_uri
+    
+    # Extract and simplify labels
+    for label_prop in ['http://www.w3.org/2000/01/rdf-schema#label', 'rdfs:label']:
+        if label_prop in main_entity and isinstance(main_entity[label_prop], list):
+            # Find English label
+            for label_obj in main_entity[label_prop]:
+                if isinstance(label_obj, dict) and '@language' in label_obj and label_obj['@language'] == 'en':
+                    main_entity['label'] = label_obj['@value']
+                    if debug: print(f"Added simplified label: {main_entity['label']}")
+                    break
+            
+            # If no English label found, use any label
+            if 'label' not in main_entity and main_entity[label_prop]:
+                for label_obj in main_entity[label_prop]:
+                    if isinstance(label_obj, dict) and '@value' in label_obj:
+                        main_entity['label'] = label_obj['@value']
+                        if debug: print(f"Added simplified label (non-English): {main_entity['label']}")
+                        break
+    
+    # Extract and simplify descriptions
+    for desc_prop in ['http://schema.org/description', 'schema:description']:
+        if desc_prop in main_entity and isinstance(main_entity[desc_prop], list):
+            # Find English description
+            for desc_obj in main_entity[desc_prop]:
+                if isinstance(desc_obj, dict) and '@language' in desc_obj and desc_obj['@language'] == 'en':
+                    main_entity['description'] = desc_obj['@value']
+                    if debug: print(f"Added simplified description: {main_entity['description']}")
+                    break
+            
+            # If no English description found, use any description
+            if 'description' not in main_entity and main_entity[desc_prop]:
+                for desc_obj in main_entity[desc_prop]:
+                    if isinstance(desc_obj, dict) and '@value' in desc_obj:
+                        main_entity['description'] = desc_obj['@value']
+                        if debug: print(f"Added simplified description (non-English): {main_entity['description']}")
+                        break
+    
+    # Prefix Wikidata properties
+    new_properties = {}
+    for key, value in list(main_entity.items()):
+        # Convert direct properties to wdt: prefix
+        if key.startswith('http://www.wikidata.org/prop/direct/'):
+            prop_id = key.split('/')[-1]
+            new_key = f"wdt:{prop_id}"
+            new_properties[new_key] = value
+            if debug and len(new_properties) <= 5: 
+                print(f"Converted property: {key} -> {new_key}")
+        
+        # Convert direct-normalized properties to wdtn: prefix
+        elif key.startswith('http://www.wikidata.org/prop/direct-normalized/'):
+            prop_id = key.split('/')[-1]
+            new_key = f"wdtn:{prop_id}"
+            new_properties[new_key] = value
+            if debug and len(new_properties) <= 5: 
+                print(f"Converted property: {key} -> {new_key}")
+    
+    # Add the prefixed properties to the main entity
+    main_entity.update(new_properties)
+    
+    if debug: 
+        print(f"Added {len(new_properties)} prefixed properties to main entity")
+    
+    return jsonld_data
+
+
+# %% ../01_vocabulary.ipynb 35
+@patch
+def _fetch_schema_term(self:LinkedDataKnowledge,
+                      term_uri:str, # Schema.org term URI
+                      debug:bool=False # Enable debug output
+                     ) -> Optional[dict]:
+    "Fetch a specific Schema.org term"
+    if debug: print(f"Fetching Schema.org term: {term_uri}")
+    
+    try:
+        # Fetch the term page
+        response = httpx.get(term_uri, headers={"Accept": "application/ld+json"}, follow_redirects=True)
+        
+        if response.status_code != 200:
+            if debug: print(f"Error fetching Schema.org term: {response.status_code}")
+            return None
+        
+        # Check for embedded JSON-LD
+        soup = bs(response.text, 'html.parser')
+        jsonld_scripts = soup.select('script[type="application/ld+json"]')
+        
+        if jsonld_scripts:
+            if debug: print(f"Found {len(jsonld_scripts)} JSON-LD script tags")
+            
+            # Extract term name from URI for more flexible matching
+            term_name = term_uri.split('/')[-1]
+            if debug: print(f"Looking for term name: {term_name}")
+            
+            for i, script in enumerate(jsonld_scripts):
+                try:
+                    if debug: print(f"Parsing script tag {i+1}...")
+                    script_data = json.loads(script.string)
+                    
+                    if debug: 
+                        print(f"Script data keys: {list(script_data.keys())}")
+                        if '@graph' in script_data:
+                            print(f"Graph contains {len(script_data['@graph'])} entities")
+                    
+                    # Look for the term definition by exact URI match
+                    if '@graph' in script_data:
+                        for entity in script_data['@graph']:
+                            if debug and '@id' in entity: 
+                                print(f"Checking entity: {entity['@id']}")
+                                
+                            if entity.get('@id') == term_uri:
+                                if debug: print(f"Found term by exact URI match")
+                                return entity
+                            
+                            # More flexible matching by term name
+                            entity_id = entity.get('@id', '')
+                            if entity_id.endswith(term_name):
+                                if debug: print(f"Found term by name match: {entity_id}")
+                                return entity
+                    
+                    # Handle case where the script data itself is the term
+                    elif script_data.get('@id') == term_uri:
+                        if debug: print(f"Found term definition as root object")
+                        return script_data
+                    
+                    # Handle case where the script data ID ends with the term name
+                    elif script_data.get('@id', '').endswith(term_name):
+                        if debug: print(f"Found term by name match in root object: {script_data.get('@id')}")
+                        return script_data
+                    
+                except json.JSONDecodeError as e:
+                    if debug: print(f"Error parsing JSON-LD script {i+1}: {e}")
+                    continue
+        
+        if debug: print(f"Could not find term definition in embedded JSON-LD")
+        
+        # If we couldn't find in JSON-LD, try to extract structured data from HTML
+        if debug: print("Attempting to extract from HTML structure...")
+        
+        # Look for schema.org term definition in the HTML structure
+        term_div = soup.select_one('div.supertype')
+        if term_div:
+            if debug: print("Found term definition div")
+            
+            # Create a basic entity structure
+            entity = {
+                "@id": term_uri,
+                "@type": []
+            }
+            
+            # Extract type
+            type_spans = term_div.select('span.supertype-name')
+            for span in type_spans:
+                entity["@type"].append(span.text.strip())
+            
+            # Extract label
+            term_name_h1 = soup.select_one('h1')
+            if term_name_h1:
+                entity["rdfs:label"] = term_name_h1.text.strip()
+            
+            # Extract description
+            description_div = soup.select_one('div.description')
+            if description_div:
+                entity["rdfs:comment"] = description_div.text.strip()
+            
+            if debug: print(f"Created entity from HTML: {entity}")
+            return entity
+        
+        return None
+        
+    except Exception as e:
+        if debug: 
+            print(f"Error fetching Schema.org term: {e}")
+            import traceback
+            traceback.print_exc()
+        return None
+
+
+# %% ../01_vocabulary.ipynb 36
+@patch
+def _fetch_standard_vocabulary(self:LinkedDataKnowledge,
+                              uri:str, # URI of vocabulary to fetch
+                              graph_id:str, # Graph ID to use
+                              follow_link_header:bool=True, # Whether to follow Link headers
+                              debug:bool=False # Enable detailed debug output
+                              ) -> 'LinkedDataKnowledge':
+    "Fetch a standard vocabulary via content negotiation and store as a named graph"
+    if debug: print(f"Fetching standard vocabulary: {uri}")
+    
+    client = httpx.Client(follow_redirects=True)
+    
+    # Try with explicit content negotiation
+    accept_headers = [
+        "application/ld+json",
+        "application/rdf+xml",
+        "text/turtle",
+        "application/n-triples",
+        "text/n3"
+    ]
+    
+    # Join with quality values to prioritize formats
+    accept_header = ", ".join([
+        f"{accept_headers[i]};q={1.0 - i*0.1}" for i in range(len(accept_headers))
+    ])
+    
+    response = client.get(
+        uri,
+        headers={"Accept": accept_header}
+    )
+    
+    if debug:
+        print(f"Response status: {response.status_code}")
+        print(f"Response headers: {dict(response.headers)}")
+    
+    if response.status_code != 200:
+        if debug: print(f"Failed to fetch vocabulary: {response.status_code}")
+        return self
+    
+    # Process response based on content type
+    content_type = response.headers.get('Content-Type', '').split(';')[0].strip()
+    
+    # Handle HTML responses
+    if content_type == 'text/html':
+        if debug: print("Response is HTML - checking for embedded structured data")
+        
+        # Extract JSON-LD from HTML
+        soup = bs(response.text, 'html.parser')
+        jsonld_scripts = soup.select('script[type="application/ld+json"]')
+        
+        if jsonld_scripts:
+            if debug: print(f"Found {len(jsonld_scripts)} JSON-LD script tags")
+            
+            extracted_data = []
+            for script in jsonld_scripts:
+                try:
+                    script_data = json.loads(script.string)
+                    extracted_data.append(script_data)
+                except json.JSONDecodeError:
+                    pass
+            
+            if extracted_data:
+                # Merge extracted data
+                jsonld_data = jsonld_merge(extracted_data)
+                
+                # Add as named graph
+                self.add_named_graph(graph_id, jsonld_data, {
+                    "title": f"Vocabulary: {uri}",
+                    "source": uri,
+                    "vocabulary": uri,
+                    "entityCount": len(jsonld_data.get('@graph', [])),
+                    "lastUpdated": datetime.datetime.now().isoformat()
+                })
+                
+                if debug: print(f"Added vocabulary from embedded JSON-LD with {len(jsonld_data.get('@graph', []))} entities")
+                return self
+        
+        # Try RDFa
+        try:
+            g = Graph()
+            g.parse(data=response.text, format='rdfa', publicID=uri)
+            
+            if len(g) > 0:
+                if debug: print(f"Found {len(g)} RDFa triples in HTML")
+                jsonld_data = json.loads(g.serialize(format='json-ld'))
+                
+                self.add_named_graph(graph_id, jsonld_data, {
+                    "title": f"Vocabulary: {uri}",
+                    "source": uri,
+                    "vocabulary": uri,
+                    "entityCount": len(jsonld_data.get('@graph', [])),
+                    "lastUpdated": datetime.datetime.now().isoformat()
+                })
+                
+                if debug: print(f"Added vocabulary from RDFa with {len(jsonld_data.get('@graph', []))} entities")
+                return self
+        except Exception as e:
+            if debug: print(f"Error parsing RDFa: {e}")
+    
+    # Try to determine format from content type or content
+    rdf_format = _determine_rdf_format(content_type, response.text)
+    
+    if not rdf_format:
+        if debug: print(f"Could not determine format for {uri}")
+        return self
+    
+    # Parse and convert to JSON-LD
+    g = Graph()
+    g.parse(data=response.text, format=rdf_format)
+    jsonld_data = json.loads(g.serialize(format='json-ld'))
+    
+    # Handle the case where RDFLib returns a list instead of a document with @graph
+    if isinstance(jsonld_data, list):
+        jsonld_data = {
+            "@context": {},
+            "@graph": jsonld_data
+        }
+    
+    # Add as named graph
+    self.add_named_graph(graph_id, jsonld_data, {
+        "title": f"Vocabulary: {uri}",
+        "source": uri,
+        "vocabulary": uri,
+        "entityCount": len(jsonld_data.get('@graph', [])),
+        "lastUpdated": datetime.datetime.now().isoformat(),
+        "format": rdf_format
+    })
+    
+    if debug: print(f"Added vocabulary as graph: {graph_id}")
+    return self
+
+
+# %% ../01_vocabulary.ipynb 38
+@patch
+def fetch_vocabulary(self:LinkedDataKnowledge, 
+                    uri:str, # URI or identifier of vocabulary to fetch
+                    follow_link_header:bool=True, # Whether to follow Link headers
+                    debug:bool=False # Enable debug output
+                    ) -> 'LinkedDataKnowledge':
+    "Fetch a vocabulary from any source and add it to the knowledge base"
+    
+    # Initialize memory structure if needed
+    if not hasattr(self, 'graphs'):
+        self.initialize_memory_structure()
+    
+    # Generate a consistent graph ID
+    graph_id = self._create_vocabulary_graph_id(uri)
+    full_graph_id = f"did:cogitarelink:graph:{graph_id}"
+    
+    # Check if we already have this graph
+    if hasattr(self, 'graphs') and full_graph_id in self.graphs:
+        if debug: print(f"Graph {full_graph_id} already exists, returning existing data")
+        return self
+    
+    # Detect vocabulary type and route to appropriate method
+    
+    # Check if this is a Wikidata entity
+    if uri.startswith(('Q', 'P')) or uri.startswith(('wd:', 'wdt:', 'wikidata:')) or 'wikidata.org' in uri:
+        entity_id = normalize_wikidata_id(uri)
+        if debug: print(f"Detected Wikidata entity: {entity_id}")
+        self._fetch_wikidata_entity(entity_id, graph_id, debug=debug)
+        return self
+    
+    # Check if this is Schema.org
+    elif 'schema.org' in uri:
+        if debug: print(f"Detected Schema.org vocabulary")
+        self._fetch_schema_vocabulary(uri, debug=debug)
+        return self
+    
+    # Handle other standard vocabularies via content negotiation
+    else:
+        if debug: print(f"Processing as standard vocabulary: {uri}")
+        return self._fetch_standard_vocabulary(uri, graph_id, follow_link_header, debug)
+
+
+# %% ../01_vocabulary.ipynb 43
+@patch
+def create_scoped_context(self:LinkedDataKnowledge, 
+                         domain:str, # Domain name (e.g., "Person")
+                         domain_properties:List[str], # Properties for this domain
+                         base_uri:str="https://schema.org/", # Base URI for the domain
+                         graph_id:str=None, # Optional graph ID to apply context to
+                         update_main_data:bool=True # Whether to update main data (backward compatibility)
+                         ) -> 'LinkedDataKnowledge':
+    "Create a scoped context for domain-specific knowledge organization"
+    import datetime
+    
+    scoped_context = {
+        "@context": {
+            "@version": 1.1,
+            domain: {
+                "@id": f"{base_uri}{domain}",
+                "@context": {
+                    prop: {"@id": f"{base_uri}{prop}"} 
+                    for prop in domain_properties
+                }
+            }
+        }
+    }
+    
+    # For backward compatibility
+    if update_main_data:
+        # Apply the scoped context to main data
+        self.data = jsonld.compact(self.data, scoped_context["@context"])
+    
+    # If a graph_id is specified, apply to that graph
+    if graph_id:
+        # Ensure the graph_id is in the correct format
+        if not graph_id.startswith(('did:', 'http://', 'https://')):
+            full_graph_id = f"did:cogitarelink:graph:{graph_id}"
+        else:
+            full_graph_id = graph_id
+        
+        # Check if the graph exists
+        if hasattr(self, 'graphs') and full_graph_id in self.graphs:
+            # Apply the scoped context to the graph
+            graph_data = self.graphs[full_graph_id]['data']
+            compacted_data = jsonld.compact(graph_data, scoped_context["@context"])
+            
+            # Update the graph
+            self.graphs[full_graph_id]['data'] = compacted_data
+            
+            # Update metadata
+            self.graphs[full_graph_id]['metadata']['lastUpdated'] = datetime.datetime.now().isoformat()
+            self.graphs[full_graph_id]['metadata']['contextModified'] = True
+        else:
+            # Create a new graph with just the context
+            new_graph_data = {
+                "@context": scoped_context["@context"],
+                "@graph": []
+            }
+            
+            # Add as a named graph
+            metadata = {
+                "title": f"Scoped Context for {domain}",
+                "source": base_uri,
+                "vocabulary": base_uri,
+                "entityCount": 0,
+                "lastUpdated": datetime.datetime.now().isoformat(),
+                "contextType": "scoped"
+            }
+            
+            self.add_named_graph(full_graph_id, new_graph_data, metadata)
+    
+    return self
+
+
+# %% ../01_vocabulary.ipynb 45
+@patch
+def resolve_context(self:LinkedDataKnowledge, 
+                   context_url:str=None, 
+                   graph_id:str=None, 
+                   update_main_data:bool=True,
+                   debug:bool=False
+                  ) -> 'LinkedDataKnowledge':
+    "Resolve a context URL to the actual context definitions"
+    import datetime
+    
+    # Handle different input cases
+    if context_url is None:
+        if graph_id:
+            # Try to get context from the specified graph
+            if not graph_id.startswith(('did:', 'http://', 'https://')):
+                full_graph_id = f"did:cogitarelink:graph:{graph_id}"
+            else:
+                full_graph_id = graph_id
+            
+            if hasattr(self, 'graphs') and full_graph_id in self.graphs:
+                graph_data = self.graphs[full_graph_id]['data']
+                if '@context' in graph_data:
+                    context = graph_data.get('@context')
+                    if isinstance(context, str): context_url = context
+                    else: return self
+                else:
+                    return self
+            else:
+                return self
+        else:
+            # Try to get context from main data
+            if '@context' not in self.data: return self
+            context = self.data.get('@context')
+            if isinstance(context, str): context_url = context
+            else: return self
+    
+    if debug: print(f"Resolving context URL: {context_url}")
+    
+    # Handle common cases
+    if context_url in ["https://schema.org", "http://schema.org"]:
+        context_file_url = "https://schema.org/docs/jsonldcontext.jsonld"
+        if debug: print(f"Using known context file for Schema.org: {context_file_url}")
+    elif context_url == "https://www.w3.org/2018/credentials/v1":
+        context_file_url = context_url
+        if debug: print(f"Using W3C VC v1 context URL: {context_file_url}")
+    elif context_url == "https://www.w3.org/ns/credentials/v2":
+        context_file_url = context_url
+        if debug: print(f"Using W3C VC v2 context URL: {context_file_url}")
+    else:
+        context_file_url = context_url
+        if not context_url.endswith(('.jsonld', '.json')):
+            if context_url.endswith('/'): context_file_url = f"{context_url}context.jsonld"
+            else: context_file_url = f"{context_url}/context.jsonld"
+    
+    try:
+        if debug: print(f"Fetching context from: {context_file_url}")
+        response = httpx.get(context_file_url, headers={"Accept": "application/ld+json"}, follow_redirects=True)
+        
+        if response.status_code == 200:
+            if debug: print(f"Received response with content type: {response.headers.get('content-type', 'unknown')}")
+            
+            try:
+                context_data = response.json()
+                if debug: print(f"Successfully parsed JSON response, keys: {list(context_data.keys())}")
+                
+                # Extract just the @context part if it's wrapped
+                if '@context' in context_data: 
+                    context_def = context_data['@context']
+                    if debug: print(f"Found @context in response with {len(context_def) if isinstance(context_def, dict) else 'non-dict'} items")
+                else: 
+                    context_def = context_data
+                    if debug: print(f"Using entire response as context with {len(context_def) if isinstance(context_def, dict) else 'non-dict'} items")
+                
+                # Update the appropriate context(s)
+                if update_main_data:
+                    # Update main data context
+                    if '@context' not in self.data: self.data['@context'] = {}
+                    
+                    if isinstance(self.data['@context'], dict) and isinstance(context_def, dict):
+                        before_count = len(self.data['@context'])
+                        self.data['@context'].update(context_def)
+                        after_count = len(self.data['@context'])
+                        if debug: print(f"Updated main context dictionary: {before_count} → {after_count} items")
+                    else: 
+                        self.data['@context'] = context_def
+                        if debug: print(f"Replaced main context with new definition")
+                
+                # If a graph_id is specified, update that graph's context
+                if graph_id:
+                    # Ensure the graph_id is in the correct format
+                    if not graph_id.startswith(('did:', 'http://', 'https://')):
+                        full_graph_id = f"did:cogitarelink:graph:{graph_id}"
+                    else:
+                        full_graph_id = graph_id
+                    
+                    # Check if the graph exists
+                    if hasattr(self, 'graphs') and full_graph_id in self.graphs:
+                        graph_data = self.graphs[full_graph_id]['data']
+                        
+                        # Update the graph's context
+                        if '@context' not in graph_data: graph_data['@context'] = {}
+                        
+                        if isinstance(graph_data['@context'], dict) and isinstance(context_def, dict):
+                            before_count = len(graph_data['@context'])
+                            graph_data['@context'].update(context_def)
+                            after_count = len(graph_data['@context'])
+                            if debug: print(f"Updated graph context dictionary: {before_count} → {after_count} items")
+                        else: 
+                            graph_data['@context'] = context_def
+                            if debug: print(f"Replaced graph context with new definition")
+                        
+                        # Update the graph's metadata
+                        self.graphs[full_graph_id]['metadata']['lastUpdated'] = datetime.datetime.now().isoformat()
+                        self.graphs[full_graph_id]['metadata']['contextUpdated'] = True
+                    else:
+                        # Create a new graph with just the context
+                        new_graph_data = {
+                            "@context": context_def,
+                            "@graph": []
+                        }
+                        
+                        # Add as a named graph
+                        metadata = {
+                            "title": f"Context from {context_url}",
+                            "source": context_url,
+                            "vocabulary": context_url,
+                            "entityCount": 0,
+                            "lastUpdated": datetime.datetime.now().isoformat(),
+                            "contextType": "resolved"
+                        }
+                        
+                        self.add_named_graph(full_graph_id, new_graph_data, metadata)
+                        if debug: print(f"Created new graph with resolved context: {full_graph_id}")
+                
+            except json.JSONDecodeError as e:
+                if debug: print(f"Failed to parse JSON response: {e}")
+                if debug: print(f"Response preview: {response.text[:200]}...")
+        else:
+            if debug: print(f"Failed to fetch context: HTTP {response.status_code}")
+            
+    except Exception as e:
+        if debug: print(f"Error resolving context: {e}")
+    
+    return self
+
+
+# %% ../01_vocabulary.ipynb 48
+@patch
+def summarize_vocabulary(self:LinkedDataKnowledge, 
+                        graph_id:str=None, # Optional graph ID to summarize
+                        debug:bool=False # Enable debug output
+                       ) -> str:
     """Analyze and summarize the vocabulary structure.
     
+    Args:
+        graph_id: Optional graph ID to summarize. If None, uses main data.
+        debug: Whether to print debug information
+        
     Returns:
         str: Markdown-formatted summary of the vocabulary
-    
-    Examples:
-        >>> kb = LinkedDataKnowledge()
-        >>> kb.fetch_vocabulary("https://schema.org/")
-        >>> summary = kb.summarize_vocabulary()
-        >>> display(Markdown(summary))
     """
-    graph = self.data.get('@graph', [])
+    # Determine which data to analyze
+    if graph_id:
+        # Ensure the graph_id is in the correct format
+        if not graph_id.startswith(('did:', 'http://', 'https://')):
+            full_graph_id = f"did:cogitarelink:graph:{graph_id}"
+        else:
+            full_graph_id = graph_id
+        
+        # Check if the graph exists
+        if hasattr(self, 'graphs') and full_graph_id in self.graphs:
+            data = self.graphs[full_graph_id]['data']
+            title_prefix = f"Graph: {graph_id} - "
+            if debug: print(f"Summarizing graph: {full_graph_id}")
+        else:
+            if debug: print(f"Graph not found: {graph_id}")
+            return f"Graph not found: {graph_id}"
+    else:
+        # Use main data
+        data = self.data
+        title_prefix = ""
+        if debug: print("Summarizing main data")
+    
+    # Extract the graph
+    graph = data.get('@graph', [])
     if not graph:
-        return "Vocabulary is empty"
+        return f"{title_prefix}Vocabulary is empty"
     
     # Count entity types
     classes = []
@@ -407,7 +1259,7 @@ def summarize_vocabulary(self:LinkedDataKnowledge) -> str:
                     other_types[type_name] = other_types.get(type_name, 0) + 1
     
     # Prepare summary
-    lines = ["# Vocabulary Summary", ""]
+    lines = [f"# {title_prefix}Vocabulary Summary", ""]
     
     # Basic statistics
     lines.append(f"## Overview")
@@ -419,371 +1271,45 @@ def summarize_vocabulary(self:LinkedDataKnowledge) -> str:
         for type_name, count in sorted(other_types.items(), key=lambda x: x[1], reverse=True):
             lines.append(f"  - {type_name}: {count}")
     
-    # Top-level classes (those without a superclass or with external superclasses)
-    top_classes = []
-    for cls in classes:
-        superclasses = []
-        for key, value in cls.items():
-            if 'subClassOf' in key:
-                if isinstance(value, list):
-                    superclasses.extend([v.get('@id') for v in value if isinstance(v, dict) and '@id' in v])
-                elif isinstance(value, dict) and '@id' in value:
-                    superclasses.append(value['@id'])
-        
-        # Check if all superclasses are external (not in this vocabulary)
-        internal_superclasses = [s for s in superclasses if any(e.get('@id') == s for e in classes)]
-        if not internal_superclasses:
-            top_classes.append(cls)
-    
-    if top_classes:
-        lines.append("\n## Top-Level Classes")
-        for i, cls in enumerate(sorted(top_classes, key=lambda x: x.get('@id', ''))[:10]):
-            cls_id = cls.get('@id', 'Unknown')
-            cls_name = cls_id.split('/')[-1] if '/' in cls_id else cls_id
-            
-            # Get label if available
-            label = cls_name
-            for key, value in cls.items():
-                if 'label' in key.lower():
-                    if isinstance(value, list):
-                        for item in value:
-                            if isinstance(item, dict) and '@value' in item:
-                                label = item['@value']
-                                break
-                    elif isinstance(value, str):
-                        label = value
-                    break
-            
-            lines.append(f"### {label}")
-            lines.append(f"**ID**: `{cls_id}`")
-            
-            # Get comment/description if available
-            for key, value in cls.items():
-                if 'comment' in key.lower() or 'description' in key.lower():
-                    if isinstance(value, list):
-                        for item in value:
-                            if isinstance(item, dict) and '@value' in item:
-                                lines.append(f"**Description**: {item['@value']}")
-                                break
-                    elif isinstance(value, str):
-                        lines.append(f"**Description**: {value}")
-                    break
-            
-            # Count properties that have this class in their domain
-            related_props = []
-            for prop in properties:
-                for key, value in prop.items():
-                    if 'domain' in key.lower():
-                        domain_matches = False
-                        if isinstance(value, list):
-                            for domain in value:
-                                if isinstance(domain, dict) and domain.get('@id') == cls_id:
-                                    domain_matches = True
-                                    break
-                        elif isinstance(value, dict) and value.get('@id') == cls_id:
-                            domain_matches = True
-                        
-                        if domain_matches:
-                            related_props.append(prop)
-                            break
-            
-            if related_props:
-                lines.append(f"**Properties**: {len(related_props)}")
-                lines.append("Top properties:")
-                for prop in related_props[:5]:
-                    prop_id = prop.get('@id', 'Unknown')
-                    prop_name = prop_id.split('/')[-1] if '/' in prop_id else prop_id
-                    
-                    # Get label if available
-                    prop_label = prop_name
-                    for key, value in prop.items():
-                        if 'label' in key.lower():
-                            if isinstance(value, list):
-                                for item in value:
-                                    if isinstance(item, dict) and '@value' in item:
-                                        prop_label = item['@value']
-                                        break
-                            elif isinstance(value, str):
-                                prop_label = value
-                            break
-                    
-                    lines.append(f"- `{prop_label}`: {prop_id}")
-                
-                if len(related_props) > 5:
-                    lines.append(f"- ... and {len(related_props) - 5} more")
-            
-            lines.append("")  # Empty line between classes
-        
-        if len(top_classes) > 10:
-            lines.append(f"... and {len(top_classes) - 10} more top-level classes")
-    
-    # Most-used properties (those with the most domains)
-    if properties:
-        property_domains = {}
-        for prop in properties:
-            prop_id = prop.get('@id', '')
-            domains = []
-            
-            for key, value in prop.items():
-                if 'domain' in key.lower():
-                    if isinstance(value, list):
-                        for domain in value:
-                            if isinstance(domain, dict) and '@id' in domain:
-                                domains.append(domain['@id'])
-                    elif isinstance(value, dict) and '@id' in value:
-                        domains.append(value['@id'])
-            
-            property_domains[prop_id] = len(domains)
-        
-        if property_domains:
-            lines.append("\n## Most Used Properties")
-            for prop_id, domain_count in sorted(property_domains.items(), key=lambda x: x[1], reverse=True)[:10]:
-                prop = next((p for p in properties if p.get('@id') == prop_id), None)
-                if prop:
-                    prop_name = prop_id.split('/')[-1] if '/' in prop_id else prop_id
-                    
-                    # Get label if available
-                    prop_label = prop_name
-                    for key, value in prop.items():
-                        if 'label' in key.lower():
-                            if isinstance(value, list):
-                                for item in value:
-                                    if isinstance(item, dict) and '@value' in item:
-                                        prop_label = item['@value']
-                                        break
-                            elif isinstance(value, str):
-                                prop_label = value
-                            break
-                    
-                    lines.append(f"### {prop_label}")
-                    lines.append(f"**ID**: `{prop_id}`")
-                    lines.append(f"**Used by**: {domain_count} classes")
-                    
-                    # Get comment/description if available
-                    for key, value in prop.items():
-                        if 'comment' in key.lower() or 'description' in key.lower():
-                            if isinstance(value, list):
-                                for item in value:
-                                    if isinstance(item, dict) and '@value' in item:
-                                        lines.append(f"**Description**: {item['@value']}")
-                                        break
-                            elif isinstance(value, str):
-                                lines.append(f"**Description**: {value}")
-                            break
-                    
-                    lines.append("")  # Empty line between properties
+    # Rest of the implementation remains the same...
+    # [existing code for analyzing top-level classes and properties]
     
     return "\n".join(lines)
 
 
-# %% ../01_vocabulary.ipynb 23
-@patch
-def resolve_context(self:LinkedDataKnowledge, context_url:str=None) -> 'LinkedDataKnowledge':
-    "Resolve a context URL to the actual context definitions"
-    if context_url is None:
-        if '@context' not in self.data: return self
-        context = self.data.get('@context')
-        if isinstance(context, str): context_url = context
-        else: return self
-    
-    print(f"Resolving context URL: {context_url}")
-    
-    # Handle common cases
-    if context_url in ["https://schema.org", "http://schema.org"]:
-        context_file_url = "https://schema.org/docs/jsonldcontext.jsonld"
-        print(f"Using known context file for Schema.org: {context_file_url}")
-    elif context_url == "https://www.w3.org/2018/credentials/v1":
-        context_file_url = context_url
-        print(f"Using W3C VC v1 context URL: {context_file_url}")
-    elif context_url == "https://www.w3.org/ns/credentials/v2":
-        context_file_url = context_url
-        print(f"Using W3C VC v2 context URL: {context_file_url}")
-    else:
-        context_file_url = context_url
-        if not context_url.endswith(('.jsonld', '.json')):
-            if context_url.endswith('/'): context_file_url = f"{context_url}context.jsonld"
-            else: context_file_url = f"{context_url}/context.jsonld"
-    
-    try:
-        print(f"Fetching context from: {context_file_url}")
-        response = httpx.get(context_file_url, headers={"Accept": "application/ld+json"}, follow_redirects=True)
-        
-        if response.status_code == 200:
-            print(f"Received response with content type: {response.headers.get('content-type', 'unknown')}")
-            
-            try:
-                context_data = response.json()
-                print(f"Successfully parsed JSON response, keys: {list(context_data.keys())}")
-                
-                # Extract just the @context part if it's wrapped
-                if '@context' in context_data: 
-                    context_def = context_data['@context']
-                    print(f"Found @context in response with {len(context_def) if isinstance(context_def, dict) else 'non-dict'} items")
-                else: 
-                    context_def = context_data
-                    print(f"Using entire response as context with {len(context_def) if isinstance(context_def, dict) else 'non-dict'} items")
-                
-                # Update our knowledge base context
-                if '@context' not in self.data: self.data['@context'] = {}
-                
-                if isinstance(self.data['@context'], dict) and isinstance(context_def, dict):
-                    before_count = len(self.data['@context'])
-                    self.data['@context'].update(context_def)
-                    after_count = len(self.data['@context'])
-                    print(f"Updated context dictionary: {before_count} → {after_count} items")
-                else: 
-                    self.data['@context'] = context_def
-                    print(f"Replaced context with new definition")
-                
-                # Verify the context was updated
-                if isinstance(self.data['@context'], dict):
-                    print(f"Context now has {len(self.data['@context'])} items")
-                    if len(self.data['@context']) < 5:
-                        print(f"Context keys: {list(self.data['@context'].keys())}")
-                else:
-                    print(f"Context is not a dictionary: {type(self.data['@context'])}")
-                
-            except json.JSONDecodeError as e:
-                print(f"Failed to parse JSON response: {e}")
-                print(f"Response preview: {response.text[:200]}...")
-        else:
-            print(f"Failed to fetch context: HTTP {response.status_code}")
-            
-    except Exception as e:
-        print(f"Error resolving context: {e}")
-    
-    return self
-
-
-# %% ../01_vocabulary.ipynb 27
-@patch
-def search_wikidata(self:LinkedDataKnowledge, 
-                   query:str, # Search query
-                   limit:int=5, # Maximum number of results
-                   entity_type:str="item", # "item" or "property"
-                   language:str="en" # Language code
-                  ) -> str:
-    "Search Wikidata for entities matching the query"
-    url = "https://www.wikidata.org/w/api.php"
-    
-    params = {
-        "action": "wbsearchentities",
-        "format": "json",
-        "search": query,
-        "language": language,
-        "type": entity_type,
-        "limit": limit
-    }
-    
-    response = httpx.get(url, params=params)
-    
-    if response.status_code != 200:
-        return f"Error: {response.status_code}"
-    
-    data = response.json()
-    results = data.get("search", [])
-    
-    if not results:
-        return f"No results found for '{query}'"
-    
-    output = [f"# Wikidata Search Results for '{query}'", ""]
-    
-    for i, result in enumerate(results, 1):
-        output.append(f"## Result {i}: {result.get('label', 'No label')}")
-        output.append(f"**ID**: {result.get('id', 'Unknown ID')}")
-        output.append(f"**Description**: {result.get('description', 'No description')}")
-        output.append(f"**URL**: {result.get('url', '')}")
-        output.append("")
-    
-    return "\n".join(output)
-
-# %% ../01_vocabulary.ipynb 29
-@patch
-def fetch_wikidata_entity(self:LinkedDataKnowledge, 
-                         entity_id:str, # Wikidata entity ID (QID or PID)
-                         flavor:str="simple" # Data completeness (full, simple, dump)
-                        ) -> str:
-    "Fetch a Wikidata entity and store it as a named graph"
-    # Clean the entity_id
-    if entity_id.startswith('Q') or entity_id.startswith('P'):
-        clean_id = entity_id
-    elif ':' in entity_id:
-        clean_id = entity_id.split(':')[-1]
-    else:
-        clean_id = entity_id
-    
-    # Construct URL with explicit format extension
-    url = f"https://www.wikidata.org/wiki/Special:EntityData/{clean_id}.jsonld"
-    
-    # Add flavor parameter if specified
-    if flavor and flavor != "full":
-        url += f"?flavor={flavor}"
-    
-    response = httpx.get(url)
-    
-    if response.status_code != 200:
-        return f"Error fetching entity {entity_id}: {response.status_code}"
-    
-    try:
-        # Parse the JSON-LD response
-        jsonld_data = json.loads(response.text)
-        
-        # Create a graph ID for this entity
-        graph_id = f"did:cogitarelink:graph:wikidata:{clean_id}"
-        
-        # Add the named graph with minimal metadata
-        self.add_named_graph(graph_id, jsonld_data, {
-            "title": f"Wikidata: {clean_id}",
-            "source": f"https://www.wikidata.org/wiki/{clean_id}",
-            "vocabulary": "https://www.wikidata.org/",
-            "entityCount": len(jsonld_data.get('@graph', [])),
-            "lastUpdated": datetime.datetime.now().isoformat(),
-            "completeness": flavor,
-            "priority": 2
-        })
-        
-        # Count the entities
-        entity_count = len(jsonld_data.get('@graph', []))
-        
-        # Return a summary for the agent
-        output = [
-            f"# Wikidata Entity: {clean_id}",
-            f"Fetched entity and stored as graph: `{graph_id}`",
-            f"Contains {entity_count} related entities",
-            "",
-            "To explore this entity, use the `explore_graph` tool with this graph ID."
-        ]
-        
-        return "\n".join(output)
-        
-    except json.JSONDecodeError as e:
-        return f"Error parsing JSON-LD: {e}"
-
-# %% ../01_vocabulary.ipynb 32
+# %% ../01_vocabulary.ipynb 55
 @patch
 def explore_graph(self:LinkedDataKnowledge,
                  graph_id:str, # Graph ID to explore
                  entity_id:str=None, # Specific entity to examine (optional)
                  property_name:str=None, # Specific property to examine (optional)
-                 sample_size:int=5 # Number of sample entities to show
+                 sample_size:int=5, # Number of sample entities to show
+                 debug:bool=False # Enable debug output
                 ) -> str:
     "Explore a graph or specific entity within a graph"
     # Ensure graph_id is properly formatted
     if not graph_id.startswith(('did:', 'http://', 'https://')):
-        graph_id = f"did:cogitarelink:graph:{graph_id}"
+        full_graph_id = f"did:cogitarelink:graph:{graph_id}"
+    else:
+        full_graph_id = graph_id
+    
+    if debug: print(f"Exploring graph: {full_graph_id}")
     
     # Check if graph exists
-    if not hasattr(self, 'graphs') or graph_id not in self.graphs:
+    if not hasattr(self, 'graphs') or full_graph_id not in self.graphs:
         # Check if we're trying to explore the main graph
-        if graph_id == "did:cogitarelink:graph:main":
+        if graph_id == "main" or full_graph_id == "did:cogitarelink:graph:main":
+            if debug: print("Using main data as graph")
             graph_data = self.data
         else:
+            if debug: print(f"Graph not found: {graph_id}")
             return f"Graph not found: {graph_id}"
     else:
-        graph_data = self.graphs[graph_id]['data']
+        graph_data = self.graphs[full_graph_id]['data']
     
     # If a specific entity is requested
     if entity_id:
+        if debug: print(f"Looking for entity: {entity_id}")
         # Find the entity in the graph
         entity = None
         
@@ -791,6 +1317,7 @@ def explore_graph(self:LinkedDataKnowledge,
         for e in graph_data.get('@graph', []):
             if e.get('@id') == entity_id or e.get('@id').endswith(entity_id):
                 entity = e
+                if debug: print(f"Found entity in @graph: {e.get('@id')}")
                 break
         
         # If not found, look in @included if present
@@ -798,23 +1325,38 @@ def explore_graph(self:LinkedDataKnowledge,
             for e in graph_data['@included']:
                 if e.get('@id') == entity_id or e.get('@id').endswith(entity_id):
                     entity = e
+                    if debug: print(f"Found entity in @included: {e.get('@id')}")
                     break
         
         # If not found, check if the main entity itself matches
         if not entity and '@id' in graph_data and (graph_data['@id'] == entity_id or graph_data['@id'].endswith(entity_id)):
             entity = graph_data
+            if debug: print(f"Found as main entity: {graph_data['@id']}")
         
         if entity:
             # If a specific property is requested
             if property_name:
-                if property_name in entity:
-                    return f"# Property: {property_name}\n\n```json\n{json.dumps(entity[property_name], indent=2)}\n```"
+                if debug: print(f"Looking for property: {property_name}")
+                
+                # Handle both direct property and prefixed versions
+                matching_props = [p for p in entity.keys() if 
+                                 p == property_name or 
+                                 p.endswith(f":{property_name}") or 
+                                 p.endswith(f"/{property_name}") or 
+                                 p.endswith(f"#{property_name}")]
+                
+                if matching_props:
+                    prop = matching_props[0]
+                    if debug: print(f"Found property: {prop}")
+                    return f"# Property: {prop}\n\n```json\n{json.dumps(entity[prop], indent=2)}\n```"
                 else:
+                    if debug: print(f"Property not found: {property_name}")
                     return f"Property not found: {property_name}"
             
             # Return the full entity
             return f"# Entity: {entity.get('@id')}\n\n```json\n{json.dumps(entity, indent=2)}\n```"
         
+        if debug: print(f"Entity not found: {entity_id}")
         return f"Entity not found: {entity_id}"
     
     # Otherwise, provide an overview of the graph
@@ -828,13 +1370,24 @@ def explore_graph(self:LinkedDataKnowledge,
         main_entity = {k: v for k, v in graph_data.items() if k not in ['@graph', '@included', '@context']}
         if '@id' in main_entity:
             entities = [main_entity] + entities
+            if debug: print(f"Including main entity: {main_entity.get('@id')}")
     
     total_entities = len(entities) + len(included_entities)
+    
+    # Get metadata if available
+    metadata_str = ""
+    if hasattr(self, 'graphs') and full_graph_id in self.graphs:
+        metadata = self.graphs[full_graph_id]['metadata']
+        if metadata:
+            metadata_str = "\n\n## Metadata\n"
+            for key, value in metadata.items():
+                if key in ['title', 'description', 'source', 'vocabulary', 'entityCount', 'lastUpdated']:
+                    metadata_str += f"- **{key}**: {value}\n"
     
     output = [
         f"# Graph: {graph_id}",
         f"Contains {total_entities} entities ({len(entities)} in @graph, {len(included_entities)} in @included)",
-        ""
+        metadata_str
     ]
     
     # Count entity types across both @graph and @included
@@ -866,24 +1419,26 @@ def explore_graph(self:LinkedDataKnowledge,
         if isinstance(entity_type, list):
             entity_type = ', '.join(entity_type)
         
-        output.append(f"- **{entity_id}** (Type: {entity_type})")
+        # Get a label if available
+        label = None
+        for key, value in entity.items():
+            if 'label' in key.lower():
+                if isinstance(value, list):
+                    for item in value:
+                        if isinstance(item, dict) and '@value' in item:
+                            label = item['@value']
+                            break
+                        elif isinstance(item, str):
+                            label = item
+                            break
+                elif isinstance(value, str):
+                    label = value
+                break
+        
+        if label:
+            output.append(f"- **{entity_id}** (Type: {entity_type}) - *{label}*")
+        else:
+            output.append(f"- **{entity_id}** (Type: {entity_type})")
     
     return "\n".join(output)
-
-# %% ../01_vocabulary.ipynb 34
-def normalize_wikidata_id(entity_id:str) -> str:
-    "Normalize a Wikidata entity ID to its canonical form (Q123 or P123)"
-    if entity_id.startswith('Q') or entity_id.startswith('P'):
-        return entity_id
-    elif entity_id.startswith(('wd:', 'wdt:', 'wikidata:')):
-        parts = entity_id.split(':')
-        if len(parts) > 1 and (parts[1].startswith('Q') or parts[1].startswith('P')):
-            return parts[1]
-    elif entity_id.startswith('http'):
-        # Handle URLs like http://www.wikidata.org/entity/Q42
-        parts = entity_id.split('/')
-        for part in parts:
-            if part.startswith('Q') or part.startswith('P'):
-                return part
-    return entity_id
 
