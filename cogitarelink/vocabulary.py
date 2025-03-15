@@ -1537,3 +1537,144 @@ def explore_graph(self:LinkedDataKnowledge,
     
     return "\n".join(output)
 
+
+# %% ../01_vocabulary.ipynb 59
+@patch
+def fetch_external_reference(self:LinkedDataKnowledge,
+                            source_entity_id:str, # Entity with the reference (e.g., Q11660)
+                            property_id:str,      # Property ID (e.g., P1014)
+                            ref_value:str,        # Reference value (e.g., 300251574)
+                            debug:bool=False      # Enable debug output
+                           ) -> 'LinkedDataKnowledge':
+    "Fetch external reference data based on entity property"
+    if debug: print(f"Fetching external reference for {source_entity_id}, property {property_id}, value {ref_value}")
+    
+    # First, get information about the property
+    property_entity = None
+    property_uri = f"http://www.wikidata.org/entity/{property_id}"
+    
+    # Look for property in existing graphs
+    for graph_id, graph_data in self.graphs.items():
+        for entity in graph_data['data'].get('@graph', []):
+            if entity.get('@id') == property_uri:
+                property_entity = entity
+                if debug: print(f"Found property definition in graph {graph_id}")
+                break
+        if property_entity: break
+    
+    # If property not found, fetch it
+    if not property_entity:
+        if debug: print(f"Property not found, fetching from Wikidata")
+        self.fetch_vocabulary(property_id, debug=debug)
+        
+        # Try to find it again
+        for graph_id, graph_data in self.graphs.items():
+            for entity in graph_data['data'].get('@graph', []):
+                if entity.get('@id') == property_uri:
+                    property_entity = entity
+                    if debug: print(f"Found property definition after fetching")
+                    break
+            if property_entity: break
+    
+    if not property_entity:
+        if debug: print(f"Could not find property {property_id}")
+        return self
+    
+    # Determine the reference type and how to fetch it
+    formatter_url = None
+    reference_type = None
+    
+    # Look for formatter URL template in property (P1630)
+    if 'wdt:P1630' in property_entity:
+        formatter_values = property_entity['wdt:P1630']
+        if isinstance(formatter_values, list) and formatter_values:
+            formatter_url = formatter_values[0].get('@value', '')
+        elif isinstance(formatter_values, dict) and '@value' in formatter_values:
+            formatter_url = formatter_values['@value']
+    
+    # Look for formatter URL template in property (P1921) - SPARQL endpoint
+    if not formatter_url and 'wdt:P1921' in property_entity:
+        formatter_values = property_entity['wdt:P1921']
+        if isinstance(formatter_values, list) and formatter_values:
+            formatter_url = formatter_values[0].get('@value', '')
+        elif isinstance(formatter_values, dict) and '@value' in formatter_values:
+            formatter_url = formatter_values['@value']
+    
+    # Look for what this property represents (P1629)
+    if 'wdt:P1629' in property_entity:
+        represents_values = property_entity['wdt:P1629']
+        if isinstance(represents_values, list) and represents_values:
+            reference_type = represents_values[0].get('@id', '')
+        elif isinstance(represents_values, dict) and '@id' in represents_values:
+            reference_type = represents_values['@id']
+    
+    if debug:
+        print(f"Formatter URL: {formatter_url}")
+        print(f"Reference type: {reference_type}")
+    
+    # If we have a formatter URL, use it
+    if formatter_url:
+        # Replace $1 with the reference value
+        resource_url = formatter_url.replace('$1', ref_value)
+        
+        if debug: print(f"Fetching from: {resource_url}")
+        
+        # Special handling for different reference types
+        if 'getty.edu' in resource_url:
+            # For Getty, use JSON format
+            json_url = resource_url
+            if not json_url.endswith('.json'):
+                json_url = f"{resource_url.rstrip('/')}.json"
+            
+            if debug: print(f"Using Getty JSON URL: {json_url}")
+            
+            headers = {"Accept": "application/json"}
+            response = httpx.get(json_url, headers=headers)
+            
+            if response.status_code == 200:
+                try:
+                    ref_data = response.json()
+                    if debug: print(f"Successfully fetched Getty data")
+                    
+                    # Add to knowledge base
+                    self.add_external_reference(
+                        source_entity_id=source_entity_id,
+                        property_id=property_id,
+                        ref_value=ref_value,
+                        ref_data=ref_data,
+                        ref_source="Getty Vocabulary"
+                    )
+                    
+                    if debug: print(f"Added external reference to knowledge base")
+                except Exception as e:
+                    if debug: print(f"Error parsing Getty response: {e}")
+            else:
+                if debug: print(f"Error fetching Getty data: {response.status_code}")
+        else:
+            # For other resources, try standard content negotiation
+            if debug: print(f"Using standard content negotiation")
+            self.fetch_vocabulary(resource_url, debug=debug)
+            
+            # Now connect this to the source entity
+            source_entity_uri = f"http://www.wikidata.org/entity/{source_entity_id}"
+            reference_graph_id = self._create_vocabulary_graph_id(resource_url)
+            
+            # Add external reference to source entity
+            for graph_id, graph_data in self.graphs.items():
+                for entity in graph_data['data'].get('@graph', []):
+                    if entity.get('@id') == source_entity_uri:
+                        if 'external_references' not in entity:
+                            entity['external_references'] = []
+                        
+                        entity['external_references'].append({
+                            "@id": f"did:cogitarelink:graph:{reference_graph_id}",
+                            "property": property_id,
+                            "value": ref_value,
+                            "source": resource_url
+                        })
+                        
+                        if debug: print(f"Added reference to source entity")
+                        break
+    
+    return self
+

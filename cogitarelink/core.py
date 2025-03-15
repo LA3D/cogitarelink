@@ -1031,3 +1031,283 @@ def view(self:LinkedDataKnowledge, entity_id:str=None, term_type:str=None, label
         for entity in entities:
             print(self.get_entity_description(entity))
 
+
+# %% ../00_core.ipynb 51
+@patch
+def generate_knowledge_index(self:LinkedDataKnowledge,
+                            max_entities_per_type:int=5,
+                            max_properties:int=5,
+                            important_types:List[str]=None,
+                            exclude_types:List[str]=None
+                           ) -> str:
+    index = ["# Knowledge Index"]
+    
+    if important_types is None:
+        important_types = [
+            "http://wikiba.se/ontology#Item",
+            "rdfs:Class", 
+            "owl:Class",
+            "schema:Thing"
+        ]
+    
+    if exclude_types is None:
+        exclude_types = [
+            "http://schema.org/Article"
+        ]
+    
+    processed_entities = set()
+    
+    def format_entity(entity, indent=""):
+        entity_id = entity.get('@id', 'Unknown ID')
+        
+        if entity_id in processed_entities: return None
+        processed_entities.add(entity_id)
+        
+        label = entity.get('label', None)
+        description = entity.get('description', None)
+        
+        if not label:
+            for key, value in entity.items():
+                if 'label' in key.lower():
+                    if isinstance(value, str):
+                        label = value
+                        break
+                    elif isinstance(value, list) and value:
+                        if isinstance(value[0], dict) and '@value' in value[0]:
+                            label = value[0]['@value']
+                        else:
+                            label = str(value[0])
+                        break
+        
+        if not description:
+            for key, value in entity.items():
+                if any(term in key.lower() for term in ['description', 'comment', 'definition']):
+                    if isinstance(value, str):
+                        description = value
+                        break
+                    elif isinstance(value, list) and value:
+                        if isinstance(value[0], dict) and '@value' in value[0]:
+                            description = value[0]['@value']
+                        else:
+                            description = str(value[0])
+                        break
+        
+        entity_lines = []
+        if label:
+            entity_lines.append(f"{indent}- **{label}** ({entity_id})")
+        else:
+            entity_lines.append(f"{indent}- {entity_id}")
+        
+        if description:
+            if len(description) > 100: description = description[:97] + "..."
+            entity_lines.append(f"{indent}  *{description}*")
+        
+        entity_type = entity.get('@type', [])
+        if not isinstance(entity_type, list): entity_type = [entity_type]
+        
+        if entity_type and entity_type[0] != "Unknown Type":
+            entity_lines.append(f"{indent}  Type: {', '.join(entity_type)}")
+        
+        important_props = []
+        
+        wdt_props = []
+        for prop, value in entity.items():
+            if prop.startswith('wdt:') and prop not in ['@id', '@type']:
+                wdt_props.append((prop, value))
+        
+        wdt_props.sort(key=lambda x: x[0])
+        
+        for prop, value in wdt_props[:max_properties]:
+            if isinstance(value, list):
+                if not value: continue
+                if isinstance(value[0], dict) and '@id' in value[0]:
+                    ref_ids = [item['@id'] for item in value[:3] if '@id' in item]
+                    if len(value) > 3:
+                        prop_value = f"{', '.join(ref_ids)} (+ {len(value)-3} more)"
+                    else:
+                        prop_value = ', '.join(ref_ids)
+                elif isinstance(value[0], dict) and '@value' in value[0]:
+                    values = [str(item['@value']) for item in value[:3] if '@value' in item]
+                    if len(value) > 3:
+                        prop_value = f"{', '.join(values)} (+ {len(value)-3} more)"
+                    else:
+                        prop_value = ', '.join(values)
+                else:
+                    if len(value) > 3:
+                        prop_value = f"{str(value[0])}, {str(value[1])}, {str(value[2])} (+ {len(value)-3} more)"
+                    else:
+                        prop_value = ', '.join(str(v) for v in value)
+            else:
+                prop_value = str(value)
+            
+            if len(prop_value) > 80: prop_value = prop_value[:77] + "..."
+            important_props.append((prop, prop_value))
+        
+        other_props = []
+        priority_props = ['P31', 'P279', 'subClassOf', 'type', 'instance', 'domain', 'range']
+        
+        for prop, value in entity.items():
+            if (prop not in ['@id', '@type', 'label', 'description'] and 
+                not any(term in prop.lower() for term in ['label', 'comment', 'description']) and
+                not prop.startswith('wdt:')):
+                
+                priority = 0
+                for p in priority_props:
+                    if p in prop:
+                        priority = 1
+                        break
+                
+                other_props.append((priority, prop, value))
+        
+        other_props.sort(key=lambda x: (-x[0], x[1]))
+        
+        remaining_slots = max_properties - len(important_props)
+        for _, prop, value in other_props[:remaining_slots]:
+            if isinstance(value, list):
+                if not value: continue
+                if isinstance(value[0], dict) and '@id' in value[0]:
+                    ref_ids = [item['@id'] for item in value[:3] if '@id' in item]
+                    if len(value) > 3:
+                        prop_value = f"{', '.join(ref_ids)} (+ {len(value)-3} more)"
+                    else:
+                        prop_value = ', '.join(ref_ids)
+                elif isinstance(value[0], dict) and '@value' in value[0]:
+                    values = [str(item['@value']) for item in value[:3] if '@value' in item]
+                    if len(value) > 3:
+                        prop_value = f"{', '.join(values)} (+ {len(value)-3} more)"
+                    else:
+                        prop_value = ', '.join(values)
+                else:
+                    if len(value) > 3:
+                        prop_value = f"{str(value[0])}, {str(value[1])}, {str(value[2])} (+ {len(value)-3} more)"
+                    else:
+                        prop_value = ', '.join(str(v) for v in value)
+            else:
+                prop_value = str(value)
+            
+            if len(prop_value) > 80: prop_value = prop_value[:77] + "..."
+            
+            prop_name = prop.split('/')[-1] if '/' in prop else prop
+            important_props.append((prop_name, prop_value))
+        
+        for prop, value in important_props:
+            entity_lines.append(f"{indent}  - *{prop}*: {value}")
+        
+        return '\n'.join(entity_lines)
+    
+    if hasattr(self, 'graphs') and self.graphs:
+        index.append(f"\n## Named Graphs ({len(self.graphs)})")
+        
+        for graph_id, graph_data in self.graphs.items():
+            metadata = graph_data.get('metadata', {})
+            title = metadata.get('title', graph_id.split(':')[-1])
+            entity_count = metadata.get('entityCount', 0)
+            
+            index.append(f"\n### {title} ({entity_count} entities)")
+            
+            graph_entities = graph_data['data'].get('@graph', [])
+            
+            entities_by_type = {}
+            for entity in graph_entities:
+                entity_types = entity.get('@type', [])
+                if not isinstance(entity_types, list): entity_types = [entity_types]
+                
+                for entity_type in entity_types:
+                    if entity_type not in entities_by_type:
+                        entities_by_type[entity_type] = []
+                    entities_by_type[entity_type].append(entity)
+            
+            for important_type in important_types:
+                for entity_type, entities in list(entities_by_type.items()):
+                    if important_type in entity_type or entity_type in important_type:
+                        index.append(f"\n#### {entity_type} ({len(entities)} entities)")
+                        
+                        def has_label(e): return 'label' in e or any('label' in k.lower() for k in e.keys())
+                        sorted_entities = sorted(entities, key=lambda e: (0 if has_label(e) else 1))
+                        
+                        for entity in sorted_entities[:max_entities_per_type]:
+                            entity_format = format_entity(entity)
+                            if entity_format: index.append(entity_format)
+                        
+                        if len(entities) > max_entities_per_type:
+                            index.append(f"  *...and {len(entities) - max_entities_per_type} more entities of this type*")
+                        
+                        del entities_by_type[entity_type]
+            
+            for entity_type, entities in sorted(entities_by_type.items(), 
+                                               key=lambda x: (0 if x[0] in important_types else 1, x[0])):
+                if any(exclude in entity_type for exclude in exclude_types): continue
+                
+                index.append(f"\n#### {entity_type} ({len(entities)} entities)")
+                
+                def has_label(e): return 'label' in e or any('label' in k.lower() for k in e.keys())
+                sorted_entities = sorted(entities, key=lambda e: (0 if has_label(e) else 1))
+                
+                for entity in sorted_entities[:max_entities_per_type]:
+                    entity_format = format_entity(entity)
+                    if entity_format: index.append(entity_format)
+                
+                if len(entities) > max_entities_per_type:
+                    index.append(f"  *...and {len(entities) - max_entities_per_type} more entities of this type*")
+    
+    main_graph = self.data.get('@graph', [])
+    if main_graph:
+        index.append("\n## Main Graph")
+        index.append(f"Contains {len(main_graph)} entities")
+    
+    return '\n'.join(index)
+
+
+# %% ../00_core.ipynb 53
+@patch
+def add_external_reference(self:LinkedDataKnowledge,
+                          source_entity_id:str, # The entity containing the reference (e.g., Q11660)
+                          property_id:str,       # The property containing the reference (e.g., P1014)
+                          ref_value:str,         # The reference value (e.g., 300251574)
+                          ref_data:dict,         # The data to add
+                          ref_source:str         # Source of the reference (e.g., "Getty AAT")
+                         ) -> 'LinkedDataKnowledge':
+    "Add external reference data to the knowledge base"
+    # Create a unique graph ID for this reference
+    graph_id = f"{source_entity_id}_{property_id}_{ref_value}"
+    
+    # Create a JSON-LD document from the reference data
+    if '@context' not in ref_data:
+        ref_data['@context'] = {}
+    
+    # Add metadata about this reference
+    metadata = {
+        "title": f"{ref_source} reference for {source_entity_id}",
+        "description": f"External reference data from {ref_source} for value {ref_value}",
+        "source": ref_source,
+        "referencedEntity": source_entity_id,
+        "referenceProperty": property_id,
+        "referenceValue": ref_value,
+        "lastUpdated": datetime.datetime.now().isoformat()
+    }
+    
+    # Add the reference as a named graph
+    self.add_named_graph(graph_id, ref_data, metadata)
+    
+    # Create a connection between the original entity and this reference
+    # Find the source entity across all graphs
+    source_entity_uri = f"http://www.wikidata.org/entity/{source_entity_id}"
+    
+    for graph_id, graph_data in self.graphs.items():
+        for entity in graph_data['data'].get('@graph', []):
+            if entity.get('@id') == source_entity_uri:
+                # Add a reference to this new data
+                if 'external_references' not in entity:
+                    entity['external_references'] = []
+                
+                entity['external_references'].append({
+                    "@id": f"did:cogitarelink:graph:{graph_id}",
+                    "property": property_id,
+                    "value": ref_value,
+                    "source": ref_source
+                })
+                
+                break
+    
+    return self
+
