@@ -686,6 +686,101 @@ def _process_wikidata_entity(self:LinkedDataKnowledge,
     return jsonld_data
 
 
+# %% ../01_vocabulary.ipynb 34
+@patch
+def _fetch_schema_vocabulary(self:LinkedDataKnowledge,
+                           uri:str, # Schema.org URI
+                           debug:bool=False # Enable debug output
+                          ) -> 'LinkedDataKnowledge':
+    "Fetch Schema.org vocabulary context and store as a named graph"
+    if debug: print(f"Fetching Schema.org vocabulary context: {uri}")
+    
+    # Generate graph ID
+    graph_id = self._create_vocabulary_graph_id(uri)
+    full_graph_id = f"did:cogitarelink:graph:{graph_id}"
+    
+    # Check if we already have this graph
+    if hasattr(self, 'graphs') and full_graph_id in self.graphs:
+        if debug: print(f"Graph {full_graph_id} already exists, returning existing data")
+        return self
+    
+    try:
+        # First fetch the main page to get the link header
+        if debug: print(f"Fetching Schema.org main page: {uri}")
+        
+        response = httpx.get(uri, headers={"Accept": "application/ld+json"}, follow_redirects=True)
+        
+        if response.status_code != 200:
+            if debug: print(f"Error fetching Schema.org: {response.status_code}")
+            return self
+        
+        # Check for Link header
+        context_url = None
+        if 'link' in response.headers:
+            link_header = response.headers['link']
+            if debug: print(f"Found Link header: {link_header}")
+            
+            import re
+            links = re.findall(r'<([^>]+)>;\s*rel="([^"]+)"(?:;\s*type="([^"]+)")?', link_header)
+            
+            for link_uri, rel, content_type in links:
+                if rel == "alternate" and content_type == "application/ld+json":
+                    context_url = link_uri
+                    if context_url.startswith('/'):
+                        from urllib.parse import urlparse
+                        parsed_uri = urlparse(uri)
+                        base_url = f"{parsed_uri.scheme}://{parsed_uri.netloc}"
+                        context_url = base_url + context_url
+                    
+                    if debug: print(f"Found context URL in Link header: {context_url}")
+                    break
+        
+        # If no context URL found in Link header, use the known location
+        if not context_url:
+            context_url = "https://schema.org/docs/jsonldcontext.jsonld"
+            if debug: print(f"Using known Schema.org context URL: {context_url}")
+        
+        # Fetch the context
+        context_response = httpx.get(context_url, follow_redirects=True)
+        
+        if context_response.status_code != 200:
+            if debug: print(f"Error fetching Schema.org context: {context_response.status_code}")
+            return self
+        
+        try:
+            context_data = context_response.json()
+            
+            # Create a minimal graph with just the context
+            jsonld_data = {
+                "@context": context_data.get('@context', {}),
+                "@graph": []
+            }
+            
+            # Add metadata
+            self.add_named_graph(graph_id, jsonld_data, {
+                "title": "Schema.org Context",
+                "source": "https://schema.org/",
+                "vocabulary": "https://schema.org/",
+                "contextUrl": context_url,
+                "lastUpdated": datetime.datetime.now().isoformat()
+            })
+            
+            if debug: print(f"Added Schema.org context")
+            
+            return self
+            
+        except json.JSONDecodeError as e:
+            if debug: print(f"Error parsing Schema.org context: {e}")
+            return self
+        
+    except Exception as e:
+        if debug: 
+            print(f"Error processing Schema.org vocabulary: {e}")
+            import traceback
+            traceback.print_exc()
+        return self
+
+
 # %% ../01_vocabulary.ipynb 35
 @patch
 def _fetch_schema_term(self:LinkedDataKnowledge,
