@@ -215,6 +215,22 @@ def initialize_memory_structure(self:LinkedDataKnowledge) -> 'LinkedDataKnowledg
     
     return self
 
+# %% ../00_core.ipynb 14
+# # Test initialize_memory_structure
+# kb = LinkedDataKnowledge()
+# kb.initialize_memory_structure()
+
+# # Test that graphs container was created
+# test_eq(hasattr(kb, 'graphs'), True)
+# test_eq(isinstance(kb.graphs, dict), True)
+
+# # Test data structure initialization
+# test_eq(kb.data["@id"], "did:cogitarelink:kb")
+# test_eq(kb.data["@type"], "KnowledgeBase")
+# test_eq("@context" in kb.data, True)
+# test_eq("graphs" in kb.data, True)
+
+
 # %% ../00_core.ipynb 15
 @patch
 def add_named_graph(self:LinkedDataKnowledge, 
@@ -274,6 +290,46 @@ def get_named_graph(self:LinkedDataKnowledge,
     return None
 
 
+# %% ../00_core.ipynb 17
+# Create a simple test graph
+# test_graph = {
+#     "@context": {"ex": "http://example.org/"},
+#     "@graph": [
+#         {"@id": "ex:entity1", "@type": "ex:TestEntity", "ex:name": "Test Entity 1"},
+#         {"@id": "ex:entity2", "@type": "ex:TestEntity", "ex:name": "Test Entity 2"}
+#     ]
+# }
+
+# # Test adding a graph with explicit metadata
+# kb.add_named_graph("test1", test_graph, {"title": "Test Graph 1"})
+
+# # Check the graph was properly added
+# graph_id = "did:cogitarelink:graph:test1"
+# test_eq(graph_id in kb.graphs, True)
+# test_eq(kb.graphs[graph_id]["data"], test_graph)
+# test_eq(kb.graphs[graph_id]["metadata"]["title"], "Test Graph 1")
+
+# # Check graph reference in main data structure
+# test_eq(graph_id in kb.data["graphs"], True)
+# test_eq(kb.data["graphs"][graph_id]["title"], "Test Graph 1")
+
+# # Test adding a graph with default metadata
+# kb.add_named_graph("test2", test_graph)
+
+# # Check default metadata generation
+# graph_id2 = "did:cogitarelink:graph:test2"
+# test_eq(kb.graphs[graph_id2]["metadata"]["title"], "Graph test2")
+# test_eq(kb.graphs[graph_id2]["metadata"]["entityCount"], 2)
+
+# # Test graph retrieval
+# retrieved_graph = kb.get_named_graph("test1")
+# test_eq(retrieved_graph, test_graph)
+
+# # Test retrieving non-existent graph
+# nonexistent_graph = kb.get_named_graph("nonexistent")
+# test_eq(nonexistent_graph, None)
+
+
 # %% ../00_core.ipynb 18
 @patch
 def use_included(self:LinkedDataKnowledge,
@@ -310,6 +366,67 @@ def use_included(self:LinkedDataKnowledge,
     
     self.data = new_data
     return self
+
+# %% ../00_core.ipynb 19
+# # Test use_included
+# kb_included = LinkedDataKnowledge()
+
+# # Create main entity and related entities
+# main_entity = {
+#     "@id": "ex:main",
+#     "@type": "ex:MainEntity",
+#     "ex:name": "Main Entity"
+# }
+
+# related_entities = [
+#     {
+#         "@id": "ex:related1",
+#         "@type": "ex:RelatedEntity",
+#         "ex:name": "Related Entity 1"
+#     },
+#     {
+#         "@id": "ex:related2",
+#         "@type": "ex:RelatedEntity",
+#         "ex:name": "Related Entity 2"
+#     }
+# ]
+
+# # Test with replace structure (default)
+# kb_included.use_included(main_entity, related_entities)
+
+# # Check that main entity properties are at root level
+# test_eq(kb_included.data["@id"], "ex:main")
+# test_eq(kb_included.data["@type"], "ex:MainEntity")
+
+# # Check that related entities are in @included
+# test_eq("@included" in kb_included.data, True)
+# test_eq(len(kb_included.data["@included"]), 2)
+# test_eq(kb_included.data["@included"][0]["@id"], "ex:related1")
+
+# # Test with preserve structure
+# kb_preserve = LinkedDataKnowledge()
+# kb_preserve.data = {
+#     "@context": {},
+#     "@graph": [
+#         {"@id": "ex:existing", "@type": "ex:ExistingEntity"}
+#     ],
+#     "customProperty": "Custom Value"
+# }
+
+# kb_preserve.use_included(main_entity, related_entities, preserve_structure=True)
+
+# # Check that existing structure is preserved
+# test_eq("customProperty" in kb_preserve.data, True)
+# test_eq(kb_preserve.data["customProperty"], "Custom Value")
+
+# # Check that main entity is added to @graph
+# test_eq(len(kb_preserve.data["@graph"]), 2)
+# test_eq(any(e["@id"] == "ex:main" for e in kb_preserve.data["@graph"]), True)
+
+# # Check that related entities are in @included
+# test_eq("@included" in kb_preserve.data, True)
+# test_eq(len(kb_preserve.data["@included"]), 2)
+
 
 # %% ../00_core.ipynb 20
 @patch
@@ -357,6 +474,56 @@ def structure_with_containers(self:LinkedDataKnowledge,
     return self
 
 
+# %% ../00_core.ipynb 22
+# # Test structure_with_containers with different container types
+# kb_containers = LinkedDataKnowledge()
+
+# # Test @list container
+# list_items = ["Item 1", "Item 2", "Item 3"]
+# kb_containers.structure_with_containers("steps", "list", list_items)
+
+# # Check context definition
+# test_eq("@version" in kb_containers.data["@context"], True)
+# test_eq("steps" in kb_containers.data["@context"], True)
+# test_eq(kb_containers.data["@context"]["steps"]["@container"], "@list")
+
+# # Check list values
+# test_eq("steps" in kb_containers.data, True)
+# test_eq(kb_containers.data["steps"], list_items)
+
+# # Test @language container
+# language_items = [
+#     {"lang": "en", "value": "Hello"},
+#     {"lang": "es", "value": "Hola"},
+#     {"lang": "fr", "value": "Bonjour"}
+# ]
+# kb_containers.structure_with_containers("greeting", "language", language_items)
+
+# # Check context definition
+# test_eq(kb_containers.data["@context"]["greeting"]["@container"], "@language")
+
+# # Check language map values
+# test_eq("greeting" in kb_containers.data, True)
+# test_eq(kb_containers.data["greeting"]["en"], "Hello")
+# test_eq(kb_containers.data["greeting"]["es"], "Hola")
+# test_eq(kb_containers.data["greeting"]["fr"], "Bonjour")
+
+# # Test @id container
+# id_items = [
+#     {"id": "person1", "value": {"name": "Alice"}},
+#     {"id": "person2", "value": {"name": "Bob"}}
+# ]
+# kb_containers.structure_with_containers("people", "id", id_items)
+
+# # Check context definition
+# test_eq(kb_containers.data["@context"]["people"]["@container"], "@id")
+
+# # Check id map values
+# test_eq("people" in kb_containers.data, True)
+# test_eq(kb_containers.data["people"]["person1"]["name"], "Alice")
+# test_eq(kb_containers.data["people"]["person2"]["name"], "Bob")
+
+
 # %% ../00_core.ipynb 23
 @patch
 def find_entity_across_graphs(self:LinkedDataKnowledge, 
@@ -384,6 +551,56 @@ def find_entity_across_graphs(self:LinkedDataKnowledge,
                 results.extend(graph_results)
     
     return results
+
+# %% ../00_core.ipynb 25
+# # Test find_entity_across_graphs
+# kb_search = LinkedDataKnowledge()
+# kb_search.initialize_memory_structure()
+
+# # Add entities to main graph
+# kb_search.data["@graph"] = [
+#     {"@id": "ex:main1", "@type": "ex:MainEntity", "rdfs:label": "Main Entity 1"},
+#     {"@id": "ex:main2", "@type": "ex:MainEntity", "rdfs:label": "Main Entity 2"}
+# ]
+
+# # Add a named graph with more entities
+# graph1_data = {
+#     "@graph": [
+#         {"@id": "ex:graph1_entity1", "@type": "ex:GraphEntity", "rdfs:label": "Graph 1 Entity 1"},
+#         {"@id": "ex:graph1_entity2", "@type": "ex:GraphEntity", "rdfs:label": "Graph 1 Entity 2"}
+#     ]
+# }
+# kb_search.add_named_graph("graph1", graph1_data)
+
+# # Add another named graph
+# graph2_data = {
+#     "@graph": [
+#         {"@id": "ex:graph2_entity1", "@type": "ex:GraphEntity", "rdfs:label": "Graph 2 Entity 1"},
+#         {"@id": "ex:main1", "@type": "ex:DuplicateEntity", "rdfs:label": "Duplicate Main Entity"}
+#     ]
+# }
+# kb_search.add_named_graph("graph2", graph2_data)
+
+# # Test search across all graphs
+# all_entities = kb_search.find_entity_across_graphs(term_type="ex:GraphEntity")
+# test_eq(len(all_entities), 3)  # Should find all 3 GraphEntity instances
+
+# # Test search in specific graph
+# graph1_entities = kb_search.find_entity_across_graphs(
+#     term_type="ex:GraphEntity",
+#     graph_id="did:cogitarelink:graph:graph1",
+#     include_main_graph=False
+# )
+# test_eq(len(graph1_entities), 2)  # Should find only the 2 in graph1
+
+# # Test finding by ID across graphs
+# main_entities = kb_search.find_entity_across_graphs(entity_id="ex:main1")
+# test_eq(len(main_entities), 2)  # Should find in both main graph and graph2
+
+# # Test finding by label
+# label_entities = kb_search.find_entity_across_graphs(label="Main Entity")
+# test_eq(len(label_entities), 3)  # Updated: finds 3 entities with "Main Entity" in the label
+
 
 # %% ../00_core.ipynb 27
 @patch
@@ -684,6 +901,184 @@ def find_entity(self:LinkedDataKnowledge,
         results = id_results + [e for e in label_results if e not in id_results]
     
     return results
+
+
+# %% ../00_core.ipynb 30
+# # Create a test knowledge base with a rich variety of entity types and formats
+# kb = LinkedDataKnowledge()
+
+# # Set up a context with various prefixes
+# test_context = {
+#     "schema": "https://schema.org/",
+#     "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+#     "owl": "http://www.w3.org/2002/07/owl#",
+#     "ex": "http://example.org/",
+#     "foaf": "http://xmlns.com/foaf/0.1/"
+# }
+
+# # Create test data with diverse entity types and representation formats
+# test_data = {
+#     "@context": test_context,
+#     "@graph": [
+#         # Standard class with simple type
+#         {
+#             "@id": "https://schema.org/Person",
+#             "@type": "rdfs:Class",
+#             "rdfs:label": "Person",
+#             "rdfs:comment": "A person (alive, dead, undead, or fictional)."
+#         },
+#         # Class with multiple types
+#         {
+#             "@id": "http://xmlns.com/foaf/0.1/Person",
+#             "@type": ["rdfs:Class", "owl:Class"],
+#             "rdfs:label": "Person",
+#             "owl:equivalentClass": {"@id": "https://schema.org/Person"}
+#         },
+#         # Entity with opaque URI
+#         {
+#             "@id": "ex:12345",
+#             "@type": "rdfs:Class",
+#             "rdfs:label": "Organization",
+#             "rdfs:comment": "An organization such as a school, NGO, corporation, club, etc."
+#         },
+#         # Entity with complex label structure
+#         {
+#             "@id": "http://example.org/Employee",
+#             "@type": "rdfs:Class",
+#             "rdfs:label": [
+#                 {"@value": "Employee", "@language": "en"},
+#                 {"@value": "Empleado", "@language": "es"}
+#             ],
+#             "rdfs:subClassOf": {"@id": "https://schema.org/Person"}
+#         },
+#         # Property with domain and range
+#         {
+#             "@id": "http://example.org/name",
+#             "@type": "rdf:Property",
+#             "rdfs:label": "name",
+#             "rdfs:domain": {"@id": "https://schema.org/Person"},
+#             "rdfs:range": {"@id": "xsd:string"}
+#         },
+#         # Entity with full URI as type
+#         {
+#             "@id": "ex:SpecialPerson",
+#             "@type": "http://www.w3.org/2000/01/rdf-schema#Class",
+#             "rdfs:label": "Special Person"
+#         },
+#         # Entity with mixed case label
+#         {
+#             "@id": "ex:CaseSensitive",
+#             "@type": "rdfs:Class",
+#             "rdfs:label": "CamelCaseLabel"
+#         }
+#     ]
+# }
+
+# kb.data = test_data
+
+# print("===== TESTING _has_type FUNCTION =====")
+
+# # Test 1: Exact match with prefixed name
+# entity = kb.data["@graph"][0]  # schema:Person with type rdfs:Class
+# result = kb._has_type(entity, "rdfs:Class")
+# print(f"Test 1 - Exact match with prefixed name: {result}")
+
+# # Test 2: Local name match
+# result = kb._has_type(entity, "Class")
+# print(f"Test 2 - Local name match: {result}")
+
+# # Test 3: Full URI match
+# result = kb._has_type(entity, "http://www.w3.org/2000/01/rdf-schema#Class")
+# print(f"Test 3 - Full URI match: {result}")
+
+# # Test 4: Multiple types
+# entity = kb.data["@graph"][1]  # foaf:Person with types rdfs:Class, owl:Class
+# result = kb._has_type(entity, "owl:Class")
+# print(f"Test 4 - Multiple types: {result}")
+
+# # Test 5: Full URI in entity type
+# entity = kb.data["@graph"][5]  # ex:SpecialPerson with type http://www.w3.org/2000/01/rdf-schema#Class
+# result = kb._has_type(entity, "rdfs:Class")
+# print(f"Test 5 - Full URI in entity type: {result}")
+
+# # Test 6: Non-matching type
+# entity = kb.data["@graph"][0]  # schema:Person with type rdfs:Class
+# result = kb._has_type(entity, "owl:Thing")
+# print(f"Test 6 - Non-matching type: {result}")
+
+# # Test 7: Empty or None inputs
+# result = kb._has_type({}, "rdfs:Class")
+# print(f"Test 7a - Empty entity: {result}")
+# result = kb._has_type(entity, "")
+# print(f"Test 7b - Empty type string: {result}")
+
+# print("\n===== TESTING find_entity FUNCTION =====")
+
+# # Test 8: Find by exact URI
+# result = kb.find_entity(entity_id="https://schema.org/Person")
+# print(f"Test 8 - Find by exact URI: Found {len(result)} entities")
+# if result:
+#     print(f"  - {result[0].get('@id')} ({result[0].get('rdfs:label')})")
+
+# # Test 9: Find by local name
+# result = kb.find_entity(entity_id="Person")
+# print(f"Test 9 - Find by local name: Found {len(result)} entities")
+# for entity in result:
+#     print(f"  - {entity.get('@id')} ({entity.get('rdfs:label')})")
+
+# # Test 10: Find by label
+# result = kb.find_entity(label="Person")
+# print(f"Test 10 - Find by label: Found {len(result)} entities")
+# for entity in result:
+#     print(f"  - {entity.get('@id')} ({entity.get('rdfs:label')})")
+
+# # Test 11: Find by type
+# result = kb.find_entity(term_type="rdfs:Class")
+# print(f"Test 11 - Find by type: Found {len(result)} entities")
+# for entity in result:
+#     print(f"  - {entity.get('@id')} ({entity.get('rdfs:label')})")
+
+# # Test 12: Find by language-tagged label
+# result = kb.find_entity(label="Empleado")
+# print(f"Test 12 - Find by language-tagged label: Found {len(result)} entities")
+# for entity in result:
+#     print(f"  - {entity.get('@id')}")
+
+# # Test 13: Case-insensitive search (default)
+# result = kb.find_entity(label="camelcaselabel")
+# print(f"Test 13 - Case-insensitive search: Found {len(result)} entities")
+# for entity in result:
+#     print(f"  - {entity.get('@id')} ({entity.get('rdfs:label')})")
+
+# # Test 14: Case-sensitive search
+# result = kb.find_entity(label="camelcaselabel", case_sensitive=True)
+# print(f"Test 14 - Case-sensitive search: Found {len(result)} entities")
+# for entity in result:
+#     print(f"  - {entity.get('@id')} ({entity.get('rdfs:label')}) - Should be empty")
+
+# # Test 15: Combined criteria (ID and type)
+# result = kb.find_entity(entity_id="Person", term_type="rdfs:Class")
+# print(f"Test 15 - Combined criteria: Found {len(result)} entities")
+# for entity in result:
+#     print(f"  - {entity.get('@id')} ({entity.get('rdfs:label')})")
+
+# # Test 16: Partial label match
+# result = kb.find_entity(label="Org")
+# print(f"Test 16 - Partial label match: Found {len(result)} entities")
+# for entity in result:
+#     print(f"  - {entity.get('@id')} ({entity.get('rdfs:label')})")
+
+# # Test 17: Find by opaque URI with label
+# result = kb.find_entity(label="Organization")
+# print(f"Test 17 - Find by opaque URI: Found {len(result)} entities")
+# for entity in result:
+#     print(f"  - {entity.get('@id')} ({entity.get('rdfs:label')})")
+
+# # Test 18: Find property by type
+# result = kb.find_entity(term_type="rdf:Property")
+# print(f"Test 18 - Find property by type: Found {len(result)} entities")
+# for entity in result:
+#     print(f"  - {entity.get('@id')} ({entity.get('rdfs:label')})")
 
 
 # %% ../00_core.ipynb 33
