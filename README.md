@@ -10,10 +10,11 @@
 # Overview
 
 Cogitarelink is a Python library that empowers AI agents to navigate and
-understand linked data structures. It implements the original vision of
-the semantic web—enabling machines to “follow their nose” through a web
-of connected data, discovering relationships and building comprehensive
-understanding.
+understand linked data structures and autonomously navigate the [linked
+open data cloud](https://lod-cloud.net/). It implements the original
+vision of the semantic web—enabling machines to “follow their nose”
+through a web of connected data, discovering relationships and building
+comprehensive understanding.
 
 ### Key Features
 
@@ -75,11 +76,14 @@ result = agent.toolloop('''
 
 ## Architecture
 
-JSON-LD Agent is built around a core `LinkedDataKnowledge` class that
-provides methods for working with JSON-LD data. The library is organized
-into several modules:
+JSON-LD Agent is built around a core
+[`LinkedDataKnowledge`](https://la3d.github.io/cogitarelink/core.html#linkeddataknowledge)
+class that provides methods for working with JSON-LD data. The library
+is organized into several modules:
 
-- **Core**: The `LinkedDataKnowledge` class and basic utilities
+- **Core**: The
+  [`LinkedDataKnowledge`](https://la3d.github.io/cogitarelink/core.html#linkeddataknowledge)
+  class and basic utilities
 - **Vocabulary**: Methods for fetching and processing RDF vocabularies
 - **Dataset**: Tools for exploring and manipulating dataset structures
 - **Display**: Rich visualization of linked data in human-readable
