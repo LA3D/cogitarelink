@@ -1078,7 +1078,92 @@ def _process_content(self:LODNavigator, navigation_id:str, uri:str, fetch_result
         }
 
 
-# %% ../01_retriever.ipynb 33
+# %% ../01_retriever.ipynb 32
+@patch
+def explore_uri(self:LODNavigator, uri:str):
+    """Explore multiple strategies for accessing a URI and pick the best one."""
+    import uuid
+    navigation_id = str(uuid.uuid4())
+    self.navigation_paths[navigation_id] = []
+    
+    # Analyze the URI
+    uri_analysis = self.uri_analyzer(uri)
+    self._add_to_path(navigation_id, "analyze_uri", uri=uri)
+    
+    # Generate strategies
+    strategies = self._generate_strategies(uri, uri_analysis)
+    self._add_to_path(navigation_id, "generate_strategies", 
+                     strategy_count=len(strategies))
+    
+    # Try each strategy and evaluate results
+    best_result = None
+    best_score = -1
+    
+    for strategy in strategies:
+        self._add_to_path(navigation_id, "try_strategy", 
+                         strategy_name=strategy["name"])
+        
+        # Fetch data using this strategy
+        fetch_result = self._fetch_with_strategy(navigation_id, uri, strategy)
+        
+        if fetch_result.get("success", False):
+            # Process the content
+            process_result = self._process_content(navigation_id, uri, fetch_result)
+            
+            # Evaluate the result
+            score = self._evaluate_strategy_result(process_result)
+            self._add_to_path(navigation_id, "evaluate_strategy", 
+                             strategy_name=strategy["name"],
+                             score=score)
+            
+            # Keep track of the best strategy
+            if score > best_score:
+                best_score = score
+                best_result = process_result
+                self._add_to_path(navigation_id, "new_best_strategy", 
+                                 strategy_name=strategy["name"],
+                                 score=score)
+    
+    # Return the best result, or failure if none worked
+    if best_result:
+        return best_result
+    else:
+        return {
+            "json_ld": None,
+            "success": False,
+            "navigation_id": navigation_id,
+            "navigation_path": self.navigation_paths[navigation_id],
+            "error": "All strategies failed"
+        }
+
+
+# %% ../01_retriever.ipynb 34
+@patch
+def _evaluate_strategy_result(self:LODNavigator, result):
+    """Evaluate the quality of data retrieved with a strategy."""
+    if not result.get("success", False):
+        return 0
+    
+    score = 0
+    json_ld = result.get("json_ld", {})
+    
+    # Size-based scoring
+    if "@graph" in json_ld:
+        graph_size = len(json_ld["@graph"])
+        score += min(graph_size, 1000)  # Cap at 1000 to avoid extreme bias
+    
+    if "@context" in json_ld:
+        if isinstance(json_ld["@context"], dict):
+            context_size = len(json_ld["@context"])
+            score += context_size * 5  # Context terms are valuable
+    
+    # Give some points just for success
+    score += 10
+    
+    return score
+
+
+# %% ../01_retriever.ipynb 36
 @patch
 def get_entity_details(self:LODNavigator, entity_id):
     """
