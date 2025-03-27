@@ -1137,6 +1137,115 @@ def explore_uri(self:LODNavigator, uri:str):
         }
 
 
+# %% ../01_retriever.ipynb 33
+@patch
+def _generate_strategies(self:LODNavigator, uri:str, uri_analysis):
+    """Generate multiple access strategies for a URI."""
+    strategies = []
+    
+    # Strategy 1: Direct access with default headers
+    strategies.append({
+        "name": "direct_default",
+        "method": "direct",
+        "url": uri,
+        "headers": {},
+        "format": "unknown"
+    })
+    
+    # Strategy 2: Content negotiation with JSON-LD
+    strategies.append({
+        "name": "negotiate_jsonld",
+        "method": "content_negotiation",
+        "url": uri,
+        "headers": {"Accept": "application/ld+json"},
+        "format": "json-ld"
+    })
+    
+    # Strategy 3: Content negotiation with Turtle
+    strategies.append({
+        "name": "negotiate_turtle",
+        "method": "content_negotiation",
+        "url": uri,
+        "headers": {"Accept": "text/turtle"},
+        "format": "turtle"
+    })
+    
+    # Strategy 4: Content negotiation with RDF/XML
+    strategies.append({
+        "name": "negotiate_rdfxml",
+        "method": "content_negotiation",
+        "url": uri,
+        "headers": {"Accept": "application/rdf+xml"},
+        "format": "xml"
+    })
+    
+    # Strategy 5: Content negotiation with N-Triples
+    strategies.append({
+        "name": "negotiate_ntriples",
+        "method": "content_negotiation",
+        "url": uri,
+        "headers": {"Accept": "application/n-triples"},
+        "format": "n-triples"
+    })
+    
+    # Add domain-specific strategies based on URI analysis
+    domain = uri_analysis.domain.lower()
+    uri_type = uri_analysis.uri_type.lower()
+    
+    # Wikidata-specific strategies
+    if "wikidata.org" in domain:
+        strategies.append({
+            "name": "wikidata_turtle",
+            "method": "direct",
+            "url": f"{uri}.ttl",
+            "headers": {},
+            "format": "turtle"
+        })
+    
+    # Schema.org-specific strategies
+    if "schema.org" in domain:
+        # Add link header strategy for Schema.org
+        strategies.append({
+            "name": "schema_link_header",
+            "method": "link_header",
+            "url": uri,
+            "link_rel": "alternate",
+            "link_type": "application/ld+json",
+            "format": "json-ld"
+        })
+        
+        # For vocabulary terms, try known context location
+        if uri_type == "vocabulary":
+            strategies.append({
+                "name": "schema_known_context",
+                "method": "direct",
+                "url": "https://schema.org/docs/jsonldcontext.jsonld",
+                "headers": {},
+                "format": "json-ld"
+            })
+    
+    # Add HTML analysis strategy for domains that likely embed data
+    if any(d in domain for d in ["schema.org", "gs1.org", "w3.org"]):
+        strategies.append({
+            "name": "html_analysis",
+            "method": "html_analysis",
+            "url": uri,
+            "format": "json-ld-in-html"
+        })
+    
+    # Add URL transformation strategies
+    if uri.endswith(".html"):
+        strategies.append({
+            "name": "html_to_rdf",
+            "method": "direct",
+            "url": uri.replace(".html", ".rdf"),
+            "headers": {},
+            "format": "xml"
+        })
+    
+    return strategies
+
+
 # %% ../01_retriever.ipynb 34
 @patch
 def _evaluate_strategy_result(self:LODNavigator, result):
