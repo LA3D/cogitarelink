@@ -1564,3 +1564,181 @@ def test_supply_chain_example():
         print(f"\nClaude's response:\n{response}")
     
     return memory
+
+# %% ../00_memory.ipynb 52
+@patch
+def add_jsonld_with_graph(self:SemanticMemory, data, context=None):
+    """Enhanced version of add_jsonld that properly handles @graph structures while preserving contexts.
+    
+    Args:
+        data: JSON-LD data to add
+        context: Optional context to apply
+        
+    Returns:
+        The expanded data
+    """
+    # If data contains a @graph, process each entity in the graph
+    if isinstance(data, dict) and '@graph' in data:
+        # Extract the context if present
+        graph_context = data.get('@context')
+        
+        # Register the graph context if it exists
+        if graph_context:
+            graph_context_id = self._register_contexts({"@context": graph_context})
+        
+        # Process each entity in the graph
+        results = []
+        for entity in data['@graph']:
+            # Apply the graph context to each entity if not already present
+            if graph_context and '@context' not in entity:
+                entity_with_context = entity.copy()
+                entity_with_context['@context'] = graph_context
+                result = self.add_jsonld(entity_with_context, context)
+            else:
+                result = self.add_jsonld(entity, context)
+            results.append(result)
+        
+        return results
+    
+    # If no @graph, use the context-aware method
+    return self.add_jsonld(data, context)
+
+
+# %% ../00_memory.ipynb 53
+@patch
+def add_named_graph(self:SemanticMemory, graph_data, graph_id):
+    """Add a named graph to the memory system, preserving context information."""
+    # Ensure graph_data has a @graph property
+    if not isinstance(graph_data, dict):
+        graph_data = {"@graph": graph_data}
+    elif '@graph' not in graph_data:
+        graph_data = {"@graph": [graph_data]}
+    
+    # Add the graph ID
+    if graph_id:
+        graph_data['@id'] = graph_id
+    
+    # Process the graph
+    result = self.add_jsonld_with_graph(graph_data)
+    
+    # Get or create the named graph in the RDF dataset
+    named_graph = self.dataset.graph(URIRef(graph_id))
+    
+    # Convert the expanded data to RDF and add to the named graph
+    # We need to reprocess the data to get it into the named graph
+    for entity in graph_data.get('@graph', []):
+        # Create a temporary graph
+        temp_graph = Graph()
+        
+        # Add the context to the entity if not present
+        if '@context' not in entity and '@context' in graph_data:
+            entity = entity.copy()
+            entity['@context'] = graph_data['@context']
+        
+        # Parse the entity into the temporary graph
+        temp_graph.parse(data=json.dumps(entity), format='json-ld')
+        
+        # Add all triples from the temporary graph to the named graph
+        for s, p, o in temp_graph:
+            named_graph.add((s, p, o))
+    
+    # Add metadata about this graph to the default graph
+    if graph_id:
+        self.default_graph.add((URIRef(graph_id), RDF.type, URIRef("http://www.w3.org/ns/prov#Entity")))
+        self.default_graph.add((URIRef(graph_id), 
+                               URIRef("http://www.w3.org/ns/prov#generatedAtTime"), 
+                               Literal(datetime.now().isoformat())))
+    
+    return result
+
+
+# %% ../00_memory.ipynb 54
+@patch
+def query_named_graph(self:SemanticMemory, graph_id, query_text):
+    """
+    Query a specific named graph for entities matching the query text
+    
+    Args:
+        graph_id: ID of the named graph to query
+        query_text: Text to search for in the graph
+        
+    Returns:
+        List of matching entities with their properties
+    """
+    named_graph = self.dataset.graph(URIRef(graph_id))
+    
+    # Find entities matching the query text
+    matching_entities = []
+    
+    # First check literals for matches
+    for s, p, o in named_graph:
+        if isinstance(o, Literal) and query_text.lower() in str(o).lower():
+            if str(s) not in matching_entities:
+                matching_entities.append(str(s))
+    
+    # Collect all properties for matching entities
+    results = []
+    for entity_uri in matching_entities:
+        entity = {"@id": entity_uri}
+        
+        for s, p, o in named_graph.triples((URIRef(entity_uri), None, None)):
+            pred = str(p)
+            if pred not in entity:
+                entity[pred] = []
+            
+            if isinstance(o, URIRef):
+                entity[pred].append({"@id": str(o)})
+            elif isinstance(o, Literal):
+                entity[pred].append({"@value": str(o)})
+        
+        results.append(entity)
+    
+    return results
+
+
+# %% ../00_memory.ipynb 55
+@patch
+def list_named_graphs(self:SemanticMemory):
+    """
+    List all named graphs in the memory system
+    
+    Returns:
+        Dictionary of graph IDs and their metadata
+    """
+    graphs = {}
+    
+    # Get all graph identifiers
+    for graph_identifier in self.dataset.graphs():
+        graph_id = str(graph_identifier)
+        if graph_id == "urn:x-arq:DefaultGraph":
+            continue  # Skip default graph
+            
+        # Get graph
+        graph = self.dataset.graph(graph_identifier)
+        
+        # Count triples
+        triple_count = len(list(graph))
+        
+        # Get entities (subjects)
+        entities = set()
+        for s in graph.subjects():
+            entities.add(str(s))
+            
+        # Get metadata about the graph from the default graph
+        metadata = {}
+        for p, o in self.default_graph.predicate_objects(graph_identifier):
+            pred = str(p)
+            if isinstance(o, URIRef):
+                metadata[pred] = str(o)
+            elif isinstance(o, Literal):
+                metadata[pred] = str(o)
+        
+        # Store graph info
+        graphs[graph_id] = {
+            "triple_count": triple_count,
+            "entity_count": len(entities),
+            "metadata": metadata
+        }
+    
+    return graphs
+
