@@ -8,6 +8,7 @@ website:
       - 02_vocabulary.ipynb
       - 03_navigation.ipynb
       - 04_dataset.ipynb
+      - 05_memorytools.ipynb
       - 05_tools.ipynb
       - 06_workflows.ipynb
       - 07_agents.ipynb
