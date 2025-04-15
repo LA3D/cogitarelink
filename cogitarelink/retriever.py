@@ -22,7 +22,7 @@ import re
 import time
 from io import BytesIO
 import dspy
-
+from .vocabtools import register_vocab_aware_loader, VOCABULARY_REGISTRY
 
 # %% ../01_retriever.ipynb 8
 def json_parse(content, uri=None):
@@ -402,6 +402,9 @@ def navigate(self:LODNavigator, uri:str):
     # Initialize navigation path
     self.navigation_paths[navigation_id] = []
     
+    # Register our vocabulary-aware document loader
+    register_vocab_aware_loader()
+    
     # Step 1: Analyze the URI
     uri_analysis = self.uri_analyzer(uri)
     self._add_to_path(navigation_id, "analyze_uri", uri=uri, result={
@@ -427,7 +430,6 @@ def navigate(self:LODNavigator, uri:str):
     
     # Step 4: Process the content
     return self._process_content(navigation_id, uri, fetch_result)
-
 
 # %% ../01_retriever.ipynb 28
 @patch

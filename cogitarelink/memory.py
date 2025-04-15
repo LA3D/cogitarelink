@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, field
 import pickle
+from .vocabtools import register_vocab_aware_loader, compact_entity_with_vocabulary, VOCABULARY_REGISTRY
 
 # %% ../00_memory.ipynb 7
 class SemanticMemory:
@@ -614,7 +615,103 @@ def ensure_standard_vocabulary(self:SemanticMemory, vocab_name, navigator):
     return success, data
 
 
+# %% ../00_memory.ipynb 28
+@patch
+def add_jsonld_with_vocab_support(self:SemanticMemory, data, context=None):
+    """Add JSON-LD data with vocabulary support.
+    
+    This method uses the vocabulary-aware document loader to handle
+    vocabularies that don't follow standard linked data principles.
+    
+    Args:
+        data: JSON-LD data to add
+        context: Optional context to apply
+        
+    Returns:
+        The expanded data
+    """
+    # Register our vocabulary-aware document loader
+    register_vocab_aware_loader()
+    
+    # Call the original add_jsonld method
+    return self.add_jsonld(data, context)
+
 # %% ../00_memory.ipynb 29
+@patch
+def query_and_compact(self:SemanticMemory, entity_id, vocab_name):
+    """Query an entity by ID and compact it using a specific vocabulary.
+    
+    This method combines query_by_id and compact_entity_with_vocabulary
+    for convenient access to entity data.
+    
+    Args:
+        entity_id: ID of the entity to retrieve
+        vocab_name: Name of the vocabulary to use for compaction
+        
+    Returns:
+        The compacted entity, or None if not found
+    """
+    # Query the entity
+    entity = self.query_by_id(entity_id)
+    if not entity:
+        return None
+    
+    # Compact using the vocabulary
+    return compact_entity_with_vocabulary(entity, vocab_name)
+
+# %% ../00_memory.ipynb 30
+@patch
+def detect_vocabulary(self:SemanticMemory, entity_id):
+    """Detect which vocabulary an entity uses.
+    
+    This method tries to determine which vocabulary an entity uses
+    based on its properties and types.
+    
+    Args:
+        entity_id: ID of the entity to analyze
+        
+    Returns:
+        The detected vocabulary name, or None if unknown
+    """
+    # Query the entity
+    entity = self.query_by_id(entity_id)
+    if not entity:
+        return None
+    
+    # Check for conformsTo property
+    conforms_to = None
+    for vocab_uri in VOCABULARY_REGISTRY.values():
+        conforms_to_uri = f"{vocab_uri['uri']}conformsTo"
+        if conforms_to_uri in entity:
+            for value in entity[conforms_to_uri]:
+                if isinstance(value, dict) and "@value" in value:
+                    conforms_to = value["@value"]
+                    break
+    
+    # If conformsTo property exists, check for known values
+    if conforms_to:
+        if "mlcommons.org/croissant" in conforms_to:
+            return "croissant"
+        if "w3id.org/ro/crate" in conforms_to:
+            return "ro-crate"
+    
+    # Check types
+    types = []
+    if "@type" in entity:
+        types = entity["@type"] if isinstance(entity["@type"], list) else [entity["@type"]]
+    
+    # Match types to vocabularies
+    for type_uri in types:
+        for vocab_name, vocab_info in VOCABULARY_REGISTRY.items():
+            if type_uri.startswith(vocab_info["uri"]):
+                return vocab_name
+    
+    # No match found
+    return None
+Copy
+
+
+# %% ../00_memory.ipynb 32
 @patch
 def _get_context_id(self:SemanticMemory, context):
     """Generate a stable ID for a context"""
@@ -636,7 +733,7 @@ def _get_context_id(self:SemanticMemory, context):
     return f"context:{id(context)}"
 
 
-# %% ../00_memory.ipynb 30
+# %% ../00_memory.ipynb 33
 @patch
 def add_jsonld(self:SemanticMemory, data, context=None):
     """Add JSON-LD data while preserving context information"""
@@ -708,7 +805,7 @@ def add_jsonld(self:SemanticMemory, data, context=None):
     return expanded
 
 
-# %% ../00_memory.ipynb 31
+# %% ../00_memory.ipynb 34
 @patch
 def _update_indices(self:SemanticMemory, expanded_data):
     """Update our custom indices based on expanded JSON-LD data"""
@@ -735,7 +832,7 @@ def _update_indices(self:SemanticMemory, expanded_data):
             self.indices["by_type"][type_uri].append(node)
 
 
-# %% ../00_memory.ipynb 32
+# %% ../00_memory.ipynb 35
 @patch
 def query_by_id(self:SemanticMemory, entity_id):
     """Retrieve an entity by its ID"""
@@ -760,7 +857,7 @@ def query_by_id(self:SemanticMemory, entity_id):
     return results if results else None
 
 
-# %% ../00_memory.ipynb 33
+# %% ../00_memory.ipynb 36
 @patch
 def query_by_type(self:SemanticMemory, type_uri):
     """Retrieve all entities of a specific type"""
@@ -795,7 +892,7 @@ def query_by_type(self:SemanticMemory, type_uri):
     return entities
 
 
-# %% ../00_memory.ipynb 34
+# %% ../00_memory.ipynb 37
 @patch
 def _update_indices_with_labels(self:SemanticMemory, expanded_data):
     """Update indices with focus on labels and descriptions rather than URIs"""
@@ -857,7 +954,7 @@ def _update_indices_with_labels(self:SemanticMemory, expanded_data):
                                 self.indices["by_description"][keyword].append(node)
 
 
-# %% ../00_memory.ipynb 37
+# %% ../00_memory.ipynb 40
 @patch
 def create_entity_with_uuid(self:SemanticMemory, data, type_uri=None):
     """Create a new entity with a UUID identifier"""
@@ -888,7 +985,7 @@ def create_entity_with_uuid(self:SemanticMemory, data, type_uri=None):
     return entity_id
 
 
-# %% ../00_memory.ipynb 38
+# %% ../00_memory.ipynb 41
 @patch
 def resolve_did(self:SemanticMemory, did):
     """Resolve a DID to its DID Document"""
@@ -919,7 +1016,7 @@ def resolve_did(self:SemanticMemory, did):
     return did_document
 
 
-# %% ../00_memory.ipynb 40
+# %% ../00_memory.ipynb 43
 @patch
 def follow_link(self:SemanticMemory, uri, predicate=None, limit=5):
     """
@@ -969,7 +1066,7 @@ def follow_link(self:SemanticMemory, uri, predicate=None, limit=5):
     return linked_resources
 
 
-# %% ../00_memory.ipynb 42
+# %% ../00_memory.ipynb 45
 @patch
 def manage_context(self:SemanticMemory, context_uri, force_refresh=False, ttl_seconds=86400):
     """
@@ -1051,7 +1148,7 @@ def manage_context(self:SemanticMemory, context_uri, force_refresh=False, ttl_se
         return self.contexts[context_uri]["document"]
 
 
-# %% ../00_memory.ipynb 43
+# %% ../00_memory.ipynb 46
 @patch
 def build_type_container(self:SemanticMemory, base_type=None, include_subtypes=True):
     """
@@ -1105,7 +1202,7 @@ def build_type_container(self:SemanticMemory, base_type=None, include_subtypes=T
     return container
 
 
-# %% ../00_memory.ipynb 44
+# %% ../00_memory.ipynb 47
 @patch
 def build_property_container(self:SemanticMemory, property_uri):
     """
@@ -1154,7 +1251,7 @@ def build_property_container(self:SemanticMemory, property_uri):
     return container
 
 
-# %% ../00_memory.ipynb 50
+# %% ../00_memory.ipynb 53
 @patch
 def retrieve_relevant_memory(self:SemanticMemory, structured_query, max_results=5):
     """
@@ -1236,7 +1333,7 @@ def retrieve_relevant_memory(self:SemanticMemory, structured_query, max_results=
     return compacted_results
 
 
-# %% ../00_memory.ipynb 51
+# %% ../00_memory.ipynb 54
 @patch
 def query_translator(self:SemanticMemory, natural_language_query):
     """
@@ -1273,7 +1370,7 @@ def query_translator(self:SemanticMemory, natural_language_query):
     return structured_queries
 
 
-# %% ../00_memory.ipynb 54
+# %% ../00_memory.ipynb 57
 @patch
 def llm_query_translator(self:SemanticMemory, natural_language_query, api_key=None):
     """Use Claude to translate a natural language query into structured memory queries"""
@@ -1337,7 +1434,7 @@ def llm_query_translator(self:SemanticMemory, natural_language_query, api_key=No
     return structured_query
 
 
-# %% ../00_memory.ipynb 56
+# %% ../00_memory.ipynb 59
 def test_claude_semantic_memory_improved():
     """Test the Claude-powered semantic memory system with improved retrieval"""
     # Initialize the memory system
@@ -1433,7 +1530,7 @@ def test_claude_semantic_memory_improved():
 
 
 
-# %% ../00_memory.ipynb 60
+# %% ../00_memory.ipynb 63
 @patch
 def _register_contexts(self:SemanticMemory, data, parent_context_id=None):
     """Register all contexts in a JSON-LD document, including scoped contexts"""
@@ -1473,7 +1570,7 @@ def _register_contexts(self:SemanticMemory, data, parent_context_id=None):
     
     return None
 
-# %% ../00_memory.ipynb 61
+# %% ../00_memory.ipynb 64
 @patch
 def retrieve_in_context(self:SemanticMemory, entity_id, include_scoped_contexts=True):
     """
@@ -1544,7 +1641,7 @@ def retrieve_in_context(self:SemanticMemory, entity_id, include_scoped_contexts=
     return data
 
 
-# %% ../00_memory.ipynb 62
+# %% ../00_memory.ipynb 65
 @patch
 def search_with_contexts(self:SemanticMemory, query, context_id=None, max_results=5):
     """
@@ -1610,7 +1707,7 @@ def search_with_contexts(self:SemanticMemory, query, context_id=None, max_result
     return results
 
 
-# %% ../00_memory.ipynb 63
+# %% ../00_memory.ipynb 66
 @patch
 def list_contexts(self:SemanticMemory):
     """
@@ -1632,7 +1729,7 @@ def list_contexts(self:SemanticMemory):
     return result
 
 
-# %% ../00_memory.ipynb 64
+# %% ../00_memory.ipynb 67
 def test_context_aware_memory():
     """Test the context-aware memory system with scoped contexts"""
     # Initialize the memory system
@@ -1750,7 +1847,7 @@ def test_context_aware_memory():
 
 
 
-# %% ../00_memory.ipynb 67
+# %% ../00_memory.ipynb 70
 @patch
 def answer_query_with_context_aware_tools(self:SemanticMemory, user_query):
     """Use Claude with context-aware tools to answer queries about the memory store"""
@@ -1819,7 +1916,7 @@ def answer_query_with_context_aware_tools(self:SemanticMemory, user_query):
     return result
 
 
-# %% ../00_memory.ipynb 70
+# %% ../00_memory.ipynb 73
 def test_supply_chain_example():
     """Test the context-aware memory system with a supply chain example"""
     # Initialize the memory system
@@ -2020,7 +2117,7 @@ def test_supply_chain_example():
     
     return memory
 
-# %% ../00_memory.ipynb 72
+# %% ../00_memory.ipynb 75
 @patch
 def add_jsonld_with_graph(self:SemanticMemory, data, context=None):
     """Enhanced version of add_jsonld that properly handles @graph structures while preserving contexts.
@@ -2059,7 +2156,7 @@ def add_jsonld_with_graph(self:SemanticMemory, data, context=None):
     return self.add_jsonld(data, context)
 
 
-# %% ../00_memory.ipynb 73
+# %% ../00_memory.ipynb 76
 @patch
 def add_named_graph(self:SemanticMemory, graph_data, graph_id):
     """Add a named graph to the memory system, preserving context information."""
@@ -2107,7 +2204,7 @@ def add_named_graph(self:SemanticMemory, graph_data, graph_id):
     return result
 
 
-# %% ../00_memory.ipynb 74
+# %% ../00_memory.ipynb 77
 @patch
 def query_named_graph(self:SemanticMemory, graph_id, query_text):
     """
@@ -2151,7 +2248,7 @@ def query_named_graph(self:SemanticMemory, graph_id, query_text):
     return results
 
 
-# %% ../00_memory.ipynb 75
+# %% ../00_memory.ipynb 78
 @patch
 def list_named_graphs(self:SemanticMemory):
     """
@@ -2198,7 +2295,7 @@ def list_named_graphs(self:SemanticMemory):
     return graphs
 
 
-# %% ../00_memory.ipynb 80
+# %% ../00_memory.ipynb 83
 # Context formatting function
 @patch
 def format_context_for_llm(self:SemanticMemory, context_id, include_descriptions=True):
@@ -2246,7 +2343,7 @@ def format_context_for_llm(self:SemanticMemory, context_id, include_descriptions
     
     return annotated
 
-# %% ../00_memory.ipynb 81
+# %% ../00_memory.ipynb 84
 # Context reasoning hints function
 @patch
 def generate_context_reasoning_hints(self:SemanticMemory, context_ids):

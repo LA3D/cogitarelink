@@ -7,6 +7,7 @@ website:
       - 01_retriever.ipynb
       - 02_vocabulary.ipynb
       - 03_navigation.ipynb
+      - 03_vocabularytools.ipynb
       - 04_dataset.ipynb
       - 05_memorytools.ipynb
       - 05_tools.ipynb
