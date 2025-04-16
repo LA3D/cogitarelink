@@ -708,7 +708,6 @@ def detect_vocabulary(self:SemanticMemory, entity_id):
     
     # No match found
     return None
-Copy
 
 
 # %% ../00_memory.ipynb 32
