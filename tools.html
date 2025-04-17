@@ -1,0 +1,1845 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.6.43">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="This module provides tools for AI agents to explore and interact with linked data structures. These tools are designed to work with the Claudette library to enable Claude to navigate and understand JSON-LD data.">
+
+<title>tools – Linked Data Navigation with AI Agents</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-d4d76bf8491c20bad77d141916dc28e1.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-ae44de7e3b26b230a7801128389852ee.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="tools – Linked Data Navigation with AI Agents">
+<meta property="og:description" content="This module provides tools for AI agents to explore and interact with linked data structures. These tools are designed to work with the Claudette library to enable Claude to navigate and understand JSON-LD data.">
+<meta property="og:site_name" content="Linked Data Navigation with AI Agents">
+<meta name="twitter:title" content="tools – Linked Data Navigation with AI Agents">
+<meta name="twitter:description" content="This module provides tools for AI agents to explore and interact with linked data structures. These tools are designed to work with the Claudette library to enable Claude to navigate and understand JSON-LD data.">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-sidebar floating nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">Linked Data Navigation with AI Agents</span>
+    </a>
+  </div>
+        <div class="quarto-navbar-tools tools-end">
+</div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./tools.html">tools</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">cogitarelink</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./core.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">core</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./memory.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">memory</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./retriever.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">retriever</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./vocabulary.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">vocabulary</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./navigation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">navigation</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./vocabularytools.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Vocabulary Tools</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./dataset.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">dataset</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./memorytools.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Memory Tools for Agents</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./tools.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">tools</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./workflows.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">workflows</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./agents.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">agents</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./utils.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">utils</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview">Overview</a></li>
+  <li><a href="#vocabulary-exploration" id="toc-vocabulary-exploration" class="nav-link" data-scroll-target="#vocabulary-exploration">Vocabulary Exploration</a></li>
+  <li><a href="#relationship-navigation" id="toc-relationship-navigation" class="nav-link" data-scroll-target="#relationship-navigation">Relationship Navigation</a></li>
+  <li><a href="#dataset-exploration" id="toc-dataset-exploration" class="nav-link" data-scroll-target="#dataset-exploration">Dataset Exploration</a></li>
+  <li><a href="#search" id="toc-search" class="nav-link" data-scroll-target="#search">Search</a></li>
+  <li><a href="#evidence-collection" id="toc-evidence-collection" class="nav-link" data-scroll-target="#evidence-collection">Evidence Collection</a></li>
+  <li><a href="#usage-with-claude" id="toc-usage-with-claude" class="nav-link" data-scroll-target="#usage-with-claude">Usage with Claude</a>
+  <ul class="collapse">
+  <li><a href="#find_vocabulary_term" id="toc-find_vocabulary_term" class="nav-link" data-scroll-target="#find_vocabulary_term">find_vocabulary_term</a></li>
+  <li><a href="#follow_relationship" id="toc-follow_relationship" class="nav-link" data-scroll-target="#follow_relationship">follow_relationship</a></li>
+  <li><a href="#explore_dataset" id="toc-explore_dataset" class="nav-link" data-scroll-target="#explore_dataset">explore_dataset</a></li>
+  <li><a href="#search_dataset" id="toc-search_dataset" class="nav-link" data-scroll-target="#search_dataset">search_dataset</a></li>
+  <li><a href="#get_dataset_evidence" id="toc-get_dataset_evidence" class="nav-link" data-scroll-target="#get_dataset_evidence">get_dataset_evidence</a></li>
+  <li><a href="#collect_evidence" id="toc-collect_evidence" class="nav-link" data-scroll-target="#collect_evidence">collect_evidence</a></li>
+  <li><a href="#summarize_evidence" id="toc-summarize_evidence" class="nav-link" data-scroll-target="#summarize_evidence">summarize_evidence</a></li>
+  <li><a href="#find_term" id="toc-find_term" class="nav-link" data-scroll-target="#find_term">find_term</a></li>
+  </ul></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/la3d/cogitarelink/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="tools.html.md"><i class="bi bi-file-code"></i>CommonMark</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">tools</h1>
+</div>
+
+<div>
+  <div class="description">
+    This module provides tools for AI agents to explore and interact with linked data structures. These tools are designed to work with the Claudette library to enable Claude to navigate and understand JSON-LD data.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<section id="overview" class="level2">
+<h2 class="anchored" data-anchor-id="overview">Overview</h2>
+<p>The tools in this module enable:</p>
+<ol type="1">
+<li><strong>Vocabulary exploration</strong>: Finding and understanding terms in vocabularies</li>
+<li><strong>Relationship navigation</strong>: Following connections between concepts</li>
+<li><strong>Dataset exploration</strong>: Examining the structure of datasets</li>
+<li><strong>Search</strong>: Finding specific information in datasets</li>
+<li><strong>Evidence collection</strong>: Gathering evidence about specific topics</li>
+</ol>
+<p>All tools return markdown-formatted strings that Claude can interpret and use to build comprehensive responses.</p>
+</section>
+<section id="vocabulary-exploration" class="level2">
+<h2 class="anchored" data-anchor-id="vocabulary-exploration">Vocabulary Exploration</h2>
+<div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="at">@tool</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> find_vocabulary_term(</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    term: <span class="bu">str</span>,  <span class="co"># Term to find (e.g., "Person", "schema:Person", or full URI)</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    vocab_name: <span class="bu">str</span> <span class="op">=</span> <span class="st">"default"</span>,  <span class="co"># Name of vocabulary to search in</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    search_type: <span class="bu">str</span> <span class="op">=</span> <span class="st">"all"</span>  <span class="co"># Search by: "id", "label", "type", or "all"</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>) <span class="op">-&gt;</span> <span class="bu">str</span>:  <span class="co"># Definition and details of the term</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>This tool allows Claude to find and understand terms in vocabularies. It can search by ID, label, or type, and returns a detailed description of the term including its definition and relationships.</p>
+<p>Example usage:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>find_vocabulary_term(<span class="st">"Person"</span>, search_type<span class="op">=</span><span class="st">"id"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="relationship-navigation" class="level2">
+<h2 class="anchored" data-anchor-id="relationship-navigation">Relationship Navigation</h2>
+<div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="at">@tool</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> follow_relationship(</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    entity_id: <span class="bu">str</span>,  <span class="co"># ID of the entity to start from</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    relationship: <span class="bu">str</span> <span class="op">=</span> <span class="va">None</span>,  <span class="co"># Relationship to follow (or None to list all)</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    include_inverse: <span class="bu">bool</span> <span class="op">=</span> <span class="va">False</span>  <span class="co"># Whether to include inverse relationships</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>) <span class="op">-&gt;</span> <span class="bu">str</span>:  <span class="co"># Related entities or available relationships</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>This tool enables Claude to navigate the connections between concepts in a vocabulary. It can list all available relationships for an entity or follow a specific relationship to find related entities.</p>
+<p>Example usage:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># List all relationships for Person</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>follow_relationship(<span class="st">"Person"</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Follow a specific relationship</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>follow_relationship(<span class="st">"Person"</span>, <span class="st">"rdfs:subClassOf"</span>)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Include inverse relationships</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>follow_relationship(<span class="st">"Person"</span>, include_inverse<span class="op">=</span><span class="va">True</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="dataset-exploration" class="level2">
+<h2 class="anchored" data-anchor-id="dataset-exploration">Dataset Exploration</h2>
+<div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="at">@tool</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> explore_dataset(</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    path: <span class="bu">str</span> <span class="op">=</span> <span class="st">""</span>,  <span class="co"># Path to explore in the dataset</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    max_size: <span class="bu">int</span> <span class="op">=</span> <span class="dv">4000</span>  <span class="co"># Maximum size of returned JSON</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>) <span class="op">-&gt;</span> <span class="bu">str</span>:  <span class="co"># Dataset fragment</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>This tool allows Claude to explore the structure of a dataset at a specific path. It returns a human-readable representation of the data at that path, including key properties and their values.</p>
+<p>Example usage:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Explore the root level</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>explore_dataset()</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Explore a specific path</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>explore_dataset(<span class="st">"recordSet[0].field"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="search" class="level2">
+<h2 class="anchored" data-anchor-id="search">Search</h2>
+<div class="sourceCode" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="at">@tool</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> search_dataset(</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    query: <span class="bu">str</span>,  <span class="co"># Text to search for in the dataset</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    case_sensitive: <span class="bu">bool</span> <span class="op">=</span> <span class="va">False</span>  <span class="co"># Whether search should be case sensitive</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>) <span class="op">-&gt;</span> <span class="bu">str</span>:  <span class="co"># Search results</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>This tool enables Claude to search for specific text or patterns across the dataset. It returns a list of paths where the query was found, grouped by keys and values.</p>
+<p>Example usage:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Search for a term</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>search_dataset(<span class="st">"machine learning"</span>)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Case-sensitive search</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>search_dataset(<span class="st">"RecordSet"</span>, case_sensitive<span class="op">=</span><span class="va">True</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="evidence-collection" class="level2">
+<h2 class="anchored" data-anchor-id="evidence-collection">Evidence Collection</h2>
+<div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="at">@tool</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_dataset_evidence(</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    topic: <span class="bu">str</span>,  <span class="co"># Topic to find evidence about</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    max_results: <span class="bu">int</span> <span class="op">=</span> <span class="dv">5</span>  <span class="co"># Maximum number of evidence items to return</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>) <span class="op">-&gt;</span> <span class="bu">str</span>:  <span class="co"># Evidence from the dataset</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>This tool helps Claude gather structured evidence about a specific topic from the dataset. It returns a collection of evidence items, each with context information and the actual value found.</p>
+<p>Example usage:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Get evidence about a topic</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>get_dataset_evidence(<span class="st">"machine learning"</span>)</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Limit the number of results</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>get_dataset_evidence(<span class="st">"feature"</span>, max_results<span class="op">=</span><span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="usage-with-claude" class="level2">
+<h2 class="anchored" data-anchor-id="usage-with-claude">Usage with Claude</h2>
+<p>These tools are designed to be used with Claude via Claudette’s <code>tool</code> decorator. To use them in an agent, you need to:</p>
+<ol type="1">
+<li>Load your vocabularies and datasets into global variables named <code>kb</code> and <code>dataset_kb</code></li>
+<li>Create a Chat instance with these tools</li>
+<li>Run the agent with a prompt that instructs Claude how to use the tools</li>
+</ol>
+<p>Example:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> claudette <span class="im">import</span> Chat</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Load vocabulary and dataset</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>kb <span class="op">=</span> LinkedDataKnowledge()</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>kb.fetch_vocabulary(<span class="st">"https://schema.org/"</span>)</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>dataset_kb <span class="op">=</span> LinkedDataKnowledge(my_dataset)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Create an agent with the tools</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Chat(model<span class="op">=</span><span class="st">"claude-3-5-sonnet-20241022"</span>, tools<span class="op">=</span>[</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>    find_vocabulary_term,</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>    follow_relationship,</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>    explore_dataset,</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>    search_dataset,</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>    get_dataset_evidence</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>])</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Run the agent</span></span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agent.toolloop(<span class="st">"""</span></span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a><span class="st">Please explore this dataset and tell me what it contains.</span></span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a><span class="st">Start by examining the overall structure, then look for information about</span></span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a><span class="st">machine learning features.</span></span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>By combining these tools, Claude can navigate and understand complex linked data structures, following connections between concepts and gathering evidence to provide comprehensive responses.</p>
+<div id="cell-3" class="cell">
+<details open="" class="code-fold">
+<summary>Exported source</summary>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fastcore.basics <span class="im">import</span> <span class="op">*</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fastcore.meta <span class="im">import</span> <span class="op">*</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fastcore.test <span class="im">import</span> <span class="op">*</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> Markdown, display</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> cogitarelink.core <span class="im">import</span> LinkedDataKnowledge</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> cogitarelink.navigation <span class="im">import</span> <span class="op">*</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> claudette <span class="im">import</span> tool, Chat, models</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> json</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> List, Dict, Any, Optional, Union, Set</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> datetime</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div id="cell-4" class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>models</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<pre><code>['claude-3-opus-20240229',
+ 'claude-3-7-sonnet-20250219',
+ 'claude-3-5-sonnet-20241022',
+ 'claude-3-haiku-20240307',
+ 'claude-3-5-haiku-20241022']</code></pre>
+</div>
+</div>
+<div id="cell-5" class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>model<span class="op">=</span>models[<span class="dv">1</span>]</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>model</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<pre><code>'claude-3-7-sonnet-20250219'</code></pre>
+</div>
+</div>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/memorytools.py#L117" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="find_vocabulary_term" class="level3">
+<h3 class="anchored" data-anchor-id="find_vocabulary_term">find_vocabulary_term</h3>
+<blockquote class="blockquote">
+<pre><code> find_vocabulary_term (term:str, vocab_name:str='default',
+                       search_type:str='all')</code></pre>
+</blockquote>
+<p>*Find a specific term in a vocabulary and return its definition.</p>
+<p>Args: term: The term to search for (can be a partial name, prefixed term, or full URI) vocab_name: Name of the vocabulary to search in (use “default” for the main vocabulary) search_type: How to search (“id”, “label”, “type”, or “all”)</p>
+<p>Returns: A markdown-formatted description of the term(s) found*</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 25%">
+<col style="width: 34%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>term</td>
+<td>str</td>
+<td></td>
+<td>Term to find (e.g., “Person”, “schema:Person”, or full URI)</td>
+</tr>
+<tr class="even">
+<td>vocab_name</td>
+<td>str</td>
+<td>default</td>
+<td>Name of vocabulary to search in</td>
+</tr>
+<tr class="odd">
+<td>search_type</td>
+<td>str</td>
+<td>all</td>
+<td>Search by: “id”, “label”, “type”, or “all”</td>
+</tr>
+<tr class="even">
+<td><strong>Returns</strong></td>
+<td><strong>str</strong></td>
+<td></td>
+<td><strong>Definition and details of the term</strong></td>
+</tr>
+</tbody>
+</table>
+<div id="cell-7" class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> test_find_vocabulary_term():</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Setup a test knowledge base</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">global</span> kb</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>    kb <span class="op">=</span> LinkedDataKnowledge({</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">"@context"</span>: {},</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">"@graph"</span>: [</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>            {</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@id"</span>: <span class="st">"http://example.org/Person"</span>,</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@type"</span>: <span class="st">"rdfs:Class"</span>,</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>                <span class="st">"rdfs:label"</span>: <span class="st">"Person"</span>,</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>                <span class="st">"rdfs:comment"</span>: <span class="st">"A person (alive, dead, undead, or fictional)."</span></span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>            },</span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>            {</span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@id"</span>: <span class="st">"http://example.org/name"</span>,</span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@type"</span>: <span class="st">"rdf:Property"</span>,</span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>                <span class="st">"rdfs:label"</span>: <span class="st">"name"</span>,</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>                <span class="st">"rdfs:domain"</span>: {<span class="st">"@id"</span>: <span class="st">"http://example.org/Person"</span>}</span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>        ]</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 1: Find by ID</span></span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> find_vocabulary_term(<span class="st">"Person"</span>, search_type<span class="op">=</span><span class="st">"id"</span>)</span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Found 1 terms"</span> <span class="kw">in</span> result)</span>
+<span id="cb18-25"><a href="#cb18-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Person"</span> <span class="kw">in</span> result)</span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"A person (alive, dead, undead, or fictional)"</span> <span class="kw">in</span> result)</span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb18-28"><a href="#cb18-28" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 2: Find by label</span></span>
+<span id="cb18-29"><a href="#cb18-29" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> find_vocabulary_term(<span class="st">"name"</span>, search_type<span class="op">=</span><span class="st">"label"</span>)</span>
+<span id="cb18-30"><a href="#cb18-30" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Found 1 terms"</span> <span class="kw">in</span> result)</span>
+<span id="cb18-31"><a href="#cb18-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"name"</span> <span class="kw">in</span> result)</span>
+<span id="cb18-32"><a href="#cb18-32" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb18-33"><a href="#cb18-33" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 3: Find by type</span></span>
+<span id="cb18-34"><a href="#cb18-34" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> find_vocabulary_term(<span class="st">"rdfs:Class"</span>, search_type<span class="op">=</span><span class="st">"type"</span>)</span>
+<span id="cb18-35"><a href="#cb18-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Found 1 terms"</span> <span class="kw">in</span> result)</span>
+<span id="cb18-36"><a href="#cb18-36" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Person"</span> <span class="kw">in</span> result)</span>
+<span id="cb18-37"><a href="#cb18-37" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb18-38"><a href="#cb18-38" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 4: No results</span></span>
+<span id="cb18-39"><a href="#cb18-39" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> find_vocabulary_term(<span class="st">"NonExistent"</span>)</span>
+<span id="cb18-40"><a href="#cb18-40" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"No terms found"</span> <span class="kw">in</span> result)</span>
+<span id="cb18-41"><a href="#cb18-41" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb18-42"><a href="#cb18-42" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 5: No vocabulary loaded</span></span>
+<span id="cb18-43"><a href="#cb18-43" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Save a reference to kb before deleting it</span></span>
+<span id="cb18-44"><a href="#cb18-44" aria-hidden="true" tabindex="-1"></a>    kb_backup <span class="op">=</span> kb</span>
+<span id="cb18-45"><a href="#cb18-45" aria-hidden="true" tabindex="-1"></a>    <span class="kw">del</span> <span class="bu">globals</span>()[<span class="st">'kb'</span>]</span>
+<span id="cb18-46"><a href="#cb18-46" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> find_vocabulary_term(<span class="st">"Person"</span>)</span>
+<span id="cb18-47"><a href="#cb18-47" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"No vocabulary loaded"</span> <span class="kw">in</span> result)</span>
+<span id="cb18-48"><a href="#cb18-48" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb18-49"><a href="#cb18-49" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Restore the knowledge base for other tests</span></span>
+<span id="cb18-50"><a href="#cb18-50" aria-hidden="true" tabindex="-1"></a>    <span class="bu">globals</span>()[<span class="st">'kb'</span>] <span class="op">=</span> kb_backup</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-8" class="cell">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>test_find_vocabulary_term()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools.py#L87" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="follow_relationship" class="level3">
+<h3 class="anchored" data-anchor-id="follow_relationship">follow_relationship</h3>
+<blockquote class="blockquote">
+<pre><code> follow_relationship (entity_id:str, relationship:str=None,
+                      include_inverse:bool=False)</code></pre>
+</blockquote>
+<p>*Follow a relationship from an entity to find related entities.</p>
+<p>Args: entity_id: The ID of the entity to start from relationship: The relationship to follow, or None to list available relationships include_inverse: Whether to include relationships where this entity is the object</p>
+<p>Returns: A markdown-formatted description of the related entities or available relationships*</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 25%">
+<col style="width: 34%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>entity_id</td>
+<td>str</td>
+<td></td>
+<td>ID of the entity to start from</td>
+</tr>
+<tr class="even">
+<td>relationship</td>
+<td>str</td>
+<td>None</td>
+<td>Relationship to follow (or None to list all)</td>
+</tr>
+<tr class="odd">
+<td>include_inverse</td>
+<td>bool</td>
+<td>False</td>
+<td>Whether to include inverse relationships</td>
+</tr>
+<tr class="even">
+<td><strong>Returns</strong></td>
+<td><strong>str</strong></td>
+<td></td>
+<td><strong>Related entities or available relationships</strong></td>
+</tr>
+</tbody>
+</table>
+<div id="cell-10" class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> test_follow_relationship():</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Setup a test knowledge base</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">global</span> kb</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>    kb <span class="op">=</span> LinkedDataKnowledge({</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">"@context"</span>: {},</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">"@graph"</span>: [</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>            {</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@id"</span>: <span class="st">"http://example.org/Person"</span>,</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@type"</span>: <span class="st">"rdfs:Class"</span>,</span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>                <span class="st">"rdfs:label"</span>: <span class="st">"Person"</span>,</span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>                <span class="st">"rdfs:subClassOf"</span>: {<span class="st">"@id"</span>: <span class="st">"http://example.org/Thing"</span>}</span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>            },</span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>            {</span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@id"</span>: <span class="st">"http://example.org/Thing"</span>,</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@type"</span>: <span class="st">"rdfs:Class"</span>,</span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>                <span class="st">"rdfs:label"</span>: <span class="st">"Thing"</span></span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>            },</span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>            {</span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@id"</span>: <span class="st">"http://example.org/name"</span>,</span>
+<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@type"</span>: <span class="st">"rdf:Property"</span>,</span>
+<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a>                <span class="st">"rdfs:domain"</span>: {<span class="st">"@id"</span>: <span class="st">"http://example.org/Person"</span>}</span>
+<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb21-23"><a href="#cb21-23" aria-hidden="true" tabindex="-1"></a>        ]</span>
+<span id="cb21-24"><a href="#cb21-24" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb21-25"><a href="#cb21-25" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb21-26"><a href="#cb21-26" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 1: List available relationships</span></span>
+<span id="cb21-27"><a href="#cb21-27" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> follow_relationship(<span class="st">"Person"</span>)</span>
+<span id="cb21-28"><a href="#cb21-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Available relationships"</span> <span class="kw">in</span> result)</span>
+<span id="cb21-29"><a href="#cb21-29" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"rdfs:label"</span> <span class="kw">in</span> result)</span>
+<span id="cb21-30"><a href="#cb21-30" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"rdfs:subClassOf"</span> <span class="kw">in</span> result)</span>
+<span id="cb21-31"><a href="#cb21-31" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb21-32"><a href="#cb21-32" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 2: Follow a specific relationship</span></span>
+<span id="cb21-33"><a href="#cb21-33" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> follow_relationship(<span class="st">"Person"</span>, <span class="st">"rdfs:subClassOf"</span>)</span>
+<span id="cb21-34"><a href="#cb21-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Entities related to 'Person'"</span> <span class="kw">in</span> result)</span>
+<span id="cb21-35"><a href="#cb21-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Thing"</span> <span class="kw">in</span> result)</span>
+<span id="cb21-36"><a href="#cb21-36" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb21-37"><a href="#cb21-37" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 3: Include inverse relationships</span></span>
+<span id="cb21-38"><a href="#cb21-38" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> follow_relationship(<span class="st">"Person"</span>, include_inverse<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb21-39"><a href="#cb21-39" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Inverse relationships"</span> <span class="kw">in</span> result)</span>
+<span id="cb21-40"><a href="#cb21-40" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"rdfs:domain"</span> <span class="kw">in</span> result)</span>
+<span id="cb21-41"><a href="#cb21-41" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb21-42"><a href="#cb21-42" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 4: Follow an inverse relationship</span></span>
+<span id="cb21-43"><a href="#cb21-43" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> follow_relationship(<span class="st">"Person"</span>, <span class="st">"^rdfs:domain"</span>)</span>
+<span id="cb21-44"><a href="#cb21-44" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Entities related to 'Person'"</span> <span class="kw">in</span> result)</span>
+<span id="cb21-45"><a href="#cb21-45" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"name"</span> <span class="kw">in</span> result)</span>
+<span id="cb21-46"><a href="#cb21-46" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb21-47"><a href="#cb21-47" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 5: Non-existent relationship</span></span>
+<span id="cb21-48"><a href="#cb21-48" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> follow_relationship(<span class="st">"Person"</span>, <span class="st">"nonexistent"</span>)</span>
+<span id="cb21-49"><a href="#cb21-49" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"No entities found"</span> <span class="kw">in</span> result)</span>
+<span id="cb21-50"><a href="#cb21-50" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb21-51"><a href="#cb21-51" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 6: Non-existent entity</span></span>
+<span id="cb21-52"><a href="#cb21-52" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> follow_relationship(<span class="st">"NonExistent"</span>)</span>
+<span id="cb21-53"><a href="#cb21-53" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"not found"</span> <span class="kw">in</span> result)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-11" class="cell">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>test_follow_relationship()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools.py#L163" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="explore_dataset" class="level3">
+<h3 class="anchored" data-anchor-id="explore_dataset">explore_dataset</h3>
+<blockquote class="blockquote">
+<pre><code> explore_dataset (path:str='', max_size:int=4000)</code></pre>
+</blockquote>
+<p>*Explore the dataset structure at the given path.</p>
+<p>Args: path: The path to explore, using dot notation (e.g., “recordSet[0].field”) max_size: Maximum size of the returned JSON in characters</p>
+<p>Returns: A markdown-formatted representation of the data at the specified path*</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>path</td>
+<td>str</td>
+<td></td>
+<td>Path to explore in the dataset</td>
+</tr>
+<tr class="even">
+<td>max_size</td>
+<td>int</td>
+<td>4000</td>
+<td>Maximum size of returned JSON</td>
+</tr>
+<tr class="odd">
+<td><strong>Returns</strong></td>
+<td><strong>str</strong></td>
+<td></td>
+<td><strong>Dataset fragment</strong></td>
+</tr>
+</tbody>
+</table>
+<div id="cell-13" class="cell">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> test_explore_dataset():</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Setup a test dataset</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">global</span> dataset_kb</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>    dataset_kb <span class="op">=</span> LinkedDataKnowledge({</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">"@context"</span>: {<span class="st">"schema"</span>: <span class="st">"https://schema.org/"</span>},</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">"recordSet"</span>: [</span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>            {</span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@id"</span>: <span class="st">"dataset/recordset1"</span>,</span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@type"</span>: <span class="st">"cr:RecordSet"</span>,</span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a>                <span class="st">"name"</span>: <span class="st">"Test RecordSet"</span>,</span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a>                <span class="st">"field"</span>: [</span>
+<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a>                    {</span>
+<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"@id"</span>: <span class="st">"dataset/field1"</span>,</span>
+<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"@type"</span>: <span class="st">"cr:Field"</span>,</span>
+<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"name"</span>: <span class="st">"field1"</span>,</span>
+<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"dataType"</span>: [<span class="st">"schema:Text"</span>]</span>
+<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a>                    },</span>
+<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a>                    {</span>
+<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"@id"</span>: <span class="st">"dataset/field2"</span>,</span>
+<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"@type"</span>: <span class="st">"cr:Field"</span>,</span>
+<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"name"</span>: <span class="st">"field2"</span>,</span>
+<span id="cb24-22"><a href="#cb24-22" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"dataType"</span>: [<span class="st">"schema:Number"</span>]</span>
+<span id="cb24-23"><a href="#cb24-23" aria-hidden="true" tabindex="-1"></a>                    }</span>
+<span id="cb24-24"><a href="#cb24-24" aria-hidden="true" tabindex="-1"></a>                ]</span>
+<span id="cb24-25"><a href="#cb24-25" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb24-26"><a href="#cb24-26" aria-hidden="true" tabindex="-1"></a>        ],</span>
+<span id="cb24-27"><a href="#cb24-27" aria-hidden="true" tabindex="-1"></a>        <span class="st">"distribution"</span>: [</span>
+<span id="cb24-28"><a href="#cb24-28" aria-hidden="true" tabindex="-1"></a>            {</span>
+<span id="cb24-29"><a href="#cb24-29" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@id"</span>: <span class="st">"dataset/dist1"</span>,</span>
+<span id="cb24-30"><a href="#cb24-30" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@type"</span>: <span class="st">"schema:DataDownload"</span>,</span>
+<span id="cb24-31"><a href="#cb24-31" aria-hidden="true" tabindex="-1"></a>                <span class="st">"contentUrl"</span>: <span class="st">"https://example.org/data.csv"</span>,</span>
+<span id="cb24-32"><a href="#cb24-32" aria-hidden="true" tabindex="-1"></a>                <span class="st">"encodingFormat"</span>: <span class="st">"text/csv"</span></span>
+<span id="cb24-33"><a href="#cb24-33" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb24-34"><a href="#cb24-34" aria-hidden="true" tabindex="-1"></a>        ]</span>
+<span id="cb24-35"><a href="#cb24-35" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb24-36"><a href="#cb24-36" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb24-37"><a href="#cb24-37" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 1: Root level exploration</span></span>
+<span id="cb24-38"><a href="#cb24-38" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> explore_dataset()</span>
+<span id="cb24-39"><a href="#cb24-39" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Structure at path: root"</span> <span class="kw">in</span> result)</span>
+<span id="cb24-40"><a href="#cb24-40" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"recordSet"</span> <span class="kw">in</span> result)</span>
+<span id="cb24-41"><a href="#cb24-41" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"distribution"</span> <span class="kw">in</span> result)</span>
+<span id="cb24-42"><a href="#cb24-42" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb24-43"><a href="#cb24-43" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 2: Explore a specific path</span></span>
+<span id="cb24-44"><a href="#cb24-44" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> explore_dataset(<span class="st">"recordSet[0]"</span>)</span>
+<span id="cb24-45"><a href="#cb24-45" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Test RecordSet"</span> <span class="kw">in</span> result)</span>
+<span id="cb24-46"><a href="#cb24-46" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"field"</span> <span class="kw">in</span> result)</span>
+<span id="cb24-47"><a href="#cb24-47" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb24-48"><a href="#cb24-48" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 3: Explore a list</span></span>
+<span id="cb24-49"><a href="#cb24-49" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> explore_dataset(<span class="st">"recordSet[0].field"</span>)</span>
+<span id="cb24-50"><a href="#cb24-50" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Contains 2 items"</span> <span class="kw">in</span> result)</span>
+<span id="cb24-51"><a href="#cb24-51" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"field1"</span> <span class="kw">in</span> result)</span>
+<span id="cb24-52"><a href="#cb24-52" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"field2"</span> <span class="kw">in</span> result)</span>
+<span id="cb24-53"><a href="#cb24-53" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb24-54"><a href="#cb24-54" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 4: Explore a specific item in a list</span></span>
+<span id="cb24-55"><a href="#cb24-55" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> explore_dataset(<span class="st">"recordSet[0].field[0]"</span>)</span>
+<span id="cb24-56"><a href="#cb24-56" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"dataset/field1"</span> <span class="kw">in</span> result)</span>
+<span id="cb24-57"><a href="#cb24-57" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"dataType"</span> <span class="kw">in</span> result)</span>
+<span id="cb24-58"><a href="#cb24-58" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb24-59"><a href="#cb24-59" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 5: Explore a simple value</span></span>
+<span id="cb24-60"><a href="#cb24-60" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> explore_dataset(<span class="st">"recordSet[0].name"</span>)</span>
+<span id="cb24-61"><a href="#cb24-61" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Test RecordSet"</span> <span class="kw">in</span> result)</span>
+<span id="cb24-62"><a href="#cb24-62" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb24-63"><a href="#cb24-63" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 6: Invalid path</span></span>
+<span id="cb24-64"><a href="#cb24-64" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> explore_dataset(<span class="st">"invalid.path"</span>)</span>
+<span id="cb24-65"><a href="#cb24-65" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Error accessing path"</span> <span class="kw">in</span> result)</span>
+<span id="cb24-66"><a href="#cb24-66" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb24-67"><a href="#cb24-67" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 7: No dataset loaded</span></span>
+<span id="cb24-68"><a href="#cb24-68" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Save a reference to the dataset before deleting it</span></span>
+<span id="cb24-69"><a href="#cb24-69" aria-hidden="true" tabindex="-1"></a>    saved_dataset <span class="op">=</span> dataset_kb</span>
+<span id="cb24-70"><a href="#cb24-70" aria-hidden="true" tabindex="-1"></a>    <span class="kw">del</span> <span class="bu">globals</span>()[<span class="st">'dataset_kb'</span>]</span>
+<span id="cb24-71"><a href="#cb24-71" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> explore_dataset()</span>
+<span id="cb24-72"><a href="#cb24-72" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"No dataset loaded"</span> <span class="kw">in</span> result)</span>
+<span id="cb24-73"><a href="#cb24-73" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb24-74"><a href="#cb24-74" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Restore dataset for other tests</span></span>
+<span id="cb24-75"><a href="#cb24-75" aria-hidden="true" tabindex="-1"></a>    <span class="bu">globals</span>()[<span class="st">'dataset_kb'</span>] <span class="op">=</span> saved_dataset</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-14" class="cell">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>test_explore_dataset()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools.py#L297" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="search_dataset" class="level3">
+<h3 class="anchored" data-anchor-id="search_dataset">search_dataset</h3>
+<blockquote class="blockquote">
+<pre><code> search_dataset (query:str, case_sensitive:bool=False)</code></pre>
+</blockquote>
+<p>*Search for text in the dataset and return matching paths.</p>
+<p>Args: query: Text to search for in the dataset case_sensitive: Whether search should be case sensitive</p>
+<p>Returns: A markdown-formatted list of paths where the query was found*</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 25%">
+<col style="width: 34%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>query</td>
+<td>str</td>
+<td></td>
+<td>Text to search for in the dataset</td>
+</tr>
+<tr class="even">
+<td>case_sensitive</td>
+<td>bool</td>
+<td>False</td>
+<td>Whether search should be case sensitive</td>
+</tr>
+<tr class="odd">
+<td><strong>Returns</strong></td>
+<td><strong>str</strong></td>
+<td></td>
+<td><strong>Search results</strong></td>
+</tr>
+</tbody>
+</table>
+<div id="cell-16" class="cell">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> test_search_dataset():</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Setup a test dataset</span></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">global</span> dataset_kb</span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>    dataset_kb <span class="op">=</span> LinkedDataKnowledge({</span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">"@context"</span>: {<span class="st">"schema"</span>: <span class="st">"https://schema.org/"</span>},</span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">"recordSet"</span>: [</span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a>            {</span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@id"</span>: <span class="st">"dataset/recordset1"</span>,</span>
+<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@type"</span>: <span class="st">"cr:RecordSet"</span>,</span>
+<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a>                <span class="st">"name"</span>: <span class="st">"Test RecordSet"</span>,</span>
+<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a>                <span class="st">"description"</span>: <span class="st">"This is a test dataset for searching"</span>,</span>
+<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a>                <span class="st">"field"</span>: [</span>
+<span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a>                    {</span>
+<span id="cb27-14"><a href="#cb27-14" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"@id"</span>: <span class="st">"dataset/field1"</span>,</span>
+<span id="cb27-15"><a href="#cb27-15" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"@type"</span>: <span class="st">"cr:Field"</span>,</span>
+<span id="cb27-16"><a href="#cb27-16" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"name"</span>: <span class="st">"field1"</span>,</span>
+<span id="cb27-17"><a href="#cb27-17" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"description"</span>: <span class="st">"A text field for testing"</span>,</span>
+<span id="cb27-18"><a href="#cb27-18" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"dataType"</span>: [<span class="st">"schema:Text"</span>]</span>
+<span id="cb27-19"><a href="#cb27-19" aria-hidden="true" tabindex="-1"></a>                    },</span>
+<span id="cb27-20"><a href="#cb27-20" aria-hidden="true" tabindex="-1"></a>                    {</span>
+<span id="cb27-21"><a href="#cb27-21" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"@id"</span>: <span class="st">"dataset/field2"</span>,</span>
+<span id="cb27-22"><a href="#cb27-22" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"@type"</span>: <span class="st">"cr:Field"</span>,</span>
+<span id="cb27-23"><a href="#cb27-23" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"name"</span>: <span class="st">"field2"</span>,</span>
+<span id="cb27-24"><a href="#cb27-24" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"description"</span>: <span class="st">"A numeric field for testing"</span>,</span>
+<span id="cb27-25"><a href="#cb27-25" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"dataType"</span>: [<span class="st">"schema:Number"</span>]</span>
+<span id="cb27-26"><a href="#cb27-26" aria-hidden="true" tabindex="-1"></a>                    }</span>
+<span id="cb27-27"><a href="#cb27-27" aria-hidden="true" tabindex="-1"></a>                ]</span>
+<span id="cb27-28"><a href="#cb27-28" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb27-29"><a href="#cb27-29" aria-hidden="true" tabindex="-1"></a>        ]</span>
+<span id="cb27-30"><a href="#cb27-30" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb27-31"><a href="#cb27-31" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb27-32"><a href="#cb27-32" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 1: Search for a term that appears in multiple places</span></span>
+<span id="cb27-33"><a href="#cb27-33" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> search_dataset(<span class="st">"test"</span>)</span>
+<span id="cb27-34"><a href="#cb27-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Found"</span> <span class="kw">in</span> result)</span>
+<span id="cb27-35"><a href="#cb27-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Test RecordSet"</span> <span class="kw">in</span> result)</span>
+<span id="cb27-36"><a href="#cb27-36" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"testing"</span> <span class="kw">in</span> result)</span>
+<span id="cb27-37"><a href="#cb27-37" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb27-38"><a href="#cb27-38" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 2: Case sensitive search</span></span>
+<span id="cb27-39"><a href="#cb27-39" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> search_dataset(<span class="st">"Test"</span>, case_sensitive<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb27-40"><a href="#cb27-40" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Found"</span> <span class="kw">in</span> result)</span>
+<span id="cb27-41"><a href="#cb27-41" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Test RecordSet"</span> <span class="kw">in</span> result)</span>
+<span id="cb27-42"><a href="#cb27-42" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Should not find "testing" with case_sensitive=True</span></span>
+<span id="cb27-43"><a href="#cb27-43" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"testing"</span> <span class="kw">not</span> <span class="kw">in</span> result)</span>
+<span id="cb27-44"><a href="#cb27-44" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb27-45"><a href="#cb27-45" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 3: Search for a term in keys</span></span>
+<span id="cb27-46"><a href="#cb27-46" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> search_dataset(<span class="st">"name"</span>)</span>
+<span id="cb27-47"><a href="#cb27-47" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Matching keys"</span> <span class="kw">in</span> result)</span>
+<span id="cb27-48"><a href="#cb27-48" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb27-49"><a href="#cb27-49" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 4: Search for a non-existent term</span></span>
+<span id="cb27-50"><a href="#cb27-50" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> search_dataset(<span class="st">"nonexistent"</span>)</span>
+<span id="cb27-51"><a href="#cb27-51" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"No matches found"</span> <span class="kw">in</span> result)</span>
+<span id="cb27-52"><a href="#cb27-52" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb27-53"><a href="#cb27-53" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 5: No dataset loaded</span></span>
+<span id="cb27-54"><a href="#cb27-54" aria-hidden="true" tabindex="-1"></a>    saved_dataset <span class="op">=</span> dataset_kb</span>
+<span id="cb27-55"><a href="#cb27-55" aria-hidden="true" tabindex="-1"></a>    <span class="kw">del</span> <span class="bu">globals</span>()[<span class="st">'dataset_kb'</span>]</span>
+<span id="cb27-56"><a href="#cb27-56" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> search_dataset(<span class="st">"test"</span>)</span>
+<span id="cb27-57"><a href="#cb27-57" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"No dataset loaded"</span> <span class="kw">in</span> result)</span>
+<span id="cb27-58"><a href="#cb27-58" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb27-59"><a href="#cb27-59" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Restore dataset for other tests</span></span>
+<span id="cb27-60"><a href="#cb27-60" aria-hidden="true" tabindex="-1"></a>    <span class="bu">globals</span>()[<span class="st">'dataset_kb'</span>] <span class="op">=</span> saved_dataset</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-17" class="cell">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>test_search_dataset()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools.py#L375" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="get_dataset_evidence" class="level3">
+<h3 class="anchored" data-anchor-id="get_dataset_evidence">get_dataset_evidence</h3>
+<blockquote class="blockquote">
+<pre><code> get_dataset_evidence (topic:str, max_results:int=5)</code></pre>
+</blockquote>
+<p>*Find evidence in the dataset about a specific topic.</p>
+<p>Args: topic: Topic to find evidence about max_results: Maximum number of evidence items to return</p>
+<p>Returns: A markdown-formatted collection of evidence about the topic*</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>topic</td>
+<td>str</td>
+<td></td>
+<td>Topic to find evidence about</td>
+</tr>
+<tr class="even">
+<td>max_results</td>
+<td>int</td>
+<td>5</td>
+<td>Maximum number of evidence items to return</td>
+</tr>
+<tr class="odd">
+<td><strong>Returns</strong></td>
+<td><strong>str</strong></td>
+<td></td>
+<td><strong>Evidence from the dataset</strong></td>
+</tr>
+</tbody>
+</table>
+<div id="cell-19" class="cell">
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> test_get_dataset_evidence():</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Setup a test dataset</span></span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">global</span> dataset_kb</span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>    dataset_kb <span class="op">=</span> LinkedDataKnowledge({</span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">"@context"</span>: {<span class="st">"schema"</span>: <span class="st">"https://schema.org/"</span>},</span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">"recordSet"</span>: [</span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>            {</span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@id"</span>: <span class="st">"dataset/recordset1"</span>,</span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@type"</span>: <span class="st">"cr:RecordSet"</span>,</span>
+<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a>                <span class="st">"name"</span>: <span class="st">"Test RecordSet"</span>,</span>
+<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a>                <span class="st">"description"</span>: <span class="st">"This is a test dataset about machine learning"</span>,</span>
+<span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a>                <span class="st">"field"</span>: [</span>
+<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a>                    {</span>
+<span id="cb30-14"><a href="#cb30-14" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"@id"</span>: <span class="st">"dataset/field1"</span>,</span>
+<span id="cb30-15"><a href="#cb30-15" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"@type"</span>: <span class="st">"cr:Field"</span>,</span>
+<span id="cb30-16"><a href="#cb30-16" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"name"</span>: <span class="st">"feature1"</span>,</span>
+<span id="cb30-17"><a href="#cb30-17" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"description"</span>: <span class="st">"A machine learning feature"</span>,</span>
+<span id="cb30-18"><a href="#cb30-18" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"dataType"</span>: [<span class="st">"schema:Text"</span>]</span>
+<span id="cb30-19"><a href="#cb30-19" aria-hidden="true" tabindex="-1"></a>                    },</span>
+<span id="cb30-20"><a href="#cb30-20" aria-hidden="true" tabindex="-1"></a>                    {</span>
+<span id="cb30-21"><a href="#cb30-21" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"@id"</span>: <span class="st">"dataset/field2"</span>,</span>
+<span id="cb30-22"><a href="#cb30-22" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"@type"</span>: <span class="st">"cr:Field"</span>,</span>
+<span id="cb30-23"><a href="#cb30-23" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"name"</span>: <span class="st">"feature2"</span>,</span>
+<span id="cb30-24"><a href="#cb30-24" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"description"</span>: <span class="st">"Another machine learning feature"</span>,</span>
+<span id="cb30-25"><a href="#cb30-25" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"dataType"</span>: [<span class="st">"schema:Number"</span>]</span>
+<span id="cb30-26"><a href="#cb30-26" aria-hidden="true" tabindex="-1"></a>                    }</span>
+<span id="cb30-27"><a href="#cb30-27" aria-hidden="true" tabindex="-1"></a>                ]</span>
+<span id="cb30-28"><a href="#cb30-28" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb30-29"><a href="#cb30-29" aria-hidden="true" tabindex="-1"></a>        ],</span>
+<span id="cb30-30"><a href="#cb30-30" aria-hidden="true" tabindex="-1"></a>        <span class="st">"keywords"</span>: [<span class="st">"machine learning"</span>, <span class="st">"dataset"</span>, <span class="st">"test"</span>]</span>
+<span id="cb30-31"><a href="#cb30-31" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb30-32"><a href="#cb30-32" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb30-33"><a href="#cb30-33" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 1: Get evidence about a topic</span></span>
+<span id="cb30-34"><a href="#cb30-34" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> get_dataset_evidence(<span class="st">"machine learning"</span>)</span>
+<span id="cb30-35"><a href="#cb30-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Evidence for topic: 'machine learning'"</span> <span class="kw">in</span> result)</span>
+<span id="cb30-36"><a href="#cb30-36" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"This is a test dataset about machine learning"</span> <span class="kw">in</span> result)</span>
+<span id="cb30-37"><a href="#cb30-37" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb30-38"><a href="#cb30-38" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 2: Get evidence with max_results</span></span>
+<span id="cb30-39"><a href="#cb30-39" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> get_dataset_evidence(<span class="st">"feature"</span>, max_results<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb30-40"><a href="#cb30-40" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Evidence for topic: 'feature'"</span> <span class="kw">in</span> result)</span>
+<span id="cb30-41"><a href="#cb30-41" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Evidence 1"</span> <span class="kw">in</span> result)</span>
+<span id="cb30-42"><a href="#cb30-42" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"Evidence 2"</span> <span class="kw">not</span> <span class="kw">in</span> result)</span>
+<span id="cb30-43"><a href="#cb30-43" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb30-44"><a href="#cb30-44" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 3: No evidence found</span></span>
+<span id="cb30-45"><a href="#cb30-45" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> get_dataset_evidence(<span class="st">"nonexistent"</span>)</span>
+<span id="cb30-46"><a href="#cb30-46" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"No evidence found"</span> <span class="kw">in</span> result)</span>
+<span id="cb30-47"><a href="#cb30-47" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb30-48"><a href="#cb30-48" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Test 4: No dataset loaded</span></span>
+<span id="cb30-49"><a href="#cb30-49" aria-hidden="true" tabindex="-1"></a>    saved_dataset <span class="op">=</span> dataset_kb</span>
+<span id="cb30-50"><a href="#cb30-50" aria-hidden="true" tabindex="-1"></a>    <span class="kw">del</span> <span class="bu">globals</span>()[<span class="st">'dataset_kb'</span>]</span>
+<span id="cb30-51"><a href="#cb30-51" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> get_dataset_evidence(<span class="st">"machine learning"</span>)</span>
+<span id="cb30-52"><a href="#cb30-52" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span>(<span class="st">"No dataset loaded"</span> <span class="kw">in</span> result)</span>
+<span id="cb30-53"><a href="#cb30-53" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb30-54"><a href="#cb30-54" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Restore dataset for other tests</span></span>
+<span id="cb30-55"><a href="#cb30-55" aria-hidden="true" tabindex="-1"></a>    <span class="bu">globals</span>()[<span class="st">'dataset_kb'</span>] <span class="op">=</span> saved_dataset</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-20" class="cell">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>test_get_dataset_evidence()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools.py#L524" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="collect_evidence" class="level3">
+<h3 class="anchored" data-anchor-id="collect_evidence">collect_evidence</h3>
+<blockquote class="blockquote">
+<pre><code> collect_evidence (topic:str, observation:str, source_term:str=None,
+                   importance:str='medium')</code></pre>
+</blockquote>
+<p><em>Collect evidence about a topic during linked data exploration</em></p>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools.py#L545" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="summarize_evidence" class="level3">
+<h3 class="anchored" data-anchor-id="summarize_evidence">summarize_evidence</h3>
+<blockquote class="blockquote">
+<pre><code> summarize_evidence (topic:str=None)</code></pre>
+</blockquote>
+<p><em>Summarize collected evidence, optionally filtered by topic</em></p>
+<div id="cell-23" class="cell">
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Test evidence collection and summarization</span></span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="kw">global</span> kb</span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>kb <span class="op">=</span> LinkedDataKnowledge()</span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a>kb.evidence_collection <span class="op">=</span> []</span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Collect some evidence</span></span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a>result1 <span class="op">=</span> collect_evidence(<span class="st">"Person"</span>, <span class="st">"A Person represents an individual human being"</span>, <span class="st">"schema:Person"</span>, <span class="st">"high"</span>)</span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result1)</span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a>result2 <span class="op">=</span> collect_evidence(<span class="st">"Organization"</span>, <span class="st">"Organizations can employ Persons"</span>, <span class="st">"schema:Organization"</span>)</span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result2)</span>
+<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a>result3 <span class="op">=</span> collect_evidence(<span class="st">"Person"</span>, <span class="st">"A Person can have credentials"</span>, <span class="st">"schema:hasCredential"</span>)</span>
+<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result3)</span>
+<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Test evidence count</span></span>
+<span id="cb34-15"><a href="#cb34-15" aria-hidden="true" tabindex="-1"></a>test_eq(<span class="bu">len</span>(kb.evidence_collection), <span class="dv">3</span>)</span>
+<span id="cb34-16"><a href="#cb34-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-17"><a href="#cb34-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Test summarization</span></span>
+<span id="cb34-18"><a href="#cb34-18" aria-hidden="true" tabindex="-1"></a>summary <span class="op">=</span> summarize_evidence()</span>
+<span id="cb34-19"><a href="#cb34-19" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(summary)</span>
+<span id="cb34-20"><a href="#cb34-20" aria-hidden="true" tabindex="-1"></a>test_eq(<span class="st">"Person"</span> <span class="kw">in</span> summary, <span class="va">True</span>)</span>
+<span id="cb34-21"><a href="#cb34-21" aria-hidden="true" tabindex="-1"></a>test_eq(<span class="st">"Organization"</span> <span class="kw">in</span> summary, <span class="va">True</span>)</span>
+<span id="cb34-22"><a href="#cb34-22" aria-hidden="true" tabindex="-1"></a>test_eq(<span class="st">"Key Findings"</span> <span class="kw">in</span> summary, <span class="va">True</span>)  <span class="co"># Should include high importance items</span></span>
+<span id="cb34-23"><a href="#cb34-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-24"><a href="#cb34-24" aria-hidden="true" tabindex="-1"></a><span class="co"># Test topic filtering</span></span>
+<span id="cb34-25"><a href="#cb34-25" aria-hidden="true" tabindex="-1"></a>person_summary <span class="op">=</span> summarize_evidence(<span class="st">"Person"</span>)</span>
+<span id="cb34-26"><a href="#cb34-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(person_summary)</span>
+<span id="cb34-27"><a href="#cb34-27" aria-hidden="true" tabindex="-1"></a>test_eq(<span class="bu">len</span>(person_summary.split(<span class="st">"</span><span class="ch">\n</span><span class="st">"</span>)) <span class="op">&gt;</span> <span class="dv">5</span>, <span class="va">True</span>)  <span class="co"># Should have multiple lines</span></span>
+<span id="cb34-28"><a href="#cb34-28" aria-hidden="true" tabindex="-1"></a>test_eq(<span class="st">"Organization"</span> <span class="kw">in</span> person_summary, <span class="va">False</span>)  <span class="co"># Should not include other topics</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Evidence collected about 'Person' (importance: high). Total evidence items: 1
+Evidence collected about 'Organization' (importance: medium). Total evidence items: 2
+Evidence collected about 'Person' (importance: medium). Total evidence items: 3
+# Evidence Collection Summary (3 items)
+
+## Key Findings
+- **Person**: A Person represents an individual human being
+
+## Detailed Findings by Topic
+
+### Person (2 findings)
+- A Person represents an individual human being (Source: schema:Person)
+- A Person can have credentials (Source: schema:hasCredential)
+
+### Organization (1 findings)
+- Organizations can employ Persons (Source: schema:Organization)
+
+## Relationships Between Topics
+Consider how these topics relate to each other to form a complete data model.
+
+
+# Evidence Collection Summary (2 items)
+
+## Key Findings
+- **Person**: A Person represents an individual human being
+
+## Detailed Findings by Topic
+
+### Person (2 findings)
+- A Person represents an individual human being (Source: schema:Person)
+- A Person can have credentials (Source: schema:hasCredential)
+
+## Relationships Between Topics
+Consider how these topics relate to each other to form a complete data model.
+
+</code></pre>
+</div>
+</div>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools.py#L596" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="find_term" class="level3">
+<h3 class="anchored" data-anchor-id="find_term">find_term</h3>
+<blockquote class="blockquote">
+<pre><code> find_term (term:str=None, term_type:str=None, search_by:str='all',
+            case_sensitive:bool=False, max_results:int=10)</code></pre>
+</blockquote>
+<p>*Find terms in the knowledge base by ID, label, or type.</p>
+<p>Args: term: Term to search for (can be an ID, label, or local name) term_type: Filter by type (e.g., “Class”, “Property”) search_by: How to search: “id”, “label”, “type”, or “all” case_sensitive: Whether the search should be case-sensitive max_results: Maximum number of results to return</p>
+<p>Returns: Markdown-formatted search results*</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 25%">
+<col style="width: 34%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>term</td>
+<td>str</td>
+<td>None</td>
+<td>Term to find (can be an ID, label, or local name)</td>
+</tr>
+<tr class="even">
+<td>term_type</td>
+<td>str</td>
+<td>None</td>
+<td>Filter by type (e.g., “Class”, “Property”)</td>
+</tr>
+<tr class="odd">
+<td>search_by</td>
+<td>str</td>
+<td>all</td>
+<td>How to search: “id”, “label”, “type”, or “all”</td>
+</tr>
+<tr class="even">
+<td>case_sensitive</td>
+<td>bool</td>
+<td>False</td>
+<td>Whether the search should be case-sensitive</td>
+</tr>
+<tr class="odd">
+<td>max_results</td>
+<td>int</td>
+<td>10</td>
+<td>Maximum number of results to return</td>
+</tr>
+<tr class="even">
+<td><strong>Returns</strong></td>
+<td><strong>str</strong></td>
+<td></td>
+<td><strong>Markdown-formatted search results</strong></td>
+</tr>
+</tbody>
+</table>
+<div id="cell-25" class="cell">
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Test the find_term tool with various search parameters</span></span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Make sure we have our test knowledge base loaded</span></span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a>kb <span class="op">=</span> LinkedDataKnowledge()</span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Set up a context with various prefixes</span></span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a>test_context <span class="op">=</span> {</span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">"schema"</span>: <span class="st">"https://schema.org/"</span>,</span>
+<span id="cb37-9"><a href="#cb37-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">"rdfs"</span>: <span class="st">"http://www.w3.org/2000/01/rdf-schema#"</span>,</span>
+<span id="cb37-10"><a href="#cb37-10" aria-hidden="true" tabindex="-1"></a>    <span class="st">"owl"</span>: <span class="st">"http://www.w3.org/2002/07/owl#"</span>,</span>
+<span id="cb37-11"><a href="#cb37-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">"ex"</span>: <span class="st">"http://example.org/"</span>,</span>
+<span id="cb37-12"><a href="#cb37-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">"foaf"</span>: <span class="st">"http://xmlns.com/foaf/0.1/"</span></span>
+<span id="cb37-13"><a href="#cb37-13" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb37-14"><a href="#cb37-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-15"><a href="#cb37-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Create test data with diverse entity types and representation formats</span></span>
+<span id="cb37-16"><a href="#cb37-16" aria-hidden="true" tabindex="-1"></a>test_data <span class="op">=</span> {</span>
+<span id="cb37-17"><a href="#cb37-17" aria-hidden="true" tabindex="-1"></a>    <span class="st">"@context"</span>: test_context,</span>
+<span id="cb37-18"><a href="#cb37-18" aria-hidden="true" tabindex="-1"></a>    <span class="st">"@graph"</span>: [</span>
+<span id="cb37-19"><a href="#cb37-19" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Standard class with simple type</span></span>
+<span id="cb37-20"><a href="#cb37-20" aria-hidden="true" tabindex="-1"></a>        {</span>
+<span id="cb37-21"><a href="#cb37-21" aria-hidden="true" tabindex="-1"></a>            <span class="st">"@id"</span>: <span class="st">"https://schema.org/Person"</span>,</span>
+<span id="cb37-22"><a href="#cb37-22" aria-hidden="true" tabindex="-1"></a>            <span class="st">"@type"</span>: <span class="st">"rdfs:Class"</span>,</span>
+<span id="cb37-23"><a href="#cb37-23" aria-hidden="true" tabindex="-1"></a>            <span class="st">"rdfs:label"</span>: <span class="st">"Person"</span>,</span>
+<span id="cb37-24"><a href="#cb37-24" aria-hidden="true" tabindex="-1"></a>            <span class="st">"rdfs:comment"</span>: <span class="st">"A person (alive, dead, undead, or fictional)."</span></span>
+<span id="cb37-25"><a href="#cb37-25" aria-hidden="true" tabindex="-1"></a>        },</span>
+<span id="cb37-26"><a href="#cb37-26" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Class with multiple types</span></span>
+<span id="cb37-27"><a href="#cb37-27" aria-hidden="true" tabindex="-1"></a>        {</span>
+<span id="cb37-28"><a href="#cb37-28" aria-hidden="true" tabindex="-1"></a>            <span class="st">"@id"</span>: <span class="st">"http://xmlns.com/foaf/0.1/Person"</span>,</span>
+<span id="cb37-29"><a href="#cb37-29" aria-hidden="true" tabindex="-1"></a>            <span class="st">"@type"</span>: [<span class="st">"rdfs:Class"</span>, <span class="st">"owl:Class"</span>],</span>
+<span id="cb37-30"><a href="#cb37-30" aria-hidden="true" tabindex="-1"></a>            <span class="st">"rdfs:label"</span>: <span class="st">"Person"</span>,</span>
+<span id="cb37-31"><a href="#cb37-31" aria-hidden="true" tabindex="-1"></a>            <span class="st">"owl:equivalentClass"</span>: {<span class="st">"@id"</span>: <span class="st">"https://schema.org/Person"</span>}</span>
+<span id="cb37-32"><a href="#cb37-32" aria-hidden="true" tabindex="-1"></a>        },</span>
+<span id="cb37-33"><a href="#cb37-33" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Entity with opaque URI</span></span>
+<span id="cb37-34"><a href="#cb37-34" aria-hidden="true" tabindex="-1"></a>        {</span>
+<span id="cb37-35"><a href="#cb37-35" aria-hidden="true" tabindex="-1"></a>            <span class="st">"@id"</span>: <span class="st">"ex:12345"</span>,</span>
+<span id="cb37-36"><a href="#cb37-36" aria-hidden="true" tabindex="-1"></a>            <span class="st">"@type"</span>: <span class="st">"rdfs:Class"</span>,</span>
+<span id="cb37-37"><a href="#cb37-37" aria-hidden="true" tabindex="-1"></a>            <span class="st">"rdfs:label"</span>: <span class="st">"Organization"</span>,</span>
+<span id="cb37-38"><a href="#cb37-38" aria-hidden="true" tabindex="-1"></a>            <span class="st">"rdfs:comment"</span>: <span class="st">"An organization such as a school, NGO, corporation, club, etc."</span></span>
+<span id="cb37-39"><a href="#cb37-39" aria-hidden="true" tabindex="-1"></a>        },</span>
+<span id="cb37-40"><a href="#cb37-40" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Entity with complex label structure</span></span>
+<span id="cb37-41"><a href="#cb37-41" aria-hidden="true" tabindex="-1"></a>        {</span>
+<span id="cb37-42"><a href="#cb37-42" aria-hidden="true" tabindex="-1"></a>            <span class="st">"@id"</span>: <span class="st">"http://example.org/Employee"</span>,</span>
+<span id="cb37-43"><a href="#cb37-43" aria-hidden="true" tabindex="-1"></a>            <span class="st">"@type"</span>: <span class="st">"rdfs:Class"</span>,</span>
+<span id="cb37-44"><a href="#cb37-44" aria-hidden="true" tabindex="-1"></a>            <span class="st">"rdfs:label"</span>: [</span>
+<span id="cb37-45"><a href="#cb37-45" aria-hidden="true" tabindex="-1"></a>                {<span class="st">"@value"</span>: <span class="st">"Employee"</span>, <span class="st">"@language"</span>: <span class="st">"en"</span>},</span>
+<span id="cb37-46"><a href="#cb37-46" aria-hidden="true" tabindex="-1"></a>                {<span class="st">"@value"</span>: <span class="st">"Empleado"</span>, <span class="st">"@language"</span>: <span class="st">"es"</span>}</span>
+<span id="cb37-47"><a href="#cb37-47" aria-hidden="true" tabindex="-1"></a>            ],</span>
+<span id="cb37-48"><a href="#cb37-48" aria-hidden="true" tabindex="-1"></a>            <span class="st">"rdfs:subClassOf"</span>: {<span class="st">"@id"</span>: <span class="st">"https://schema.org/Person"</span>}</span>
+<span id="cb37-49"><a href="#cb37-49" aria-hidden="true" tabindex="-1"></a>        },</span>
+<span id="cb37-50"><a href="#cb37-50" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Property with domain and range</span></span>
+<span id="cb37-51"><a href="#cb37-51" aria-hidden="true" tabindex="-1"></a>        {</span>
+<span id="cb37-52"><a href="#cb37-52" aria-hidden="true" tabindex="-1"></a>            <span class="st">"@id"</span>: <span class="st">"http://example.org/name"</span>,</span>
+<span id="cb37-53"><a href="#cb37-53" aria-hidden="true" tabindex="-1"></a>            <span class="st">"@type"</span>: <span class="st">"rdf:Property"</span>,</span>
+<span id="cb37-54"><a href="#cb37-54" aria-hidden="true" tabindex="-1"></a>            <span class="st">"rdfs:label"</span>: <span class="st">"name"</span>,</span>
+<span id="cb37-55"><a href="#cb37-55" aria-hidden="true" tabindex="-1"></a>            <span class="st">"rdfs:domain"</span>: {<span class="st">"@id"</span>: <span class="st">"https://schema.org/Person"</span>},</span>
+<span id="cb37-56"><a href="#cb37-56" aria-hidden="true" tabindex="-1"></a>            <span class="st">"rdfs:range"</span>: {<span class="st">"@id"</span>: <span class="st">"xsd:string"</span>}</span>
+<span id="cb37-57"><a href="#cb37-57" aria-hidden="true" tabindex="-1"></a>        },</span>
+<span id="cb37-58"><a href="#cb37-58" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Entity with full URI as type</span></span>
+<span id="cb37-59"><a href="#cb37-59" aria-hidden="true" tabindex="-1"></a>        {</span>
+<span id="cb37-60"><a href="#cb37-60" aria-hidden="true" tabindex="-1"></a>            <span class="st">"@id"</span>: <span class="st">"ex:SpecialPerson"</span>,</span>
+<span id="cb37-61"><a href="#cb37-61" aria-hidden="true" tabindex="-1"></a>            <span class="st">"@type"</span>: <span class="st">"http://www.w3.org/2000/01/rdf-schema#Class"</span>,</span>
+<span id="cb37-62"><a href="#cb37-62" aria-hidden="true" tabindex="-1"></a>            <span class="st">"rdfs:label"</span>: <span class="st">"Special Person"</span></span>
+<span id="cb37-63"><a href="#cb37-63" aria-hidden="true" tabindex="-1"></a>        },</span>
+<span id="cb37-64"><a href="#cb37-64" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Entity with mixed case label</span></span>
+<span id="cb37-65"><a href="#cb37-65" aria-hidden="true" tabindex="-1"></a>        {</span>
+<span id="cb37-66"><a href="#cb37-66" aria-hidden="true" tabindex="-1"></a>            <span class="st">"@id"</span>: <span class="st">"ex:CaseSensitive"</span>,</span>
+<span id="cb37-67"><a href="#cb37-67" aria-hidden="true" tabindex="-1"></a>            <span class="st">"@type"</span>: <span class="st">"rdfs:Class"</span>,</span>
+<span id="cb37-68"><a href="#cb37-68" aria-hidden="true" tabindex="-1"></a>            <span class="st">"rdfs:label"</span>: <span class="st">"CamelCaseLabel"</span></span>
+<span id="cb37-69"><a href="#cb37-69" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb37-70"><a href="#cb37-70" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb37-71"><a href="#cb37-71" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb37-72"><a href="#cb37-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-73"><a href="#cb37-73" aria-hidden="true" tabindex="-1"></a>kb.data <span class="op">=</span> test_data</span>
+<span id="cb37-74"><a href="#cb37-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-75"><a href="#cb37-75" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"===== TESTING find_term TOOL =====</span><span class="ch">\n</span><span class="st">"</span>)</span>
+<span id="cb37-76"><a href="#cb37-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-77"><a href="#cb37-77" aria-hidden="true" tabindex="-1"></a><span class="co"># Test 1: Search by term name (all search types)</span></span>
+<span id="cb37-78"><a href="#cb37-78" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Test 1: Search by term 'Person' (all search types)"</span>)</span>
+<span id="cb37-79"><a href="#cb37-79" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> find_term(term<span class="op">=</span><span class="st">"Person"</span>)</span>
+<span id="cb37-80"><a href="#cb37-80" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Result preview (first 200 chars):</span><span class="ch">\n</span><span class="sc">{</span>result[:<span class="dv">200</span>]<span class="sc">}</span><span class="ss">...</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb37-81"><a href="#cb37-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-82"><a href="#cb37-82" aria-hidden="true" tabindex="-1"></a><span class="co"># Test 2: Search by type only</span></span>
+<span id="cb37-83"><a href="#cb37-83" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Test 2: Search by type 'rdfs:Class'"</span>)</span>
+<span id="cb37-84"><a href="#cb37-84" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> find_term(term_type<span class="op">=</span><span class="st">"rdfs:Class"</span>)</span>
+<span id="cb37-85"><a href="#cb37-85" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Result preview (first 200 chars):</span><span class="ch">\n</span><span class="sc">{</span>result[:<span class="dv">200</span>]<span class="sc">}</span><span class="ss">...</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb37-86"><a href="#cb37-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-87"><a href="#cb37-87" aria-hidden="true" tabindex="-1"></a><span class="co"># Test 3: Search by label only</span></span>
+<span id="cb37-88"><a href="#cb37-88" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Test 3: Search by label 'Organization'"</span>)</span>
+<span id="cb37-89"><a href="#cb37-89" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> find_term(term<span class="op">=</span><span class="st">"Organization"</span>, search_by<span class="op">=</span><span class="st">"label"</span>)</span>
+<span id="cb37-90"><a href="#cb37-90" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Result preview (first 200 chars):</span><span class="ch">\n</span><span class="sc">{</span>result[:<span class="dv">200</span>]<span class="sc">}</span><span class="ss">...</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb37-91"><a href="#cb37-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-92"><a href="#cb37-92" aria-hidden="true" tabindex="-1"></a><span class="co"># Test 4: Search by ID only</span></span>
+<span id="cb37-93"><a href="#cb37-93" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Test 4: Search by ID 'ex:12345'"</span>)</span>
+<span id="cb37-94"><a href="#cb37-94" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> find_term(term<span class="op">=</span><span class="st">"ex:12345"</span>, search_by<span class="op">=</span><span class="st">"id"</span>)</span>
+<span id="cb37-95"><a href="#cb37-95" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Result preview (first 200 chars):</span><span class="ch">\n</span><span class="sc">{</span>result[:<span class="dv">200</span>]<span class="sc">}</span><span class="ss">...</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb37-96"><a href="#cb37-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-97"><a href="#cb37-97" aria-hidden="true" tabindex="-1"></a><span class="co"># Test 5: Combined search (term + type)</span></span>
+<span id="cb37-98"><a href="#cb37-98" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Test 5: Search for 'Person' with type 'rdfs:Class'"</span>)</span>
+<span id="cb37-99"><a href="#cb37-99" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> find_term(term<span class="op">=</span><span class="st">"Person"</span>, term_type<span class="op">=</span><span class="st">"rdfs:Class"</span>)</span>
+<span id="cb37-100"><a href="#cb37-100" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Result preview (first 200 chars):</span><span class="ch">\n</span><span class="sc">{</span>result[:<span class="dv">200</span>]<span class="sc">}</span><span class="ss">...</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb37-101"><a href="#cb37-101" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-102"><a href="#cb37-102" aria-hidden="true" tabindex="-1"></a><span class="co"># Test 6: Case-sensitive search</span></span>
+<span id="cb37-103"><a href="#cb37-103" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Test 6: Case-sensitive search for 'camelcaselabel'"</span>)</span>
+<span id="cb37-104"><a href="#cb37-104" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> find_term(term<span class="op">=</span><span class="st">"camelcaselabel"</span>, search_by<span class="op">=</span><span class="st">"label"</span>, case_sensitive<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb37-105"><a href="#cb37-105" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Result: </span><span class="sc">{</span>result<span class="sc">}</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb37-106"><a href="#cb37-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-107"><a href="#cb37-107" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Test 6b: Case-insensitive search for 'camelcaselabel'"</span>)</span>
+<span id="cb37-108"><a href="#cb37-108" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> find_term(term<span class="op">=</span><span class="st">"camelcaselabel"</span>, search_by<span class="op">=</span><span class="st">"label"</span>, case_sensitive<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb37-109"><a href="#cb37-109" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Result preview (first 200 chars):</span><span class="ch">\n</span><span class="sc">{</span>result[:<span class="dv">200</span>]<span class="sc">}</span><span class="ss">...</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb37-110"><a href="#cb37-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-111"><a href="#cb37-111" aria-hidden="true" tabindex="-1"></a><span class="co"># Test 7: Search by type with search_by="type"</span></span>
+<span id="cb37-112"><a href="#cb37-112" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Test 7: Search by type using search_by='type'"</span>)</span>
+<span id="cb37-113"><a href="#cb37-113" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> find_term(term<span class="op">=</span><span class="st">"rdf:Property"</span>, search_by<span class="op">=</span><span class="st">"type"</span>)</span>
+<span id="cb37-114"><a href="#cb37-114" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Result preview (first 200 chars):</span><span class="ch">\n</span><span class="sc">{</span>result[:<span class="dv">200</span>]<span class="sc">}</span><span class="ss">...</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb37-115"><a href="#cb37-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-116"><a href="#cb37-116" aria-hidden="true" tabindex="-1"></a><span class="co"># Test 8: Search with max_results limit</span></span>
+<span id="cb37-117"><a href="#cb37-117" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Test 8: Search with max_results=2"</span>)</span>
+<span id="cb37-118"><a href="#cb37-118" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> find_term(term_type<span class="op">=</span><span class="st">"rdfs:Class"</span>, max_results<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb37-119"><a href="#cb37-119" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Result preview (first 200 chars):</span><span class="ch">\n</span><span class="sc">{</span>result[:<span class="dv">200</span>]<span class="sc">}</span><span class="ss">...</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb37-120"><a href="#cb37-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-121"><a href="#cb37-121" aria-hidden="true" tabindex="-1"></a><span class="co"># Test 9: Search for non-existent term</span></span>
+<span id="cb37-122"><a href="#cb37-122" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Test 9: Search for non-existent term"</span>)</span>
+<span id="cb37-123"><a href="#cb37-123" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> find_term(term<span class="op">=</span><span class="st">"NonExistentTerm"</span>)</span>
+<span id="cb37-124"><a href="#cb37-124" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Result: </span><span class="sc">{</span>result<span class="sc">}</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb37-125"><a href="#cb37-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-126"><a href="#cb37-126" aria-hidden="true" tabindex="-1"></a><span class="co"># Test 10: Language-tagged label search</span></span>
+<span id="cb37-127"><a href="#cb37-127" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Test 10: Search for Spanish label 'Empleado'"</span>)</span>
+<span id="cb37-128"><a href="#cb37-128" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> find_term(term<span class="op">=</span><span class="st">"Empleado"</span>, search_by<span class="op">=</span><span class="st">"label"</span>)</span>
+<span id="cb37-129"><a href="#cb37-129" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Result preview (first 200 chars):</span><span class="ch">\n</span><span class="sc">{</span>result[:<span class="dv">200</span>]<span class="sc">}</span><span class="ss">...</span><span class="ch">\n</span><span class="ss">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>===== TESTING find_term TOOL =====
+
+Test 1: Search by term 'Person' (all search types)
+Result preview (first 200 chars):
+# Search Results
+Found 3 terms matching 'Person'
+
+## Result 1: Person
+**ID**: https://schema.org/Person
+**Type**: rdfs:Class
+**Definition**: A person (alive, dead, undead, or fictional).
+
+## Result 2:...
+
+Test 2: Search by type 'rdfs:Class'
+Result preview (first 200 chars):
+# Search Results
+Found 6 terms with type 'rdfs:Class'
+
+## Result 1: Person
+**ID**: https://schema.org/Person
+**Type**: rdfs:Class
+**Definition**: A person (alive, dead, undead, or fictional).
+
+## Resu...
+
+Test 3: Search by label 'Organization'
+Result preview (first 200 chars):
+# Search Results
+Found 1 terms matching 'Organization'
+
+## Result 1: Organization
+**ID**: ex:12345
+**Type**: rdfs:Class
+**Definition**: An organization such as a school, NGO, corporation, club, etc....
+
+Test 4: Search by ID 'ex:12345'
+Result preview (first 200 chars):
+# Search Results
+Found 1 terms matching 'ex:12345'
+
+## Result 1: Organization
+**ID**: ex:12345
+**Type**: rdfs:Class
+**Definition**: An organization such as a school, NGO, corporation, club, etc....
+
+Test 5: Search for 'Person' with type 'rdfs:Class'
+Result preview (first 200 chars):
+# Search Results
+Found 3 terms matching 'Person' with type 'rdfs:Class'
+
+## Result 1: Person
+**ID**: https://schema.org/Person
+**Type**: rdfs:Class
+**Definition**: A person (alive, dead, undead, or fi...
+
+Test 6: Case-sensitive search for 'camelcaselabel'
+Result: No terms found matching 'camelcaselabel'.
+
+Test 6b: Case-insensitive search for 'camelcaselabel'
+Result preview (first 200 chars):
+# Search Results
+Found 1 terms matching 'camelcaselabel'
+
+## Result 1: CamelCaseLabel
+**ID**: ex:CaseSensitive
+**Type**: rdfs:Class...
+
+Test 7: Search by type using search_by='type'
+Result preview (first 200 chars):
+# Search Results
+Found 1 terms with type 'rdf:Property'
+
+## Result 1: name
+**ID**: http://example.org/name
+**Type**: rdf:Property
+
+**Key relationships:**
+- rdfs:domain: https://schema.org/Person
+- rdf...
+
+Test 8: Search with max_results=2
+Result preview (first 200 chars):
+# Search Results
+Found 6 terms with type 'rdfs:Class'
+
+## Result 1: Person
+**ID**: https://schema.org/Person
+**Type**: rdfs:Class
+**Definition**: A person (alive, dead, undead, or fictional).
+
+## Resu...
+
+Test 9: Search for non-existent term
+Result: No terms found matching 'NonExistentTerm'.
+
+Test 10: Search for Spanish label 'Empleado'
+Result preview (first 200 chars):
+# Search Results
+Found 1 terms matching 'Empleado'
+
+## Result 1: Employee (en), Empleado (es)
+**ID**: http://example.org/Employee
+**Type**: rdfs:Class
+
+**Key relationships:**
+- rdfs:subClassOf: https:...
+</code></pre>
+</div>
+</div>
+<div id="cell-26" class="cell">
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Pick a suitable Claude model</span></span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> models[<span class="dv">1</span>]  <span class="co"># Claude 3.5 Sonnet</span></span>
+<span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb39-4"><a href="#cb39-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a Chat instance with our tool</span></span>
+<span id="cb39-5"><a href="#cb39-5" aria-hidden="true" tabindex="-1"></a>chat <span class="op">=</span> Chat(</span>
+<span id="cb39-6"><a href="#cb39-6" aria-hidden="true" tabindex="-1"></a>    model<span class="op">=</span>model,</span>
+<span id="cb39-7"><a href="#cb39-7" aria-hidden="true" tabindex="-1"></a>    tools<span class="op">=</span>[find_term],</span>
+<span id="cb39-8"><a href="#cb39-8" aria-hidden="true" tabindex="-1"></a>    sp<span class="op">=</span><span class="st">"""You are a helpful AI assistant that specializes in exploring and explaining linked data concepts.</span></span>
+<span id="cb39-9"><a href="#cb39-9" aria-hidden="true" tabindex="-1"></a><span class="st">    Use the find_term tool to search for information about terms in the knowledge base.</span></span>
+<span id="cb39-10"><a href="#cb39-10" aria-hidden="true" tabindex="-1"></a><span class="st">    Present your findings in a clear, educational way."""</span></span>
+<span id="cb39-11"><a href="#cb39-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb39-12"><a href="#cb39-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb39-13"><a href="#cb39-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Run a simple test query</span></span>
+<span id="cb39-14"><a href="#cb39-14" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> <span class="st">"""</span></span>
+<span id="cb39-15"><a href="#cb39-15" aria-hidden="true" tabindex="-1"></a><span class="st">I'd like to learn about the Person concept in our knowledge base. </span></span>
+<span id="cb39-16"><a href="#cb39-16" aria-hidden="true" tabindex="-1"></a><span class="st">Can you search for it and explain what it is, including its relationships to other concepts?</span></span>
+<span id="cb39-17"><a href="#cb39-17" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span></span>
+<span id="cb39-18"><a href="#cb39-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb39-19"><a href="#cb39-19" aria-hidden="true" tabindex="-1"></a><span class="co"># Run the chat with our prompt</span></span>
+<span id="cb39-20"><a href="#cb39-20" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> chat.toolloop(prompt)</span>
+<span id="cb39-21"><a href="#cb39-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb39-22"><a href="#cb39-22" aria-hidden="true" tabindex="-1"></a><span class="co"># Display the response</span></span>
+<span id="cb39-23"><a href="#cb39-23" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">==== Claudette Response ====</span><span class="ch">\n</span><span class="st">"</span>)</span>
+<span id="cb39-24"><a href="#cb39-24" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+==== Claudette Response ====
+
+Message(id='msg_011mw4tPSNvXBTopgWSgnB6V', content=[TextBlock(citations=None, text='## Explanation of the Person Concept\n\nBased on the search results, here\'s what we know about the "Person" concept in the knowledge base:\n\n### Person Concept Overview\n\nThe "Person" concept appears in two main vocabularies:\n\n1. **Schema.org Person** (https://schema.org/Person)\n   - Defined as: "A person (alive, dead, undead, or fictional)"\n   - Type: rdfs:Class (a standard RDF Schema class)\n\n2. **FOAF Person** (http://xmlns.com/foaf/0.1/Person)\n   - From the "Friend of a Friend" (FOAF) vocabulary\n   - Types: rdfs:Class and owl:Class\n   - Notably, it\'s marked as equivalent to the Schema.org Person (owl:equivalentClass)\n\n3. There\'s also a concept called **Special Person** (ex:SpecialPerson) which appears to be a custom class, but with limited information available.\n\n### Relationships Between Person Concepts\n\nThe key relationship we can see is that the FOAF Person and Schema.org Person are considered equivalent classes (owl:equivalentClass). This means that in semantic web terms, they represent the same concept, and instances of one can be considered instances of the other.\n\n### Significance\n\nThe Person concept is fundamental in many knowledge bases and ontologies as it represents human individuals. The fact that it appears in both Schema.org and FOAF indicates its importance:\n\n- **Schema.org** is widely used for structured data on the web, helping search engines understand content\n- **FOAF** is one of the earliest and most established vocabularies for describing people and their relationships in the semantic web\n\nThe equivalence between these two definitions helps bridge different systems that might use one vocabulary or the other.\n\nWould you like me to search for more specific properties or relationships that might be associated with the Person concept, such as attributes like name, birthDate, or relationships to other concepts like Organization?', type='text')], model='claude-3-7-sonnet-20250219', role='assistant', stop_reason='end_turn', stop_sequence=None, type='message', usage=In: 1508; Out: 439; Cache create: 0; Cache read: 0; Total: 1947)</code></pre>
+</div>
+</div>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp("https:\/\/la3d\.github\.io\/cogitarelink\/");
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/la3d/cogitarelink/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>
