@@ -343,7 +343,152 @@ def _register_contexts(self:SemanticMemory, data, parent_context_id=None):
     
     return None
 
+# %% ../00_memory.ipynb 19
+@patch
+def _needs_graph_separation(self:SemanticMemory, data):
+    """Determine if data needs to be separated into named graphs"""
+    # Check for multiple contexts
+    if isinstance(data, dict) and "@context" in data:
+        if isinstance(data["@context"], list) and len(data["@context"]) > 1:
+            return True
+            
+        # Check for nested objects with different context needs
+        if "credentialSubject" in data and isinstance(data["credentialSubject"], dict):
+            if "@id" in data["credentialSubject"]:
+                return True
+                
+    return False
+
 # %% ../00_memory.ipynb 20
+@patch
+def _prepare_named_graph_structure(self:SemanticMemory, data):
+    """Prepare data as named graph structure for proper context isolation"""
+    import copy
+    
+    # Handle the common VC pattern
+    if (isinstance(data, dict) and "@context" in data and 
+        isinstance(data["@context"], list) and len(data["@context"]) >= 2 and
+        "credentialSubject" in data and isinstance(data["credentialSubject"], dict)):
+        
+        # Create a graph structure with proper context separation
+        graph_data = {"@graph": []}
+        
+        # Create the credential entity with first context
+        credential = copy.deepcopy(data)
+        subject = copy.deepcopy(data["credentialSubject"])
+        
+        # Ensure both have IDs
+        if "@id" not in credential:
+            credential["@id"] = f"urn:uuid:{uuid.uuid4()}"
+        if "@id" not in subject:
+            subject["@id"] = f"urn:uuid:{uuid.uuid4()}"
+            
+        # Use first context for credential, second for subject
+        credential["@context"] = data["@context"][0]
+        subject["@context"] = data["@context"][1]
+        
+        # Update credential to reference subject by ID
+        credential["credentialSubject"] = {"@id": subject["@id"]}
+        
+        # Add both to the graph
+        graph_data["@graph"].append(credential)
+        graph_data["@graph"].append(subject)
+        
+        return graph_data
+        
+    # Handle generic nested objects
+    else:
+        # Start with a basic graph
+        graph_data = {"@graph": []}
+        
+        # Process entity and collect nested objects
+        def extract_nested(obj, parent_id=None, property_name=None):
+            if not isinstance(obj, dict):
+                return obj
+                
+            # Ensure ID
+            if "@id" not in obj:
+                obj["@id"] = f"urn:uuid:{uuid.uuid4()}"
+            obj_id = obj["@id"]
+            
+            # Create a copy for the graph
+            graph_obj = copy.deepcopy(obj)
+            
+            # Process nested objects
+            for key, value in list(obj.items()):
+                if isinstance(value, dict) and len(value) > 1:
+                    # Extract nested object
+                    nested_id = extract_nested(value, obj_id, key)
+                    # Replace with reference
+                    graph_obj[key] = {"@id": nested_id}
+                    
+            # Add to graph
+            graph_data["@graph"].append(graph_obj)
+            return obj_id
+        
+        # Start extraction from the root
+        extract_nested(data)
+        return graph_data
+
+# %% ../00_memory.ipynb 21
+@patch
+def _normalize_properties(self:SemanticMemory, data):
+    """Normalize ID and type properties to their @-prefixed versions"""
+    if not isinstance(data, dict):
+        return data
+        
+    result = copy.deepcopy(data)
+    
+    # Normalize id → @id
+    if "id" in result and "@id" not in result:
+        result["@id"] = result["id"]
+        
+    # Normalize type → @type
+    if "type" in result and "@type" not in result:
+        result["@type"] = result["type"]
+        
+    # Recursively normalize nested objects
+    for key, value in list(result.items()):
+        if isinstance(value, dict):
+            result[key] = self._normalize_properties(value)
+        elif isinstance(value, list):
+            result[key] = [
+                self._normalize_properties(item) if isinstance(item, dict) else item
+                for item in value
+            ]
+    
+    return result
+
+
+
+# %% ../00_memory.ipynb 22
+@patch
+def _merge_contexts(self:SemanticMemory, data, context):
+    """Merge contexts properly"""
+    if not isinstance(data, dict):
+        return data
+        
+    result = copy.deepcopy(data)
+    
+    if "@context" in result:
+        # Merge contexts
+        if isinstance(result["@context"], list):
+            if isinstance(context, list):
+                result["@context"] = context + result["@context"]
+            else:
+                result["@context"] = [context] + result["@context"]
+        else:
+            if isinstance(context, list):
+                result["@context"] = context + [result["@context"]]
+            else:
+                result["@context"] = [context, result["@context"]]
+    else:
+        result["@context"] = context
+        
+    return result
+
+
+# %% ../00_memory.ipynb 24
 @patch
 def fetch_resource(self:SemanticMemory, uri, resource_type, navigator=None):
     """Fetch a resource using LODNavigator if available, otherwise use basic retrieval"""
@@ -395,7 +540,7 @@ def fetch_resource(self:SemanticMemory, uri, resource_type, navigator=None):
         return False, None, {"error": str(e)}
 
 
-# %% ../00_memory.ipynb 21
+# %% ../00_memory.ipynb 25
 @patch
 def _extract_strategy_from_path(self:SemanticMemory, navigation_path):
     """Extract the access strategy used from navigation path"""
@@ -470,7 +615,7 @@ def _extract_version_from_jsonld(self:SemanticMemory, data):
     return None
 
 
-# %% ../00_memory.ipynb 22
+# %% ../00_memory.ipynb 26
 @patch
 def ensure_resource(self:SemanticMemory, uri, resource_type, navigator=None, force_refresh=False, description=None):
     """Ensure a resource is available and up-to-date, fetching if needed"""
@@ -507,7 +652,7 @@ def ensure_resource(self:SemanticMemory, uri, resource_type, navigator=None, for
         return False, {"error": metadata.get("error", "Unknown error")}
 
 
-# %% ../00_memory.ipynb 25
+# %% ../00_memory.ipynb 29
 @patch
 def load_vocabulary_content(self:SemanticMemory, vocab_data, vocab_uri):
     """Parse vocabulary data into RDF triples and add to the graph
@@ -566,7 +711,7 @@ def load_vocabulary_content(self:SemanticMemory, vocab_data, vocab_uri):
     return triple_count
 
 
-# %% ../00_memory.ipynb 27
+# %% ../00_memory.ipynb 31
 @patch
 def ensure_standard_vocabulary(self:SemanticMemory, vocab_name, navigator):
     """Ensure a standard vocabulary is loaded in memory
@@ -615,7 +760,7 @@ def ensure_standard_vocabulary(self:SemanticMemory, vocab_name, navigator):
     return success, data
 
 
-# %% ../00_memory.ipynb 28
+# %% ../00_memory.ipynb 32
 @patch
 def add_jsonld_with_vocab_support(self:SemanticMemory, data, context=None):
     """Add JSON-LD data with vocabulary support.
@@ -636,7 +781,7 @@ def add_jsonld_with_vocab_support(self:SemanticMemory, data, context=None):
     # Call the original add_jsonld method
     return self.add_jsonld(data, context)
 
-# %% ../00_memory.ipynb 29
+# %% ../00_memory.ipynb 33
 @patch
 def query_and_compact(self:SemanticMemory, entity_id, vocab_name):
     """Query an entity by ID and compact it using a specific vocabulary.
@@ -659,7 +804,7 @@ def query_and_compact(self:SemanticMemory, entity_id, vocab_name):
     # Compact using the vocabulary
     return compact_entity_with_vocabulary(entity, vocab_name)
 
-# %% ../00_memory.ipynb 30
+# %% ../00_memory.ipynb 34
 @patch
 def detect_vocabulary(self:SemanticMemory, entity_id):
     """Detect which vocabulary an entity uses.
@@ -710,7 +855,7 @@ def detect_vocabulary(self:SemanticMemory, entity_id):
     return None
 
 
-# %% ../00_memory.ipynb 32
+# %% ../00_memory.ipynb 37
 @patch
 def _get_context_id(self:SemanticMemory, context):
     """Generate a stable ID for a context"""
@@ -732,7 +877,92 @@ def _get_context_id(self:SemanticMemory, context):
     return f"context:{id(context)}"
 
 
-# %% ../00_memory.ipynb 33
+# %% ../00_memory.ipynb 38
+@patch
+def add_jsonld(self:SemanticMemory, data, context=None, _recursion_depth=0):
+    """Add JSON-LD data with proper context handling via named graphs"""
+    import copy
+    import uuid
+    
+    # Recursion guard
+    if _recursion_depth >= 5:
+        print(f"WARNING: Maximum recursion depth reached ({_recursion_depth})")
+        raise ValueError("Maximum recursion depth exceeded in add_jsonld")
+    
+    # Make a deep copy to avoid modifying the original
+    data = copy.deepcopy(data)
+    
+    # Normalize ID/type properties (id → @id, type → @type)
+    data = self._normalize_properties(data)
+    
+    # If context is provided, merge it with the data
+    if context:
+        data = self._merge_contexts(data, context)
+    
+    # Check if this is a multi-context document that needs graph separation
+    if self._needs_graph_separation(data):
+        print("Detected multiple contexts - using named graph approach")
+        graph_data = self._prepare_named_graph_structure(data)
+        return self.add_jsonld_with_graph(graph_data, _recursion_depth=_recursion_depth+1)
+    
+    # Single context or already properly structured - proceed normally
+    entity_id = data.get("@id") if isinstance(data, dict) else None
+    if not entity_id and isinstance(data, dict):
+        entity_id = f"urn:uuid:{uuid.uuid4()}"
+        data["@id"] = entity_id
+    
+    # Store original data
+    if entity_id:
+        self.original_data[entity_id] = data
+    
+    # Register contexts if present
+    context_id = None
+    if isinstance(data, dict) and "@context" in data:
+        context_id = self._register_contexts(data)
+        print(f"Registered context with ID: {context_id}")
+    
+    # Try to expand and process the data
+    try:
+        expanded = jsonld.expand(data)
+        
+        # Update indices
+        self._update_indices(expanded)
+        self._update_indices_with_labels(expanded)
+        
+        # Add to RDF graph
+        g = Graph()
+        g.parse(data=json.dumps(expanded), format='json-ld')
+        self.default_graph += g
+        
+        # Track context association
+        if entity_id and context_id:
+            if entity_id not in self.entity_contexts:
+                self.entity_contexts[entity_id] = {
+                    "primary_context": None,
+                    "property_contexts": {}
+                }
+            self.entity_contexts[entity_id]["primary_context"] = context_id
+            self.context_registry[context_id]["used_by"].add(entity_id)
+        
+        return expanded
+        
+    except Exception as e:
+        print(f"Error in add_jsonld: {e}")
+        
+        # If it's a graph structure, try graph method
+        if isinstance(data, dict) and "@graph" in data:
+            return self.add_jsonld_with_graph(data, _recursion_depth=_recursion_depth+1)
+            
+        # If all else fails, try graph separation as fallback
+        if _recursion_depth == 0:
+            print(f"Trying graph separation as fallback")
+            graph_data = self._prepare_named_graph_structure(data)
+            return self.add_jsonld_with_graph(graph_data, _recursion_depth=_recursion_depth+1)
+        
+        raise
+
+
+# %% ../00_memory.ipynb 39
 @patch
 def add_jsonld(self:SemanticMemory, data, context=None):
     """Add JSON-LD data while preserving context information"""
@@ -804,7 +1034,7 @@ def add_jsonld(self:SemanticMemory, data, context=None):
     return expanded
 
 
-# %% ../00_memory.ipynb 34
+# %% ../00_memory.ipynb 40
 @patch
 def _update_indices(self:SemanticMemory, expanded_data):
     """Update our custom indices based on expanded JSON-LD data"""
@@ -831,7 +1061,7 @@ def _update_indices(self:SemanticMemory, expanded_data):
             self.indices["by_type"][type_uri].append(node)
 
 
-# %% ../00_memory.ipynb 35
+# %% ../00_memory.ipynb 41
 @patch
 def query_by_id(self:SemanticMemory, entity_id):
     """Retrieve an entity by its ID"""
@@ -856,7 +1086,7 @@ def query_by_id(self:SemanticMemory, entity_id):
     return results if results else None
 
 
-# %% ../00_memory.ipynb 36
+# %% ../00_memory.ipynb 42
 @patch
 def query_by_type(self:SemanticMemory, type_uri):
     """Retrieve all entities of a specific type"""
@@ -891,7 +1121,7 @@ def query_by_type(self:SemanticMemory, type_uri):
     return entities
 
 
-# %% ../00_memory.ipynb 37
+# %% ../00_memory.ipynb 43
 @patch
 def _update_indices_with_labels(self:SemanticMemory, expanded_data):
     """Update indices with focus on labels and descriptions rather than URIs"""
@@ -953,7 +1183,7 @@ def _update_indices_with_labels(self:SemanticMemory, expanded_data):
                                 self.indices["by_description"][keyword].append(node)
 
 
-# %% ../00_memory.ipynb 40
+# %% ../00_memory.ipynb 46
 @patch
 def create_entity_with_uuid(self:SemanticMemory, data, type_uri=None):
     """Create a new entity with a UUID identifier"""
@@ -984,7 +1214,7 @@ def create_entity_with_uuid(self:SemanticMemory, data, type_uri=None):
     return entity_id
 
 
-# %% ../00_memory.ipynb 41
+# %% ../00_memory.ipynb 47
 @patch
 def resolve_did(self:SemanticMemory, did):
     """Resolve a DID to its DID Document"""
@@ -1015,7 +1245,7 @@ def resolve_did(self:SemanticMemory, did):
     return did_document
 
 
-# %% ../00_memory.ipynb 43
+# %% ../00_memory.ipynb 49
 @patch
 def follow_link(self:SemanticMemory, uri, predicate=None, limit=5):
     """
@@ -1065,7 +1295,7 @@ def follow_link(self:SemanticMemory, uri, predicate=None, limit=5):
     return linked_resources
 
 
-# %% ../00_memory.ipynb 45
+# %% ../00_memory.ipynb 51
 @patch
 def manage_context(self:SemanticMemory, context_uri, force_refresh=False, ttl_seconds=86400):
     """
@@ -1147,7 +1377,7 @@ def manage_context(self:SemanticMemory, context_uri, force_refresh=False, ttl_se
         return self.contexts[context_uri]["document"]
 
 
-# %% ../00_memory.ipynb 46
+# %% ../00_memory.ipynb 52
 @patch
 def build_type_container(self:SemanticMemory, base_type=None, include_subtypes=True):
     """
@@ -1201,7 +1431,7 @@ def build_type_container(self:SemanticMemory, base_type=None, include_subtypes=T
     return container
 
 
-# %% ../00_memory.ipynb 47
+# %% ../00_memory.ipynb 53
 @patch
 def build_property_container(self:SemanticMemory, property_uri):
     """
@@ -1250,7 +1480,7 @@ def build_property_container(self:SemanticMemory, property_uri):
     return container
 
 
-# %% ../00_memory.ipynb 53
+# %% ../00_memory.ipynb 59
 @patch
 def retrieve_relevant_memory(self:SemanticMemory, structured_query, max_results=5):
     """
@@ -1332,7 +1562,7 @@ def retrieve_relevant_memory(self:SemanticMemory, structured_query, max_results=
     return compacted_results
 
 
-# %% ../00_memory.ipynb 54
+# %% ../00_memory.ipynb 60
 @patch
 def query_translator(self:SemanticMemory, natural_language_query):
     """
@@ -1369,7 +1599,7 @@ def query_translator(self:SemanticMemory, natural_language_query):
     return structured_queries
 
 
-# %% ../00_memory.ipynb 57
+# %% ../00_memory.ipynb 63
 @patch
 def llm_query_translator(self:SemanticMemory, natural_language_query, api_key=None):
     """Use Claude to translate a natural language query into structured memory queries"""
@@ -1433,7 +1663,7 @@ def llm_query_translator(self:SemanticMemory, natural_language_query, api_key=No
     return structured_query
 
 
-# %% ../00_memory.ipynb 59
+# %% ../00_memory.ipynb 65
 def test_claude_semantic_memory_improved():
     """Test the Claude-powered semantic memory system with improved retrieval"""
     # Initialize the memory system
@@ -1529,7 +1759,7 @@ def test_claude_semantic_memory_improved():
 
 
 
-# %% ../00_memory.ipynb 63
+# %% ../00_memory.ipynb 69
 @patch
 def _register_contexts(self:SemanticMemory, data, parent_context_id=None):
     """Register all contexts in a JSON-LD document, including scoped contexts"""
@@ -1569,7 +1799,7 @@ def _register_contexts(self:SemanticMemory, data, parent_context_id=None):
     
     return None
 
-# %% ../00_memory.ipynb 64
+# %% ../00_memory.ipynb 70
 @patch
 def retrieve_in_context(self:SemanticMemory, entity_id, include_scoped_contexts=True):
     """
@@ -1640,7 +1870,7 @@ def retrieve_in_context(self:SemanticMemory, entity_id, include_scoped_contexts=
     return data
 
 
-# %% ../00_memory.ipynb 65
+# %% ../00_memory.ipynb 71
 @patch
 def search_with_contexts(self:SemanticMemory, query, context_id=None, max_results=5):
     """
@@ -1706,7 +1936,7 @@ def search_with_contexts(self:SemanticMemory, query, context_id=None, max_result
     return results
 
 
-# %% ../00_memory.ipynb 66
+# %% ../00_memory.ipynb 72
 @patch
 def list_contexts(self:SemanticMemory):
     """
@@ -1728,7 +1958,7 @@ def list_contexts(self:SemanticMemory):
     return result
 
 
-# %% ../00_memory.ipynb 67
+# %% ../00_memory.ipynb 73
 def test_context_aware_memory():
     """Test the context-aware memory system with scoped contexts"""
     # Initialize the memory system
@@ -1846,7 +2076,7 @@ def test_context_aware_memory():
 
 
 
-# %% ../00_memory.ipynb 70
+# %% ../00_memory.ipynb 76
 @patch
 def answer_query_with_context_aware_tools(self:SemanticMemory, user_query):
     """Use Claude with context-aware tools to answer queries about the memory store"""
@@ -1915,7 +2145,7 @@ def answer_query_with_context_aware_tools(self:SemanticMemory, user_query):
     return result
 
 
-# %% ../00_memory.ipynb 73
+# %% ../00_memory.ipynb 79
 def test_supply_chain_example():
     """Test the context-aware memory system with a supply chain example"""
     # Initialize the memory system
@@ -2116,46 +2346,119 @@ def test_supply_chain_example():
     
     return memory
 
-# %% ../00_memory.ipynb 75
+# %% ../00_memory.ipynb 81
 @patch
-def add_jsonld_with_graph(self:SemanticMemory, data, context=None):
-    """Enhanced version of add_jsonld that properly handles @graph structures while preserving contexts.
+def add_jsonld_with_graph(self:SemanticMemory, data, _recursion_depth=0):
+    """Add JSON-LD data with @graph structure with direct entity processing"""
+    import copy
+    import uuid
+    import json
+    from rdflib import Graph, URIRef, Literal
+
+    # Recursion guard
+    if _recursion_depth >= 5:
+        print(f"WARNING: Maximum recursion depth reached in add_jsonld_with_graph ({_recursion_depth})")
+        raise ValueError("Maximum recursion depth exceeded in add_jsonld_with_graph")
     
-    Args:
-        data: JSON-LD data to add
-        context: Optional context to apply
-        
-    Returns:
-        The expanded data
-    """
-    # If data contains a @graph, process each entity in the graph
-    if isinstance(data, dict) and '@graph' in data:
-        # Extract the context if present
-        graph_context = data.get('@context')
-        
-        # Register the graph context if it exists
-        if graph_context:
-            graph_context_id = self._register_contexts({"@context": graph_context})
-        
-        # Process each entity in the graph
-        results = []
-        for entity in data['@graph']:
-            # Apply the graph context to each entity if not already present
-            if graph_context and '@context' not in entity:
-                entity_with_context = entity.copy()
-                entity_with_context['@context'] = graph_context
-                result = self.add_jsonld(entity_with_context, context)
+    # If data doesn't have @graph, use regular add_jsonld
+    if not isinstance(data, dict) or '@graph' not in data:
+        return self.add_jsonld(data, _recursion_depth=_recursion_depth+1)
+    
+    results = []
+    
+    # Extract shared context if present
+    shared_context = data.get('@context')
+    
+    # Process each entity individually with its own context
+    for i, entity in enumerate(data['@graph']):
+        try:
+            # Skip if this is just a reference
+            if isinstance(entity, dict) and len(entity) == 1 and '@id' in entity:
+                continue
+                
+            # Apply shared context if entity doesn't have one
+            entity_copy = copy.deepcopy(entity)
+            if shared_context and '@context' not in entity_copy:
+                entity_copy['@context'] = shared_context
+            
+            # Ensure entity has an ID
+            if '@id' not in entity_copy:
+                entity_id = f"urn:uuid:{uuid.uuid4()}"
+                entity_copy['@id'] = entity_id
             else:
-                result = self.add_jsonld(entity, context)
-            results.append(result)
-        
-        return results
+                entity_id = entity_copy['@id']
+            
+            print(f"Processing graph entity {i+1}/{len(data['@graph'])}: {entity_id}")
+            
+            # Store original data
+            self.original_data[entity_id] = entity_copy
+            
+            # Register context if present
+            if '@context' in entity_copy:
+                context_id = self._register_contexts(entity_copy)
+                
+                # Track context association
+                if entity_id not in self.entity_contexts:
+                    self.entity_contexts[entity_id] = {
+                        "primary_context": None,
+                        "property_contexts": {}
+                    }
+                self.entity_contexts[entity_id]["primary_context"] = context_id
+                self.context_registry[context_id]["used_by"].add(entity_id)
+            
+            # Add directly to indices
+            # Create a simplified version of the entity for indexing
+            index_entity = {'@id': entity_id}
+            
+            # Add type if present
+            if '@type' in entity_copy:
+                index_entity['@type'] = entity_copy['@type']
+            
+            # Add to by_id index
+            self.indices["by_id"][entity_id] = index_entity
+            
+            # Add to by_type index if type is present
+            if '@type' in index_entity:
+                types = index_entity['@type'] if isinstance(index_entity['@type'], list) else [index_entity['@type']]
+                for type_uri in types:
+                    if type_uri not in self.indices["by_type"]:
+                        self.indices["by_type"][type_uri] = []
+                    self.indices["by_type"][type_uri].append(index_entity)
+            
+            # Add to RDF graph
+            # For simplicity, just add the basic triples
+            if '@type' in entity_copy:
+                types = entity_copy['@type'] if isinstance(entity_copy['@type'], list) else [entity_copy['@type']]
+                for type_val in types:
+                    self.default_graph.add((URIRef(entity_id), RDF.type, URIRef(type_val)))
+            
+            # Add other properties
+            for prop, values in entity_copy.items():
+                if prop.startswith('@'):
+                    continue
+                    
+                if not isinstance(values, list):
+                    values = [values]
+                    
+                for val in values:
+                    if isinstance(val, dict) and '@id' in val:
+                        # Reference to another entity
+                        self.default_graph.add((URIRef(entity_id), URIRef(prop), URIRef(val['@id'])))
+                    elif isinstance(val, str):
+                        # Literal value
+                        self.default_graph.add((URIRef(entity_id), URIRef(prop), Literal(val)))
+            
+            results.append(index_entity)
+            print(f"Successfully added entity {entity_id} to indices and graph")
+            
+        except Exception as e:
+            print(f"Error processing graph entity {i+1}: {e}")
+            # Continue with other entities
     
-    # If no @graph, use the context-aware method
-    return self.add_jsonld(data, context)
+    return results
 
 
-# %% ../00_memory.ipynb 76
+# %% ../00_memory.ipynb 82
 @patch
 def add_named_graph(self:SemanticMemory, graph_data, graph_id):
     """Add a named graph to the memory system, preserving context information."""
@@ -2203,7 +2506,7 @@ def add_named_graph(self:SemanticMemory, graph_data, graph_id):
     return result
 
 
-# %% ../00_memory.ipynb 77
+# %% ../00_memory.ipynb 83
 @patch
 def query_named_graph(self:SemanticMemory, graph_id, query_text):
     """
@@ -2247,7 +2550,7 @@ def query_named_graph(self:SemanticMemory, graph_id, query_text):
     return results
 
 
-# %% ../00_memory.ipynb 78
+# %% ../00_memory.ipynb 84
 @patch
 def list_named_graphs(self:SemanticMemory):
     """
@@ -2294,7 +2597,7 @@ def list_named_graphs(self:SemanticMemory):
     return graphs
 
 
-# %% ../00_memory.ipynb 83
+# %% ../00_memory.ipynb 89
 # Context formatting function
 @patch
 def format_context_for_llm(self:SemanticMemory, context_id, include_descriptions=True):
@@ -2342,7 +2645,7 @@ def format_context_for_llm(self:SemanticMemory, context_id, include_descriptions
     
     return annotated
 
-# %% ../00_memory.ipynb 84
+# %% ../00_memory.ipynb 90
 # Context reasoning hints function
 @patch
 def generate_context_reasoning_hints(self:SemanticMemory, context_ids):
