@@ -2,14 +2,11 @@ website:
   sidebar:
     contents:
       - index.ipynb
-      - 00_core.ipynb
-      - 00_memory.ipynb
-      - 01_retriever.ipynb
-      - 02_vocabulary.ipynb
-      - 03_navigation.ipynb
-      - 03_vocabularytools.ipynb
-      - 04_dataset.ipynb
-      - 05_memorytools.ipynb
+      - 01_vocabularytools.ipynb
+      - 02_retriever.ipynb
+      - 03_memory.ipynb
+      - 03_memory_dep.ipynb
+      - 04_memorytools.ipynb
       - 05_tools.ipynb
       - 06_workflows.ipynb
       - 07_agents.ipynb
