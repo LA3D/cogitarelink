@@ -12,7 +12,9 @@ dev = [
   "pytest",
   "ipykernel",
   "nbdev",
-  "python-dotenv"
+  "python-dotenv",
+  "ipywidgets",
+
 ]
 
 [tool.uv]
