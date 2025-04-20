@@ -323,74 +323,66 @@ COLLISION_STRATEGIES = {
 # %% ../01_vocabularytools.ipynb 7
 class VocabularyManager:
     "Manages vocabulary contexts and document loading"
-    def __init__(self, registry=None): 
+    def __init__(self, registry=None, debug=False): # Add debug flag
         self.registry = registry or VOCABULARY_REGISTRY
         self.context_cache = {}
         self.loaded_vocabs = set()
-    
+        self.debug = debug # Store debug flag
+
     def handle_direct_support(self, url, vocab_info):
         "Handle vocabularies that need direct intervention"
-        print(f"--- [Direct] handle_direct_support for: {url}") # DEBUG
+        if self.debug: print(f"--- [Direct] handle_direct_support for: {url}")
         if url in self.context_cache:
-            print(f"--- [Direct] Cache HIT for {url}") # DEBUG
+            if self.debug: print(f"--- [Direct] Cache HIT for {url}")
             return self.context_cache[url]
-        print(f"--- [Direct] Cache MISS for {url}") # DEBUG
+        if self.debug: print(f"--- [Direct] Cache MISS for {url}")
 
         context_location = vocab_info.get("resources", {}).get("context")
         if not context_location:
-            print(f"--- [Direct] No context location found for {url}. Creating minimal.") # DEBUG
+            if self.debug: print(f"--- [Direct] No context location found for {url}. Creating minimal.")
             return self._create_minimal_context(url, vocab_info)
-        print(f"--- [Direct] Context location: {context_location}") # DEBUG
+        if self.debug: print(f"--- [Direct] Context location: {context_location}")
 
         try:
-            print(f"--- [Direct] Fetching {context_location}...") # DEBUG
-            # Use httpx with redirects and timeout
+            if self.debug: print(f"--- [Direct] Fetching {context_location}...")
             response = httpx.get(context_location, follow_redirects=True, timeout=10.0)
-            print(f"--- [Direct] Status code for {context_location}: {response.status_code}") # DEBUG
-            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+            if self.debug: print(f"--- [Direct] Status code for {context_location}: {response.status_code}")
+            response.raise_for_status()
 
             try:
                 context_data = response.json()
-                print(f"--- [Direct] Successfully parsed JSON from {context_location}") # DEBUG
-                # The documentUrl should be the originally requested or primary vocab URI
+                if self.debug: print(f"--- [Direct] Successfully parsed JSON from {context_location}")
                 result = {'contextUrl': None, 'documentUrl': url, 'document': context_data}
-                self.context_cache[url] = result # Cache under the URL passed to this function (e.g., the primary URI)
+                self.context_cache[url] = result
                 return result
             except json.JSONDecodeError as e:
-                print(f"--- [Direct] Error parsing context JSON from {context_location}: {e}") # DEBUG
+                if self.debug: print(f"--- [Direct] Error parsing context JSON from {context_location}: {e}")
                 backup_location = vocab_info.get("resources", {}).get("backup")
                 if backup_location:
-                    print(f"--- [Direct] Trying backup location: {backup_location}") # DEBUG
-                    # Pass the original/primary URL 'url' to the backup function too
+                    if self.debug: print(f"--- [Direct] Trying backup location: {backup_location}")
                     return self._try_backup_location(url, backup_location)
                 else:
-                    print(f"--- [Direct] No backup location available.") # DEBUG
-                    # Return None to indicate failure, allowing vocab_aware_loader to continue trying things
+                    if self.debug: print(f"--- [Direct] No backup location available.")
                     return None
 
-        # Catch specific httpx errors
         except httpx.RequestError as e:
-            print(f"--- [Direct] HTTP Request Error fetching context from {context_location}: {e}") # DEBUG
+            if self.debug: print(f"--- [Direct] HTTP Request Error fetching context from {context_location}: {e}")
         except httpx.HTTPStatusError as e:
-             print(f"--- [Direct] HTTP Status Error fetching context from {context_location}: {e.response.status_code} - {e.response.text[:200]}...") # DEBUG
+             if self.debug: print(f"--- [Direct] HTTP Status Error fetching context from {context_location}: {e.response.status_code} - {e.response.text[:200]}...")
         except Exception as e:
-            # Catch any other unexpected errors during fetch/processing
-            print(f"--- [Direct] Unexpected Error fetching context from {context_location}: {type(e).__name__} - {e}") # DEBUG
+            if self.debug: print(f"--- [Direct] Unexpected Error fetching context from {context_location}: {type(e).__name__} - {e}")
 
-        # If fetch failed, try fallbacks
         fallbacks = vocab_info.get("access_patterns", {}).get("fallbacks", [])
-        print(f"--- [Direct] Trying fallbacks: {fallbacks}") # DEBUG
+        if self.debug: print(f"--- [Direct] Trying fallbacks: {fallbacks}")
         for pattern in fallbacks:
-            # Pass the original/primary URL 'url' to the pattern function
             result = self._try_access_pattern(url, vocab_info, pattern)
             if result:
-                print(f"--- [Direct] Fallback pattern '{pattern}' succeeded for {url}.") # DEBUG
+                if self.debug: print(f"--- [Direct] Fallback pattern '{pattern}' succeeded for {url}.")
                 return result
 
-        # Fallback to minimal context if all else failed
-        print(f"--- [Direct] All fetch attempts failed for {url}. Creating minimal.") # DEBUG
+        if self.debug: print(f"--- [Direct] All fetch attempts failed for {url}. Creating minimal.")
         return self._create_minimal_context(url, vocab_info)
-    
+
     def _try_backup_location(self, url, backup_location):
         "Try fetching from backup location"
         try:
@@ -398,24 +390,23 @@ class VocabularyManager:
             backup_resp.raise_for_status()
             backup_data = backup_resp.json()
             result = {'contextUrl': None, 'documentUrl': url, 'document': backup_data}
-            self.context_cache[url] = result # Cache under original/primary URL
-            print(f"--- [Backup] Success fetching from {backup_location} for {url}") # DEBUG
+            self.context_cache[url] = result
+            if self.debug: print(f"--- [Backup] Success fetching from {backup_location} for {url}")
             return result
         except httpx.RequestError as backup_e:
-            print(f"--- [Backup] HTTP Request Error fetching from {backup_location}: {backup_e}") # DEBUG
+            if self.debug: print(f"--- [Backup] HTTP Request Error fetching from {backup_location}: {backup_e}")
         except httpx.HTTPStatusError as backup_e:
-            print(f"--- [Backup] HTTP Status Error fetching from {backup_location}: {backup_e.response.status_code}") # DEBUG
+            if self.debug: print(f"--- [Backup] HTTP Status Error fetching from {backup_location}: {backup_e.response.status_code}")
         except json.JSONDecodeError as backup_e:
-            print(f"--- [Backup] JSON Decode Error fetching from {backup_location}: {backup_e}") # DEBUG
+            if self.debug: print(f"--- [Backup] JSON Decode Error fetching from {backup_location}: {backup_e}")
         except Exception as backup_e:
-            print(f"--- [Backup] Unexpected Error fetching from {backup_location}: {type(backup_e).__name__} - {backup_e}") # DEBUG
+            if self.debug: print(f"--- [Backup] Unexpected Error fetching from {backup_location}: {type(backup_e).__name__} - {backup_e}")
         return None
-    
+
     def _try_access_pattern(self, url, vocab_info, pattern):
         "Try a specific access pattern for context retrieval"
-        print(f"--- [Pattern] Trying pattern '{pattern}' for {url}") # DEBUG
+        if self.debug: print(f"--- [Pattern] Trying pattern '{pattern}' for {url}")
         if pattern == "direct_download":
-            # This pattern usually means trying the 'url' itself directly
             try:
                 response = httpx.get(url, follow_redirects=True, timeout=10.0, headers={'Accept': 'application/ld+json, application/json'})
                 response.raise_for_status()
@@ -423,77 +414,74 @@ class VocabularyManager:
                     context_data = response.json()
                     result = {'contextUrl': None, 'documentUrl': url, 'document': context_data}
                     self.context_cache[url] = result
-                    print(f"--- [Pattern] Direct download succeeded for {url}") # DEBUG
+                    if self.debug: print(f"--- [Pattern] Direct download succeeded for {url}")
                     return result
                 except json.JSONDecodeError as e:
-                    print(f"--- [Pattern] Direct download JSON error for {url}: {e}") # DEBUG
-                    pass # Fall through
+                    if self.debug: print(f"--- [Pattern] Direct download JSON error for {url}: {e}")
+                    pass
             except httpx.RequestError as e:
-                print(f"--- [Pattern] Direct download HTTP Request error for {url}: {e}") # DEBUG
+                if self.debug: print(f"--- [Pattern] Direct download HTTP Request error for {url}: {e}")
             except httpx.HTTPStatusError as e:
-                print(f"--- [Pattern] Direct download HTTP Status error for {url}: {e.response.status_code}") # DEBUG
+                if self.debug: print(f"--- [Pattern] Direct download HTTP Status error for {url}: {e.response.status_code}")
             except Exception as e:
-                 print(f"--- [Pattern] Direct download unexpected error for {url}: {type(e).__name__} - {e}") # DEBUG
-        # Add other pattern handling here if needed
+                 if self.debug: print(f"--- [Pattern] Direct download unexpected error for {url}: {type(e).__name__} - {e}")
         return None
-    
+
     def _create_minimal_context(self, url, vocab_info):
         "Create a minimal context when all else fails"
-        print(f"--- [Minimal] Creating minimal context for {url}") # DEBUG
-        # Use inline context if available (though less likely for minimal fallback)
+        if self.debug: print(f"--- [Minimal] Creating minimal context for {url}")
         if vocab_info.get("features", {}).get("inline_context", False):
             default_context = {"@vocab": vocab_info.get("uri", url)}
             common_terms = vocab_info.get("common_terms", [])
             for term in common_terms: default_context[term] = f"{vocab_info.get('uri', url)}{term}"
         else:
-            default_context = {"@vocab": vocab_info.get("uri", url)} # Simplest fallback
-        
+            default_context = {"@vocab": vocab_info.get("uri", url)}
+
         result = {'contextUrl': None, 'documentUrl': url, 'document': default_context}
-        self.context_cache[url] = result # Cache the minimal context
+        self.context_cache[url] = result
         return result
-    
+
     def handle_cache_support(self, url, vocab_info, default_loader):
         "Handle vocabularies that can be dereferenced but benefit from caching"
-        print(f"--- [Cache] handle_cache_support for: {url}") # DEBUG
+        if self.debug: print(f"--- [Cache] handle_cache_support for: {url}")
         if url in self.context_cache:
-            print(f"--- [Cache] Cache HIT for {url}") # DEBUG
+            if self.debug: print(f"--- [Cache] Cache HIT for {url}")
             return self.context_cache[url]
-        print(f"--- [Cache] Cache MISS for {url}") # DEBUG
-        
+        if self.debug: print(f"--- [Cache] Cache MISS for {url}")
+
         transformed_url = self.apply_url_transformations(url, vocab_info)
-        
+
         try:
-            print(f"--- [Cache] Trying default_loader for {transformed_url} (original: {url})") # DEBUG
+            if self.debug: print(f"--- [Cache] Trying default_loader for {transformed_url} (original: {url})")
             result = default_loader(transformed_url, {})
-            print(f"--- [Cache] default_loader SUCCEEDED for {transformed_url}") # DEBUG
-            # Ensure documentUrl reflects the originally requested URL if transformed
+            if self.debug: print(f"--- [Cache] default_loader SUCCEEDED for {transformed_url}")
             if transformed_url != url: result['documentUrl'] = url
-            self.context_cache[url] = result # Cache under original URL
-            if transformed_url != url: self.context_cache[transformed_url] = result # Cache under transformed URL too
+            self.context_cache[url] = result
+            if transformed_url != url: self.context_cache[transformed_url] = result
             return result
         except Exception as e:
-            print(f"--- [Cache] default_loader FAILED for {transformed_url}: {e}") # DEBUG
-            
+            if self.debug: print(f"--- [Cache] default_loader FAILED for {transformed_url}: {e}")
+
             context_location = vocab_info.get("resources", {}).get("context")
             if context_location and context_location != url and context_location != transformed_url:
-                print(f"--- [Cache] Trying default_loader for explicit context_location: {context_location}") # DEBUG
+                if self.debug: print(f"--- [Cache] Trying default_loader for explicit context_location: {context_location}")
                 try:
                     result = default_loader(context_location, {})
-                    print(f"--- [Cache] default_loader SUCCEEDED for context_location {context_location}") # DEBUG
-                    result['documentUrl'] = url # Set documentUrl to the original requested URL
-                    self.context_cache[url] = result # Cache under original URL
-                    self.context_cache[context_location] = result # Cache under context location URL too
+                    if self.debug: print(f"--- [Cache] default_loader SUCCEEDED for context_location {context_location}")
+                    result['documentUrl'] = url
+                    self.context_cache[url] = result
+                    self.context_cache[context_location] = result
                     return result
                 except Exception as inner_e:
-                    print(f"--- [Cache] default_loader FAILED for context_location {context_location}: {inner_e}") # DEBUG
-        
-        print(f"--- [Cache] All attempts failed for {url}. Creating minimal.") # DEBUG
+                    if self.debug: print(f"--- [Cache] default_loader FAILED for context_location {context_location}: {inner_e}")
+
+        if self.debug: print(f"--- [Cache] All attempts failed for {url}. Creating minimal.")
         return self._create_minimal_context(url, vocab_info)
-    
+
     def apply_url_transformations(self, url, vocab_info):
         "Apply URL transformations defined in vocabulary info"
         import re
-        
+
         transformations = vocab_info.get("url_transformations", [])
         current_url = url
         for transform in transformations:
@@ -501,60 +489,57 @@ class VocabularyManager:
             replacement = transform.get("replacement")
             if pattern and replacement:
                 try:
-                    # Use re.fullmatch to only transform if the whole URL matches the pattern
                     match = re.fullmatch(pattern, current_url)
                     if match:
                         transformed_url = re.sub(pattern, replacement, current_url)
                         if transformed_url != current_url:
-                            print(f"--- [Transform] Applied transformation: {current_url} -> {transformed_url}") # DEBUG
+                            if self.debug: print(f"--- [Transform] Applied transformation: {current_url} -> {transformed_url}")
                             current_url = transformed_url
-                            # If a transformation is applied, maybe stop? Or allow chaining? Assuming chain for now.
                 except Exception as e:
-                    print(f"--- [Transform] Error applying URL transformation pattern '{pattern}': {e}") # DEBUG
-        
-        return current_url # Return the potentially transformed URL
-    
+                    if self.debug: print(f"--- [Transform] Error applying URL transformation pattern '{pattern}': {e}")
+
+        return current_url
+
     def handle_discovery_support(self, url, default_loader):
         "Handle unknown vocabularies by attempting to discover their structure"
-        print(f"--- [Discover] handle_discovery_support for: {url}") # DEBUG
+        if self.debug: print(f"--- [Discover] handle_discovery_support for: {url}")
         if url in self.context_cache:
-            print(f"--- [Discover] Cache HIT for {url}") # DEBUG
+            if self.debug: print(f"--- [Discover] Cache HIT for {url}")
             return self.context_cache[url]
-        print(f"--- [Discover] Cache MISS for {url}") # DEBUG
-        
+        if self.debug: print(f"--- [Discover] Cache MISS for {url}")
+
         try:
-            print(f"--- [Discover] Trying default_loader for {url}") # DEBUG
+            if self.debug: print(f"--- [Discover] Trying default_loader for {url}")
             result = default_loader(url, {})
-            print(f"--- [Discover] default_loader SUCCEEDED for {url}") # DEBUG
+            if self.debug: print(f"--- [Discover] default_loader SUCCEEDED for {url}")
             self.context_cache[url] = result
             return result
         except Exception as e:
-            print(f"--- [Discover] default_loader FAILED for {url}: {e}") # DEBUG
-        
-        # Common URL variations to try
+            if self.debug: print(f"--- [Discover] default_loader FAILED for {url}: {e}")
+
         variations = [
             f"{url}/context",
             f"{url.rstrip('/')}/context.jsonld",
             f"{url}/latest/context",
             f"{url.rstrip('/')}/.well-known/context.jsonld"
         ]
-        
-        print(f"--- [Discover] Trying variations for {url}: {variations}") # DEBUG
+
+        if self.debug: print(f"--- [Discover] Trying variations for {url}: {variations}")
         for variation in variations:
             try:
-                print(f"--- [Discover] Trying variation: {variation}") # DEBUG
+                if self.debug: print(f"--- [Discover] Trying variation: {variation}")
                 result = default_loader(variation, {})
-                print(f"--- [Discover] Variation {variation} SUCCEEDED") # DEBUG
-                result['documentUrl'] = url # Set documentUrl to original
-                self.context_cache[url] = result # Cache under original URL
-                self.context_cache[variation] = result # Cache under variation URL too
+                if self.debug: print(f"--- [Discover] Variation {variation} SUCCEEDED")
+                result['documentUrl'] = url
+                self.context_cache[url] = result
+                self.context_cache[variation] = result
                 return result
             except Exception as e:
-                print(f"--- [Discover] Variation {variation} FAILED: {e}") # DEBUG
-        
-        print(f"--- [Discover] All attempts failed for {url}. Creating minimal.") # DEBUG
-        return self._create_minimal_context(url, {"uri": url}) # Pass minimal info for minimal context creation
-    
+                if self.debug: print(f"--- [Discover] Variation {variation} FAILED: {e}")
+
+        if self.debug: print(f"--- [Discover] All attempts failed for {url}. Creating minimal.")
+        return self._create_minimal_context(url, {"uri": url})
+
     def create_document_loader(self):
         "Create a document loader that handles vocabularies at different support levels"
         from pyld import jsonld
@@ -562,16 +547,14 @@ class VocabularyManager:
 
         def vocab_aware_loader(url, options=None):
             "Custom document loader that handles different vocabulary support levels"
-            print(f"\n--- vocab_aware_loader called for: {url}") # DEBUG
+            if self.debug: print(f"\n--- vocab_aware_loader called for: {url}")
             options = options or {}
 
-            # First check for direct cache hit on the exact URL requested
             if url in self.context_cache:
-                print(f"--- Cache HIT for {url}") # DEBUG
+                if self.debug: print(f"--- Cache HIT for {url}")
                 return self.context_cache[url]
-            print(f"--- Cache MISS for {url}") # DEBUG
+            if self.debug: print(f"--- Cache MISS for {url}")
 
-            # Check registry for alternative/primary URIs
             matched_vocab_info = None
             matched_vocab_name = None
             use_primary_uri = None
@@ -580,157 +563,124 @@ class VocabularyManager:
                 primary_uri = vocab_info.get("uri")
                 if not primary_uri: continue
 
-                # Check alternative URIs first
                 alt_uris = vocab_info.get("alternative_uris", [])
                 if url in alt_uris:
-                    print(f"--- Matched ALT URI for {vocab_name}: {url} -> using PRIMARY {primary_uri}") # DEBUG
+                    if self.debug: print(f"--- Matched ALT URI for {vocab_name}: {url} -> using PRIMARY {primary_uri}")
                     matched_vocab_info = vocab_info
                     matched_vocab_name = vocab_name
                     use_primary_uri = primary_uri
-                    break # Found a match, stop checking registry
+                    break
 
-                # Check for exact match with primary URI (if not an alt URI)
                 if url == primary_uri:
-                    print(f"--- Matched PRIMARY URI for {vocab_name}: {url}") # DEBUG
+                    if self.debug: print(f"--- Matched PRIMARY URI for {vocab_name}: {url}")
                     matched_vocab_info = vocab_info
                     matched_vocab_name = vocab_name
-                    use_primary_uri = url # Use the matched URL itself
-                    break # Found a match
+                    use_primary_uri = url
+                    break
 
-            # If a vocabulary was matched (either primary or alternative)
             if matched_vocab_info:
                 self.loaded_vocabs.add(matched_vocab_name)
-                target_uri = use_primary_uri # This is the URI we'll use for fetching/cache check
+                target_uri = use_primary_uri
 
-                # Check cache using the target URI (could be primary or the original URL if it was primary)
                 if target_uri in self.context_cache:
-                    print(f"--- Cache HIT for TARGET {target_uri} (original: {url})") # DEBUG
-                    # Return the cached context, but ensure it's also cached under the original URL
+                    if self.debug: print(f"--- Cache HIT for TARGET {target_uri} (original: {url})")
                     cached_result = self.context_cache[target_uri]
                     if url not in self.context_cache: self.context_cache[url] = cached_result
                     return cached_result
-                print(f"--- Cache MISS for TARGET {target_uri} (original: {url})") # DEBUG
+                if self.debug: print(f"--- Cache MISS for TARGET {target_uri} (original: {url})")
 
-                # Handle based on support level using the target URI
                 support_level = matched_vocab_info.get("support_level", "discover")
-                print(f"--- Handling {matched_vocab_name} (level: {support_level}) using TARGET {target_uri}") # DEBUG
+                if self.debug: print(f"--- Handling {matched_vocab_name} (level: {support_level}) using TARGET {target_uri}")
                 handler_result = None
                 if support_level == "direct": handler_result = self.handle_direct_support(target_uri, matched_vocab_info)
                 elif support_level == "cache": handler_result = self.handle_cache_support(target_uri, matched_vocab_info, default_loader)
                 else: handler_result = self.handle_discovery_support(target_uri, default_loader)
 
                 if handler_result:
-                    print(f"--- Handler SUCCEEDED for TARGET {target_uri} (original: {url})") # DEBUG
-                    # IMPORTANT: Cache the result under the ORIGINAL requested URL as well.
-                    # The handler should have cached under target_uri already.
+                    if self.debug: print(f"--- Handler SUCCEEDED for TARGET {target_uri} (original: {url})")
                     self.context_cache[url] = handler_result
-                    # Ensure the documentUrl in the result reflects the original request 'url'
                     handler_result['documentUrl'] = url
                     return handler_result
                 else:
-                    # If the handler failed for the target URI, log it and fall through to other methods (variation, transform, default)
-                    print(f"--- Handler FAILED for TARGET {target_uri} (original: {url}). Falling through.") # DEBUG
-            
-            # Handle URL variations (e.g. trailing slash) - Check AFTER specific registry matches fail or fall through
+                    if self.debug: print(f"--- Handler FAILED for TARGET {target_uri} (original: {url}). Falling through.")
+
             if url.startswith(('http://', 'https://')):
                 alt_url = url + '/' if not url.endswith('/') else url[:-1]
-                print(f"--- Checking variation: {alt_url}") # DEBUG
+                if self.debug: print(f"--- Checking variation: {alt_url}")
                 if alt_url in self.context_cache:
-                    print(f"--- Cache HIT for variation {alt_url}") # DEBUG
-                    # Cache under the original URL too for next time
+                    if self.debug: print(f"--- Cache HIT for variation {alt_url}")
                     self.context_cache[url] = self.context_cache[alt_url]
                     return self.context_cache[alt_url]
-                # Optional: Could re-run the registry check logic for alt_url here if needed as a deeper fallback
 
-            # Check for URL transformations across all vocabularies (if no direct match handled it)
             for vocab_name, vocab_info in self.registry.items():
-                transformed_url = self.apply_url_transformations(url, vocab_info)
+                transformed_url = self.apply_url_transformations(url, vocab_info) # apply_url_transformations already checks self.debug
                 if transformed_url != url:
-                    # This transformation logic seems okay, uses default_loader
-                    print(f"--- URL Transformation applied by {vocab_name}: {url} -> {transformed_url}") # DEBUG
+                    if self.debug: print(f"--- URL Transformation applied by {vocab_name}: {url} -> {transformed_url}")
                     try:
-                        print(f"--- Trying default_loader with transformed URL: {transformed_url}") # DEBUG
+                        if self.debug: print(f"--- Trying default_loader with transformed URL: {transformed_url}")
                         result = default_loader(transformed_url, options)
-                        # Ensure documentUrl reflects the original request
                         result['documentUrl'] = url
-                        self.context_cache[url] = result # Cache under original URL
-                        if transformed_url not in self.context_cache: self.context_cache[transformed_url] = result # Cache under transformed too
-                        print(f"--- default_loader with transformed URL SUCCEEDED") # DEBUG
+                        self.context_cache[url] = result
+                        if transformed_url not in self.context_cache: self.context_cache[transformed_url] = result
+                        if self.debug: print(f"--- default_loader with transformed URL SUCCEEDED")
                         return result
                     except Exception as e:
-                        print(f"--- default_loader with transformed URL FAILED: {e}") # DEBUG
-                        # Continue checking other transformations or fall through
+                        if self.debug: print(f"--- default_loader with transformed URL FAILED: {e}")
                         pass
 
-            # No match found in registry, variations, or transformations - use default loader
-            print(f"--- No custom handling for {url}. Falling back to default_loader.") # DEBUG
+            if self.debug: print(f"--- No custom handling for {url}. Falling back to default_loader.")
             try:
                 result = default_loader(url, options)
-                # Optionally cache results from default loader too
-                # self.context_cache[url] = result
-                print(f"--- default_loader SUCCEEDED for {url}") # DEBUG
+                if self.debug: print(f"--- default_loader SUCCEEDED for {url}")
                 return result
             except Exception as e:
-                 print(f"--- default_loader FAILED for {url}: {type(e).__name__} - {e}") # DEBUG
-                 # Re-raise the original error from pyld's default loader
+                 if self.debug: print(f"--- default_loader FAILED for {url}: {type(e).__name__} - {e}")
                  raise jsonld.JsonLdError(
                     'Could not retrieve a JSON-LD document from the URL.',
                     'jsonld.LoadDocumentError', {'code': 'loading document failed', 'url': url},
                     cause=e)
 
         return vocab_aware_loader
-    
-    
+
+
     def get_loaded_vocabularies(self):
         "Get list of vocabularies that have been loaded"
         return list(self.loaded_vocabs)
-    
+
     def get_vocabulary_info(self, vocab_name):
         "Get detailed information about a vocabulary"
-        return self.registry.get(vocab_name) # Use .get for safer access
-    
-    # Note: detect_vocabularies_in_context was defined outside the class in the notebook
-    # If it should be part of the class, it needs 'self' and indentation.
-    # Keeping it outside based on the provided notebook structure.
+        return self.registry.get(vocab_name)
 
 #| export
 # Static method version if preferred outside the class instance
 def detect_vocabularies_in_context(context_list, registry=None):
     "Detect which vocabularies are used in a given context list"
-    reg = registry or VOCABULARY_REGISTRY # Use provided or global registry
-    vocabs = set() # Use a set to avoid duplicates initially
-    
+    reg = registry or VOCABULARY_REGISTRY
+    vocabs = set()
+
     if not isinstance(context_list, list): context_list = [context_list]
-    
+
     for ctx in context_list:
         if isinstance(ctx, str):
             for name, info in reg.items():
                 uris = [info.get("uri")] + info.get("alternative_uris", [])
-                if any(ctx == u for u in uris if u): # Check exact match against primary and alternatives
+                if any(ctx == u for u in uris if u):
                     vocabs.add(name)
-                    break # Found match for this context string
-                # Optional: Add startswith check if needed, but exact match is safer for context URLs
-                # elif any(ctx.startswith(u) for u in uris if u):
-                #     vocabs.add(name)
-                #     break
+                    break
         elif isinstance(ctx, dict):
-            # Check @vocab
             vocab_uri = ctx.get("@vocab")
             if vocab_uri:
                 for name, info in reg.items():
                     uris = [info.get("uri")] + info.get("alternative_uris", [])
                     if any(vocab_uri == u for u in uris if u):
                         vocabs.add(name)
-                        break # Found match for @vocab
-            
-            # Check prefixes defined in the context dict against registry prefixes
+                        break
+
             for name, info in reg.items():
                 prefix = info.get("prefix")
-                if prefix and prefix in ctx: # Check if the prefix key exists in the context dict
-                    # More robust check: ensure the value associated with the prefix resembles a URI/namespace
+                if prefix and prefix in ctx:
                     prefix_val = ctx.get(prefix)
                     if isinstance(prefix_val, str) and ('http' in prefix_val or ':' in prefix_val):
-                         # Could also check if prefix_val matches info['uri'] or alt_uris
                          vocabs.add(name)
 
     return list(vocabs)
