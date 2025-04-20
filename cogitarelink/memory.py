@@ -20,54 +20,394 @@ from dataclasses import dataclass, field
 import pickle
 from .vocabtools import register_vocab_aware_loader, compact_entity_with_vocabulary, VOCABULARY_REGISTRY
 
-# %% ../03_memory.ipynb 10
+# %% ../03_memory.ipynb 11
 class SemanticMemory:
-    def __init__(self, cache_dir=None):
-        # Core storage
+    def __init__(self, cache_dir=None, preload_vocabs=None):
+        "Enhanced initialization with vocabulary support"
         self.dataset = Dataset()
         self.default_graph = self.dataset.graph(URIRef("urn:x-arq:DefaultGraph"))
         self.original_data = {}
         
-        # Simple, clear indices
-        self.indices = {
-            "by_id": {},
-            "by_type": {},
-            "by_label": {},
-            "by_keyword": {}
-        }
+        self.indices = {"by_id": {}, "by_type": {}, "by_label": {}, "by_keyword": {}, 
+                    "by_graph": {}, "by_vocabulary": {}, "containers": {}}
         
-        # Context management
         self.contexts = {}
         self.context_registry = {}
         
-        # Client for external resources
         self.client = httpx.Client(follow_redirects=True)
         
-        # Optional cache
         self.cache_dir = cache_dir
         if cache_dir: Path(cache_dir).mkdir(exist_ok=True)
+        
+        register_vocab_aware_loader()
+        
+        self.preloaded_vocabs = set()
+        if preload_vocabs:
+            for vocab in preload_vocabs:
+                self.preload_vocabulary(vocab)
+        else:
+            for vocab in ["schema", "dc", "foaf"]:
+                self.preload_vocabulary(vocab)
 
 
-# %% ../03_memory.ipynb 12
-@patch 
-def add(self:SemanticMemory, data, context=None):
-    """Single entry point for adding JSON-LD data to memory"""
-    import copy, uuid
+# %% ../03_memory.ipynb 15
+@patch
+def preload_vocabulary(self:SemanticMemory, vocab_name):
+    "Preload a vocabulary to avoid HTTP requests during processing"
+    try:
+        context = load_context_for_vocabulary(vocab_name)
+        self.contexts[vocab_name] = context
+        self.preloaded_vocabs.add(vocab_name)
+        return True
+    except Exception as e:
+        print(f"Error preloading vocabulary {vocab_name}: {e}")
+        return False
+    vocab_to_use = None
+    if preferred_vocabs:
+        for v in preferred_vocabs:
+            if v in entity_vocabs:
+                vocab_to_use = v
+                break
     
-    # Handle context merging if provided
-    if context and isinstance(data, dict):
-        data = copy.deepcopy(data)
-        if "@context" not in data: data["@context"] = context
-        elif isinstance(data["@context"], list): data["@context"] = [context] + data["@context"]
-        else: data["@context"] = [context, data["@context"]]
+    if not vocab_to_use: vocab_to_use = entity_vocabs[0]
     
-    # Choose processing path based on structure
-    if isinstance(data, dict) and "@graph" in data: return self._process_graph(data)
-    if self._needs_graph_partition(data): return self._process_graph(self._create_graph_partition(data))
-    return self._process_entity(data)
+    try:
+        return compact_entity_with_vocabulary(entity, vocab_to_use)
+    except:
+        return entity
+
+# %% ../03_memory.ipynb 16
+@patch
+def _track_vocabulary_usage(self:SemanticMemory, vocabs, data):
+    "Track which vocabularies are used by this entity"
+    entity_id = data.get("@id")
+    if not entity_id: return
+    
+    # Ensure we have the vocabulary index
+    if "by_vocabulary" not in self.indices:
+        self.indices["by_vocabulary"] = {}
+    
+    # Track each vocabulary
+    for vocab in vocabs:
+        if vocab not in self.indices["by_vocabulary"]:
+            self.indices["by_vocabulary"][vocab] = set()
+        self.indices["by_vocabulary"][vocab].add(entity_id)
+
+# %% ../03_memory.ipynb 17
+@patch
+def query_by_vocabulary(self:SemanticMemory, vocab_name, limit=50):
+    "Find entities using a specific vocabulary"
+    results = []
+    
+    if "by_vocabulary" in self.indices and vocab_name in self.indices["by_vocabulary"]:
+        entity_ids = list(self.indices["by_vocabulary"][vocab_name])[:limit]
+        for eid in entity_ids:
+            entity = self.query_by_id(eid)
+            if entity: results.append(entity)
+    
+    return results
 
 
-# %% ../03_memory.ipynb 14
+# %% ../03_memory.ipynb 18
+@patch
+def compact_with_preferred_vocab(self:SemanticMemory, entity, preferred_vocabs=None):
+    "Compact entity using preferred vocabulary"
+    if not isinstance(entity, dict) or "@id" not in entity: return entity
+    
+    entity_vocabs = []
+    if "by_vocabulary" in self.indices:
+        for vocab, entities in self.indices["by_vocabulary"].items():
+            if entity["@id"] in entities:
+                entity_vocabs.append(vocab)
+    
+    if not entity_vocabs: return entity
+    
+
+# %% ../03_memory.ipynb 20
+@patch
+def compact_with_vocabulary(self:SemanticMemory, entity_id, vocab_name):
+    """Retrieve an entity and compact it using a specific vocabulary"""
+    entity = self.query_by_id(entity_id)
+    if not entity: return None
+    return compact_entity_with_vocabulary(entity, vocab_name)
+
+# %% ../03_memory.ipynb 21
+@patch
+def use_vocabulary(self:SemanticMemory, vocab_name):
+    """Load and register a vocabulary for use in this memory instance"""
+    # This would call VocabTools functions but not depend on VocabTools internals
+    context = load_context_for_vocabulary(vocab_name)
+    return self._register_context(context)
+
+# %% ../03_memory.ipynb 23
+@patch
+def _add_to_named_graph(self:SemanticMemory, entity, graph_id):
+    "Add processed entity to a named graph"
+    import json
+    from rdflib import Graph, URIRef
+    
+    # Skip if no entity ID
+    if not isinstance(entity, dict) or "@id" not in entity: return
+    
+    # Get target graph
+    graph_uri = URIRef(graph_id) if isinstance(graph_id, str) else graph_id
+    target_graph = self.dataset.graph(graph_uri)
+    
+    # Add to RDF graph
+    g = Graph()
+    g.parse(data=json.dumps(entity), format="json-ld")
+    target_graph += g
+    
+    # Update graph index
+    if "by_graph" not in self.indices: self.indices["by_graph"] = {}
+    if graph_uri not in self.indices["by_graph"]: self.indices["by_graph"][graph_uri] = set()
+    self.indices["by_graph"][graph_uri].add(entity["@id"])
+
+
+# %% ../03_memory.ipynb 25
+@patch
+def bulk_load(self:SemanticMemory, data_list, graph_id=None, detect_graph=True):
+    "Bulk load multiple entities into memory"
+    results = []
+    
+    # Process each item in the list
+    for item in data_list:
+        # Auto-detect graph ID if requested
+        item_graph = None
+        if detect_graph and isinstance(item, dict) and "@id" in item:
+            item_graph = item.get("@graph", {}).get("@id", None)
+        
+        # Use provided graph ID if no auto-detected graph
+        if not item_graph: item_graph = graph_id
+        
+        # Add to memory
+        result = self.add(item, graph_id=item_graph)
+        if result: results.append(result)
+    
+    return results
+
+
+# %% ../03_memory.ipynb 27
+@patch
+def as_container(self:SemanticMemory, entities, container_type="@id", property_name=None, base_context=None):
+    "Create a JSON-LD 1.1 container from entities"
+    if not entities: return {}
+    
+    # Create container structure with proper JSON-LD 1.1 context
+    result = {"@context": {"@version": 1.1}}
+    if base_context: 
+        if isinstance(base_context, dict): result["@context"].update(base_context)
+        else: result["@context"]["@vocab"] = base_context
+    
+    # Set up the container definition
+    if property_name:
+        result["@context"][property_name] = {"@container": container_type}
+        result[property_name] = {}
+        container = result[property_name]
+    else:
+        container = {}
+    
+    # Process based on container type
+    if container_type == "@id":
+        for entity in entities:
+            if "@id" not in entity: continue
+            container[entity["@id"]] = entity
+    elif container_type == "@type":
+        for entity in entities:
+            if "@type" not in entity: continue
+            types = entity["@type"] if isinstance(entity["@type"], list) else [entity["@type"]]
+            for t in types:
+                if t not in container: container[t] = []
+                container[t].append(entity)
+    elif container_type == "@language":
+        # Group content by language
+        lang_map = {}
+        for entity in entities:
+            for prop, values in entity.items():
+                if prop.startswith("@"): continue
+                if isinstance(values, list):
+                    for v in values:
+                        if isinstance(v, dict) and "@value" in v and "@language" in v:
+                            lang = v["@language"]
+                            if lang not in lang_map: lang_map[lang] = []
+                            lang_map[lang].append({"@id": entity["@id"], prop: v["@value"]})
+                
+        container.update(lang_map)
+    
+    # If we used a property name, make sure it's in the result
+    if property_name and container:
+        result[property_name] = container
+    elif not property_name:
+        # If no property name, add container directly to result
+        for k, v in container.items(): result[k] = v
+    
+    return result
+
+# %% ../03_memory.ipynb 28
+@patch
+def as_language_container(self:SemanticMemory, query, text_properties=None):
+    "Create a language map from entities with multilingual text"
+    entities = self.search(query) if isinstance(query, str) else query
+    return self.as_container(entities, container_type="@language")
+
+# %% ../03_memory.ipynb 29
+@patch
+def as_type_container(self:SemanticMemory, query=None, type_uri=None):
+    "Create a type map grouping entities by type"
+    if type_uri:
+        entities = self.query_by_type(type_uri)
+    else:
+        entities = self.search(query) if isinstance(query, str) else query
+    return self.as_container(entities, container_type="@type")
+
+
+
+# %% ../03_memory.ipynb 30
+@patch
+def as_id_container(self:SemanticMemory, query=None, id_list=None):
+    "Create an ID map for direct entity access"
+    if id_list:
+        entities = [self.query_by_id(id) for id in id_list if self.query_by_id(id)]
+    else:
+        entities = self.search(query) if isinstance(query, str) else query
+    return self.as_container(entities, container_type="@id")
+
+
+# %% ../03_memory.ipynb 31
+@patch
+def as_graph_container(self:SemanticMemory, graph_ids=None):
+    "Create a @graph container grouping entities by graph"
+    result = {"@context": {"@version": 1.1}, "@graph": {}}
+    
+    # Get all graphs if none specified
+    if not graph_ids:
+        graph_ids = [str(g.identifier) for g in self.dataset.graphs() 
+                   if str(g.identifier) != "urn:x-arq:DefaultGraph"]
+    
+    # Process each graph
+    for graph_id in graph_ids:
+        entity_ids = set()
+        if "by_graph" in self.indices and URIRef(graph_id) in self.indices["by_graph"]:
+            entity_ids = self.indices["by_graph"][URIRef(graph_id)]
+        
+        # Get entities and add to container
+        if entity_ids:
+            graph_entities = []
+            for eid in entity_ids:
+                entity = self.query_by_id(eid)
+                if entity: graph_entities.append(entity)
+            
+            if graph_entities:
+                result["@graph"][graph_id] = graph_entities
+    
+    return result
+
+
+# %% ../03_memory.ipynb 32
+@patch
+def store_container(self:SemanticMemory, container, container_id=None):
+    "Store a container structure with container-aware indexing"
+    if not container_id: 
+        import uuid
+        container_id = f"urn:container:{uuid.uuid4()}"
+    
+    # Ensure container has an ID
+    if "@id" not in container: container["@id"] = container_id
+    
+    # Track as a container
+    if "containers" not in self.indices: self.indices["containers"] = {}
+    self.indices["containers"][container_id] = container
+    
+    # Add to memory
+    return self.add(container, graph_id=container_id)
+
+
+# %% ../03_memory.ipynb 33
+@patch
+def get_container(self:SemanticMemory, container_id):
+    "Retrieve a previously stored container"
+    if "containers" in self.indices and container_id in self.indices["containers"]:
+        return self.indices["containers"][container_id]
+    return None
+
+# %% ../03_memory.ipynb 36
+@patch
+def _process_graph(self:SemanticMemory, data):
+    """Process a graph structure with multiple entities"""
+    if not isinstance(data, dict) or "@graph" not in data: return None
+    
+    results = []
+    shared_ctx = data.get("@context")
+    
+    # Process each entity
+    for entity in data["@graph"]:
+        # Skip bare references
+        if isinstance(entity, dict) and len(entity) == 1 and "@id" in entity: continue
+        
+        # Apply shared context if needed
+        if shared_ctx and isinstance(entity, dict) and "@context" not in entity:
+            entity = dict(entity, **{"@context": shared_ctx})
+        
+        # Process entity
+        result = self._process_entity(entity)
+        if result: results.append(result)
+    
+    return results
+
+# %% ../03_memory.ipynb 37
+@patch
+def _process_entity(self:SemanticMemory, data):
+    """Process a single entity, adding it to indices and graph"""
+    import copy, json, uuid
+    from rdflib import Graph
+    
+    if not isinstance(data, dict): return None
+    
+    # Normalize the entity
+    entity = self._normalize_entity(copy.deepcopy(data))
+    
+    # Ensure ID
+    if "@id" not in entity: entity["@id"] = f"urn:uuid:{uuid.uuid4()}"
+    entity_id = entity["@id"]
+    
+    # Store original data
+    self.original_data[entity_id] = entity
+    
+    # Register context and track associations
+    if "@context" in entity:
+        ctx_id = self._register_context(entity["@context"])
+        if ctx_id:
+            ctx_info = self.context_registry.setdefault(ctx_id, {"used_by": set()})
+            ctx_info["used_by"].add(entity_id)
+    
+    # Try expanding and indexing
+    try:
+        expanded = jsonld.expand(entity)
+        
+        # Update indices
+        self._update_indices(expanded)
+        
+        # Add to RDF graph
+        g = Graph()
+        g.parse(data=json.dumps(expanded), format="json-ld")
+        self.default_graph += g
+        
+        return expanded
+    except Exception as e:
+        # Fallback to direct indexing
+        print(f"JSON-LD expansion failed: {e}")
+        self.indices["by_id"][entity_id] = entity
+        
+        if "@type" in entity:
+            types = [entity["@type"]] if not isinstance(entity["@type"], list) else entity["@type"]
+            for t in types:
+                if t not in self.indices["by_type"]: self.indices["by_type"][t] = []
+                self.indices["by_type"][t].append(entity)
+        
+        return entity
+
+
+# %% ../03_memory.ipynb 38
 @patch
 def _needs_graph_partition(self:SemanticMemory, data):
     """Determine if data needs graph partitioning"""
@@ -76,7 +416,7 @@ def _needs_graph_partition(self:SemanticMemory, data):
     if "credentialSubject" in data and isinstance(data["credentialSubject"], dict): return True
     return False
 
-# %% ../03_memory.ipynb 15
+# %% ../03_memory.ipynb 39
 @patch
 def _create_graph_partition(self:SemanticMemory, data):
     """Convert document into graph with separate entities for each context"""
@@ -147,84 +487,7 @@ def _create_graph_partition(self:SemanticMemory, data):
     return graph
 
 
-# %% ../03_memory.ipynb 16
-@patch
-def _process_graph(self:SemanticMemory, data):
-    """Process a graph structure with multiple entities"""
-    if not isinstance(data, dict) or "@graph" not in data: return None
-    
-    results = []
-    shared_ctx = data.get("@context")
-    
-    # Process each entity
-    for entity in data["@graph"]:
-        # Skip bare references
-        if isinstance(entity, dict) and len(entity) == 1 and "@id" in entity: continue
-        
-        # Apply shared context if needed
-        if shared_ctx and isinstance(entity, dict) and "@context" not in entity:
-            entity = dict(entity, **{"@context": shared_ctx})
-        
-        # Process entity
-        result = self._process_entity(entity)
-        if result: results.append(result)
-    
-    return results
-
-# %% ../03_memory.ipynb 17
-@patch
-def _process_entity(self:SemanticMemory, data):
-    """Process a single entity, adding it to indices and graph"""
-    import copy, json, uuid
-    from rdflib import Graph
-    
-    if not isinstance(data, dict): return None
-    
-    # Normalize the entity
-    entity = self._normalize_entity(copy.deepcopy(data))
-    
-    # Ensure ID
-    if "@id" not in entity: entity["@id"] = f"urn:uuid:{uuid.uuid4()}"
-    entity_id = entity["@id"]
-    
-    # Store original data
-    self.original_data[entity_id] = entity
-    
-    # Register context and track associations
-    if "@context" in entity:
-        ctx_id = self._register_context(entity["@context"])
-        if ctx_id:
-            ctx_info = self.context_registry.setdefault(ctx_id, {"used_by": set()})
-            ctx_info["used_by"].add(entity_id)
-    
-    # Try expanding and indexing
-    try:
-        expanded = jsonld.expand(entity)
-        
-        # Update indices
-        self._update_indices(expanded)
-        
-        # Add to RDF graph
-        g = Graph()
-        g.parse(data=json.dumps(expanded), format="json-ld")
-        self.default_graph += g
-        
-        return expanded
-    except Exception as e:
-        # Fallback to direct indexing
-        print(f"JSON-LD expansion failed: {e}")
-        self.indices["by_id"][entity_id] = entity
-        
-        if "@type" in entity:
-            types = [entity["@type"]] if not isinstance(entity["@type"], list) else entity["@type"]
-            for t in types:
-                if t not in self.indices["by_type"]: self.indices["by_type"][t] = []
-                self.indices["by_type"][t].append(entity)
-        
-        return entity
-
-
-# %% ../03_memory.ipynb 19
+# %% ../03_memory.ipynb 41
 @patch
 def _normalize_entity(self:SemanticMemory, data):
     """Normalize entity properties for consistent processing"""
@@ -250,7 +513,7 @@ def _normalize_entity(self:SemanticMemory, data):
     
     return result
 
-# %% ../03_memory.ipynb 20
+# %% ../03_memory.ipynb 42
 @patch
 def _register_context(self:SemanticMemory, context):
     """Register context and extract scoped contexts"""
@@ -285,7 +548,7 @@ def _register_context(self:SemanticMemory, context):
     return ctx_id
 
 
-# %% ../03_memory.ipynb 29
+# %% ../03_memory.ipynb 51
 @patch
 def query_by_id(self:SemanticMemory, entity_id):
     """Get entity by ID with improved retrieval"""
@@ -310,7 +573,7 @@ def query_by_id(self:SemanticMemory, entity_id):
     
     return results if results else None
 
-# %% ../03_memory.ipynb 30
+# %% ../03_memory.ipynb 52
 @patch
 def get_connected_entities(self:SemanticMemory, entity_id, max_depth=1):
     """Get entity and all connected entities up to max_depth"""
@@ -336,7 +599,7 @@ def get_connected_entities(self:SemanticMemory, entity_id, max_depth=1):
     
     return result
 
-# %% ../03_memory.ipynb 31
+# %% ../03_memory.ipynb 53
 @patch 
 def query_by_type(self:SemanticMemory, type_uri):
     """Get all entities of a specific type, including subtypes"""
@@ -407,7 +670,7 @@ def query_by_type(self:SemanticMemory, type_uri):
     return results
 
 
-# %% ../03_memory.ipynb 33
+# %% ../03_memory.ipynb 55
 @patch
 def _update_indices(self:SemanticMemory, expanded_data):
     """Update indices with expanded JSON-LD data"""
@@ -454,7 +717,7 @@ def _update_indices(self:SemanticMemory, expanded_data):
         self._index_subclass_relationships(node)
 
 
-# %% ../03_memory.ipynb 34
+# %% ../03_memory.ipynb 56
 @patch
 def _index_labels_and_descriptions(self:SemanticMemory, node):
     """Index entity by labels and textual content for better search"""
@@ -535,7 +798,7 @@ def _index_labels_and_descriptions(self:SemanticMemory, node):
                                 self.indices["by_keyword"][word_lower].append({'@id': node_id})
 
 
-# %% ../03_memory.ipynb 35
+# %% ../03_memory.ipynb 57
 @patch
 def _index_subclass_relationships(self:SemanticMemory, node):
     """Index subclass relationships for type inference"""
@@ -569,7 +832,7 @@ def _index_subclass_relationships(self:SemanticMemory, node):
                 self.indices["superclass_of"][super_class_id].add(class_id)
 
 
-# %% ../03_memory.ipynb 37
+# %% ../03_memory.ipynb 59
 @patch
 def retrieve_in_context(self:SemanticMemory, entity_id):
     """Retrieve entity with original context structure preserved"""
@@ -607,7 +870,7 @@ def retrieve_in_context(self:SemanticMemory, entity_id):
     return result
 
 
-# %% ../03_memory.ipynb 38
+# %% ../03_memory.ipynb 60
 @patch
 def search(self:SemanticMemory, query_text, limit=10):
     """Search memory for entities matching the query text"""
@@ -706,7 +969,7 @@ def search(self:SemanticMemory, query_text, limit=10):
     return results
 
 
-# %% ../03_memory.ipynb 41
+# %% ../03_memory.ipynb 63
 @patch 
 def query_by_type(self:SemanticMemory, type_uri):
     """Get all entities of a specific type, including subtypes"""
@@ -738,7 +1001,7 @@ def query_by_type(self:SemanticMemory, type_uri):
     return results
 
 
-# %% ../03_memory.ipynb 42
+# %% ../03_memory.ipynb 64
 @patch
 def _get_connected_subgraph(self:SemanticMemory, entity_id, max_depth=1, visited=None):
     """Extract a semantically connected subgraph centered on an entity.
@@ -795,7 +1058,7 @@ def _get_connected_subgraph(self:SemanticMemory, entity_id, max_depth=1, visited
     return result
 
 
-# %% ../03_memory.ipynb 43
+# %% ../03_memory.ipynb 65
 @patch
 def prepare_for_llm(self:SemanticMemory, entities, include_vocab_info=True, compact=True):
     """Format entities for optimal LLM understanding and context window usage.
@@ -871,7 +1134,7 @@ def prepare_for_llm(self:SemanticMemory, entities, include_vocab_info=True, comp
     return result
 
 
-# %% ../03_memory.ipynb 44
+# %% ../03_memory.ipynb 66
 @patch
 def _extract_relationships(self:SemanticMemory, entities):
     """Extract explicit relationships between entities for LLM comprehension.
@@ -924,7 +1187,7 @@ def _extract_relationships(self:SemanticMemory, entities):
     return relationships
 
 
-# %% ../03_memory.ipynb 45
+# %% ../03_memory.ipynb 67
 @patch
 def search_for_llm(self:SemanticMemory, query, limit=10, include_connected=True, max_depth=1, include_vocab_info=True):
     """Search semantic memory and prepare results specifically for LLM consumption.
@@ -946,18 +1209,29 @@ def search_for_llm(self:SemanticMemory, query, limit=10, include_connected=True,
     return self.prepare_for_llm(entities, include_vocab_info)
 
 
-# %% ../03_memory.ipynb 47
+# %% ../03_memory.ipynb 68
 @patch
-def use_vocabulary(self:SemanticMemory, vocab_name):
-    """Load and register a vocabulary for use in this memory instance"""
-    # This would call VocabTools functions but not depend on VocabTools internals
-    context = load_context_for_vocabulary(vocab_name)
-    return self._register_context(context)
+def prepare_for_llm_context(self:SemanticMemory, query=None, graph_id=None, limit=50, preferred_vocabs=None):
+    "Prepare memory contents for LLM context window with vocabulary awareness"
+    entities = []
+    
+    if query:
+        search_results = self.search(query, limit=limit)
+        entities.extend(search_results)
+    elif graph_id:
+        if "by_graph" in self.indices and URIRef(graph_id) in self.indices["by_graph"]:
+            entity_ids = list(self.indices["by_graph"][URIRef(graph_id)])[:limit]
+            for eid in entity_ids:
+                entity = self.query_by_id(eid)
+                if entity: entities.append(entity)
+    else:
+        entity_ids = list(self.indices["by_id"].keys())[:limit]
+        for eid in entity_ids:
+            entity = self.query_by_id(eid)
+            if entity: entities.append(entity)
+    
+    formatted_entities = []
+    for entity in entities:
+        compacted = self.compact_with_preferred_vocab(entity, preferred_vocabs)
+        formatted_entities.appen
 
-# %% ../03_memory.ipynb 48
-@patch
-def compact_with_vocabulary(self:SemanticMemory, entity_id, vocab_name):
-    """Retrieve an entity and compact it using a specific vocabulary"""
-    entity = self.query_by_id(entity_id)
-    if not entity: return None
-    return compact_entity_with_vocabulary(entity, vocab_name)
