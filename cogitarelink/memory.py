@@ -23,6 +23,9 @@ import types
 import pickle
 from contextlib import contextmanager, nullcontext
 
+# %% ../03_memory.ipynb 4
+from .vocabtools import *
+
 # %% ../03_memory.ipynb 15
 class ContextProcessor:
     "Manages JSON-LD contexts with enhanced JSON-LD 1.1 support"
@@ -774,6 +777,94 @@ def list_graphs(self:GraphManager, include_empty=True):
     self._debug(f"Listed {len(result)} graphs (include_empty={include_empty})")
     return result
 
+# %% ../03_memory.ipynb 56
+@patch
+def add_entity(self:GraphManager, entity, graph_id=None):
+    """Add an entity to a specific graph
+    
+    Args:
+        entity: JSON-LD entity to add (must have @id)
+        graph_id: Optional graph identifier (uses default graph if None)
+        
+    Returns:
+        Boolean indicating success
+    """
+    if not isinstance(entity, dict) or "@id" not in entity:
+        self._debug(f"Invalid entity for graph addition", level=2)
+        return False
+        
+    graph = self.get_graph(graph_id)
+    graph_uri = graph.identifier
+    graph_key = str(graph_uri)
+    
+    try:
+        # Create temporary graph for entity
+        g = Graph()
+        g.parse(data=json.dumps(entity), format="json-ld")
+        
+        # Add to target graph
+        initial_count = len(graph)
+        graph += g
+        final_count = len(graph)
+        triples_added = final_count - initial_count
+        
+        # Update metadata
+        self.metadata[graph_key]["triples"] += triples_added
+        self.metadata[graph_key]["entities"].add(entity["@id"])
+        
+        # Improved vocabulary detection
+        if "@context" in entity:
+            # Option 1: Use context processor if available
+            if self.parent and hasattr(self.parent, "context_processor"):
+                vocabs = self.parent.context_processor.detect_vocabs(entity["@context"])
+                self.metadata[graph_key]["vocabs"].update(vocabs)
+            # Option 2: Use direct detection 
+            else:
+                from cogitarelink.vocabtools import detect_vocabularies_in_context
+                try:
+                    vocabs = detect_vocabularies_in_context(entity["@context"])
+                    self.metadata[graph_key]["vocabs"].update(vocabs)
+                except Exception as e:
+                    self._debug(f"Vocabulary detection error: {str(e)}")
+                    # Fallback for common vocabularies
+                    ctx = entity["@context"]
+                    if isinstance(ctx, str):
+                        if "schema.org" in ctx or "schema.org" in ctx:
+                            self.metadata[graph_key]["vocabs"].add("schema")
+                        elif "purl.org/dc" in ctx:
+                            self.metadata[graph_key]["vocabs"].add("dc")
+                        elif "xmlns.com/foaf" in ctx:
+                            self.metadata[graph_key]["vocabs"].add("foaf")
+        
+        self._debug(f"Added entity {entity['@id']} to graph {graph_uri}", level=2)
+        return True
+    except Exception as e:
+        self._debug(f"Error adding entity to graph: {str(e)}")
+        return False
+
+#| export
+@patch
+def get_entity_graph(self:GraphManager, entity_id):
+    "Find which graph contains an entity"
+    for graph_key, meta in self.metadata.items():
+        if entity_id in meta["entities"]:
+            return graph_key
+    return None
+
+#| export
+@patch
+def get_entities_in_graph(self:GraphManager, graph_id=None, limit=None):
+    "Get all entity IDs in a graph"
+    graph_uri = URIRef(graph_id) if isinstance(graph_id, str) else graph_id
+    graph_key = str(graph_uri) if graph_uri else str(self.default_graph.identifier)
+    
+    if graph_key in self.metadata:
+        entities = list(self.metadata[graph_key]["entities"])
+        if limit is not None:
+            return entities[:limit]
+        return entities
+    return []
+
 # %% ../03_memory.ipynb 58
 @patch
 def query_graph(self:GraphManager, query, graph_id=None):
@@ -1294,6 +1385,103 @@ def cache_vocabulary(self:CacheManager, vocab_name, context_data):
     
     return True
 
+# %% ../03_memory.ipynb 102
+@patch
+def get_cached_vocabulary(self:CacheManager, vocab_name):
+    """Retrieve cached vocabulary context
+    
+    Args:
+        vocab_name: Name of the vocabulary
+        
+    Returns:
+        Cached context data or None if not found
+    """
+    # First check memory cache
+    if vocab_name in self.vocab_cache:
+        self._debug(f"Memory cache hit for vocabulary {vocab_name}", level=2)
+        return self.vocab_cache[vocab_name]
+    
+    # Then check disk cache if available
+    if self.cache_dir:
+        try:
+            vocab_path = Path(self.cache_dir) / f"vocab_{vocab_name}.json"
+            if vocab_path.exists():
+                with open(vocab_path, 'r') as f:
+                    context_data = json.load(f)
+                    # Update memory cache
+                    self.vocab_cache[vocab_name] = context_data
+                    self.loaded_vocabs.add(vocab_name)
+                    self._debug(f"Disk cache hit for vocabulary {vocab_name}", level=2)
+                    return context_data
+        except Exception as e:
+            self._debug(f"Error reading vocabulary {vocab_name} from disk: {e}")
+    
+    self._debug(f"Cache miss for vocabulary {vocab_name}", level=2)
+    return None
+
+# %% ../03_memory.ipynb 104
+@patch
+def cache_entity(self:CacheManager, entity_id, original_data, processed_data=None):
+    """Cache entity data
+    
+    Args:
+        entity_id: Entity identifier
+        original_data: Original entity data
+        processed_data: Optional processed entity data
+        
+    Returns:
+        Boolean indicating success
+    """
+    self.original_data[entity_id] = original_data
+    if processed_data is not None:
+        self.entity_cache[entity_id] = processed_data
+    
+    return True
+
+@patch
+def get_cached_entity(self:CacheManager, entity_id, original=False):
+    """Retrieve cached entity
+    
+    Args:
+        entity_id: Entity identifier
+        original: Whether to return original data (default: processed)
+        
+    Returns:
+        Cached entity data or None if not found
+    """
+    if original and entity_id in self.original_data:
+        return self.original_data[entity_id]
+    elif not original and entity_id in self.entity_cache:
+        return self.entity_cache[entity_id]
+    return None
+
+# %% ../03_memory.ipynb 106
+@patch
+def cache_context(self:CacheManager, context_url, context_data):
+    """Cache a JSON-LD context
+    
+    Args:
+        context_url: URL or identifier for the context
+        context_data: Context data to cache
+        
+    Returns:
+        Boolean indicating success
+    """
+    self.context_cache[context_url] = context_data
+    return True
+
+@patch
+def get_cached_context(self:CacheManager, context_url):
+    """Retrieve a cached JSON-LD context
+    
+    Args:
+        context_url: URL or identifier for the context
+        
+    Returns:
+        Cached context data or None if not found
+    """
+    return self.context_cache.get(context_url)
+
 # %% ../03_memory.ipynb 108
 @patch
 def create_document_loader(self:CacheManager, debug=False):
@@ -1356,6 +1544,42 @@ def create_document_loader(self:CacheManager, debug=False):
             raise
     
     return caching_document_loader
+
+# %% ../03_memory.ipynb 110
+@patch
+def preload_vocabulary(self:CacheManager, vocab_name):
+    """Preload a vocabulary to avoid HTTP requests
+    
+    Args:
+        vocab_name: Name of the vocabulary to preload
+        
+    Returns:
+        Boolean indicating success
+    """
+    from cogitarelink.vocabtools import load_context_for_vocabulary
+    
+    # Check if already loaded
+    if vocab_name in self.loaded_vocabs:
+        self._debug(f"Vocabulary {vocab_name} already loaded")
+        return True
+    
+    # Check cache first
+    cached = self.get_cached_vocabulary(vocab_name)
+    if cached:
+        self._debug(f"Using cached vocabulary {vocab_name}")
+        return True
+    
+    # Load from network
+    try:
+        self._debug(f"Loading vocabulary {vocab_name}")
+        context = load_context_for_vocabulary(vocab_name)
+        if context:
+            # Cache the vocabulary
+            return self.cache_vocabulary(vocab_name, context)
+        return False
+    except Exception as e:
+        self._debug(f"Error preloading vocabulary {vocab_name}: {e}")
+        return False
 
 # %% ../03_memory.ipynb 113
 class SemanticMemory:
