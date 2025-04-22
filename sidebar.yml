@@ -5,9 +5,9 @@ website:
       - 01_vocabularytools.ipynb
       - 02_retriever.ipynb
       - 03_memory.ipynb
-      - 03_memory_dep.ipynb
       - 04_memorytools.ipynb
       - 05_tools.ipynb
       - 06_workflows.ipynb
       - 07_agents.ipynb
       - 08_utils.ipynb
+      - 99_memory_dep.ipynb
