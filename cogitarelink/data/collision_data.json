@@ -1,0 +1,42 @@
+{
+  "('vc', 'epcis')": {
+    "strategy": "property_scoped",
+    "primary": "vc",
+    "property": "credentialSubject",
+    "secondary": "epcis",
+    "description": "Places EPCIS data within the VC credentialSubject property"
+  },
+  "('schema', 'dc')": {
+    "strategy": "graph_partition",
+    "primary": "schema",
+    "description": "Partitions the graph with Schema.org as the primary vocabulary"
+  },
+  "('schema', 'foaf')": {
+    "strategy": "property_mapping",
+    "mappings": {
+      "foaf:name": "schema:name",
+      "foaf:Person": "schema:Person",
+      "foaf:knows": "schema:knows"
+    },
+    "description": "Maps FOAF properties to Schema.org equivalents"
+  },
+  "('ro-crate', 'dcat')": {
+    "strategy": "nested_contexts",
+    "outer": "ro-crate",
+    "inner": "dcat",
+    "description": "Nests DCAT context within RO-Crate"
+  },
+  "('prov', 'schema')": {
+    "strategy": "context_versioning",
+    "context_version": "1.1",
+    "description": "Uses JSON-LD 1.1 features to handle these vocabularies"
+  },
+  "('shacl', 'owl')": {
+    "strategy": "separate_graphs",
+    "description": "Maintains separate graphs with explicit cross-references"
+  },
+  "('*', '*_protected')": {
+    "strategy": "graph_partition",
+    "description": "Default strategy when any vocabulary uses @protected terms"
+  }
+}
