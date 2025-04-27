@@ -17,6 +17,29 @@ _ENV = "COG_LOGLEVEL"                   # env var to override
 _ROOT = "cogitarelink"                  # prefix for all lib loggers
 
 
+# %% ../../00_debug.ipynb 5
+# optional colour -----------------------------------------------------
+try:
+    from colorama import init as _c_init, Fore, Style
+    _c_init()
+    _COLOUR = {
+        "DEBUG":   Fore.BLUE,
+        "INFO":    Fore.GREEN,
+        "WARNING": Fore.YELLOW,
+        "ERROR":   Fore.RED,
+        "CRITICAL":Fore.MAGENTA,
+    }
+    def _colour_fmt(record, fmt=_FMT):
+        col = _COLOUR.get(record.levelname, "")
+        reset = Style.RESET_ALL
+        return f"{col}{logging.Formatter(fmt).format(record)}{reset}"
+    _FORMATTER = logging.Formatter()    # dummy; replaced per-handler
+    _COLOURIZED = True
+except ImportError:                     # no colourama
+    _FORMATTER = logging.Formatter(_FMT)
+    _COLOURIZED = False
+
+
 # %% ../../00_debug.ipynb 6
 def _new_handler():
     h = logging.StreamHandler(sys.stderr)
