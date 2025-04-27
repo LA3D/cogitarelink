@@ -43,12 +43,43 @@ class BaseCache:
         return val
     def delete(self,key:str): ...
     def clear(self): ...
-    def memoize(self,maxsize=None):
-        def deco(fn:Callable):
-            lru = functools.lru_cache(maxsize or self.maxsize)(fn)
-            functools.update_wrapper(lru,fn)
-            return lru
-        return deco
+    # ---------------------------------------------------------------------   
+    #  Memoization helper
+    # ---------------------------------------------------------------------
+    def memoize(self, ns: str = "default", maxsize: int | None = None):
+        """
+        Return a decorator that wraps *fn* with an LRU cache that is **scoped
+        to a namespace**.
+
+        Args:
+            ns:   Arbitrary namespace label (e.g. "http", "context", "expand").
+            maxsize: Optional per-namespace cache size.  Falls back to the
+                     cache-wide `self.maxsize` default.
+
+        Example
+        -------
+        >>> cache = InMemoryCache(maxsize=16)
+        >>> @cache.memoize("math")              # math namespace
+        ... def add(a, b): return a + b
+        >>> add(1, 2); add(1, 2)                # 2nd hit is cached
+        3
+        """
+        if not hasattr(self, "_memo_tables"):
+            self._memo_tables: dict[str, Callable] = {}          # type: ignore
+
+        if ns not in self._memo_tables:
+            # one independent functools.lru_cache per namespace
+            self._memo_tables[ns] = functools.lru_cache(
+                maxsize or self.maxsize
+            )
+
+        def decorator(fn: Callable):
+            wrapped = self._memo_tables[ns](fn)
+            functools.update_wrapper(wrapped, fn)
+            return wrapped
+
+        return decorator
+    
     def info(self): return self.stats.as_dict()
 
 # %% ../../01_cache.ipynb 6
@@ -73,7 +104,7 @@ class InMemoryCache(BaseCache):
 # alias for default use
 Cache = InMemoryCache
 
-# %% ../../01_cache.ipynb 10
+# %% ../../01_cache.ipynb 11
 class DiskCache(BaseCache):
     def __init__(self, directory=".cog_cache", **kw):
         super().__init__(**kw)

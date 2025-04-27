@@ -5,8 +5,9 @@
 # %% ../../02_registry.ipynb 3
 from __future__ import annotations
 import json, importlib.resources as pkg
-from typing import List, Dict, Any
-from pydantic import BaseModel, AnyUrl, Field, ValidationError
+from typing import List, Dict, Any, Optional
+from pydantic import BaseModel, AnyUrl, Field, ConfigDict, ValidationError
+
 from ..core.debug import get_logger
 from urllib.parse import urlparse, urlunparse
 
@@ -14,7 +15,7 @@ from urllib.parse import urlparse, urlunparse
 
 
 # %% auto 0
-__all__ = ['log', 'registry', 'VocabEntry', 'VRegistry']
+__all__ = ['log', 'registry', 'VocabEntry', 'ResourceURLs', 'VRegistry']
 
 # %% ../../02_registry.ipynb 4
 log = get_logger("registry")
@@ -43,6 +44,72 @@ class VocabEntry(BaseModel):
     related_vocabs: List[str] = Field(default_factory=list)
 
 # %% ../../02_registry.ipynb 7
+class ResourceURLs(BaseModel):
+    """
+    Canonical set of resource links that *may* exist for a vocabulary.
+    Only `context` **or** `ttl` is required; others are optional.
+    """
+    ttl:     Optional[AnyUrl] = None   # Turtle serialisation
+    context: Optional[AnyUrl] = None   # JSON-LD context (if published)
+    backup:  Optional[AnyUrl] = None   # Alternate mirror / raw Git link
+    homepage:Optional[AnyUrl] = None
+
+
+# %% ../../02_registry.ipynb 8
+class VocabEntry(BaseModel):
+    """
+    Single vocabulary description used by CogitareLink.
+
+    • All URLs are validated/well-formed (`AnyUrl`)  
+    • Optional helper properties (`has_context`, `all_uris`) make
+      client code cleaner.
+    """
+    # ---- identity ---------------------------------------------------
+    uri:              AnyUrl                 # canonical root IRI
+    alternative_uris: List[AnyUrl] = Field(default_factory=list)
+    prefix:           str
+
+    # ---- human info -------------------------------------------------
+    title:       str
+    description: str
+    version:     str
+    publisher:   str
+
+    # ---- runtime hints ----------------------------------------------
+    support_level: str                       # "direct" | "cache" | "github_raw" | ...
+    derives_context: bool = False            # we must synthesize context from TTL?
+
+    # ---- resource & access metadata ---------------------------------
+    resources:         ResourceURLs
+    access_patterns:   Dict[str, List[str]]  # primary/fallback strategy keywords
+    url_transformations: List[Dict[str, str]] = Field(default_factory=list)
+
+    # ---- JSON-LD feature flags --------------------------------------
+    features: Dict[str, bool]                # inline_context, uses_protection, ...
+
+    # ---- common terms for quick-autocomplete ------------------------
+    common_terms:  List[str] = Field(default_factory=list)
+    common_types:  List[str] = Field(default_factory=list)
+    related_vocabs:List[str] = Field(default_factory=list)
+
+    # ---- Pydantic config --------------------------------------------
+    model_config = ConfigDict(
+        extra="forbid",
+        validate_default=True,
+        frozen=True              # make instances hashable / cache-safe
+    )
+
+    # ---- helper properties ------------------------------------------
+    def has_context(self) -> bool:
+        "True if the registry entry supplies a JSON-LD context URL."
+        return bool(self.resources.context)
+
+    @property
+    def all_uris(self) -> List[str]:
+        "Canonical + alternative URIs as plain strings."
+        return [str(self.uri), *[str(u) for u in self.alternative_uris]]
+
+# %% ../../02_registry.ipynb 9
 def _norm(u:str) -> str:
     """Lower-case scheme+host and drop a single trailing '/'."""
     p = urlparse(u)
@@ -52,7 +119,7 @@ def _norm(u:str) -> str:
     return urlunparse((scheme, netloc, path, "", "", ""))
 
 
-# %% ../../02_registry.ipynb 8
+# %% ../../02_registry.ipynb 10
 class VRegistry:
     "Immutable mapping of `prefix -> VocabEntry`."
     def __init__(self, raw: Dict[str, Any] | None = None):
