@@ -1,355 +1,243 @@
 {
   "schema": {
-    "uri": "https://schema.org/",
-    "alternative_uris": [
-      "http://schema.org/",
-      "https://schema.org",
-      "http://schema.org"
-    ],
     "prefix": "schema",
-    "title": "Schema.org",
-    "description": "Schema.org vocabulary for structured data on the internet",
-    "version": "latest",
-    "publisher": "Schema.org Community",
-    "support_level": "direct",
-    "resources": {
-      "ttl": "https://schema.org/version/latest/schemaorg-current-https.ttl",
-      "context": "https://schema.org/docs/jsonldcontext.jsonld",
-      "homepage": "https://schema.org/"
-    },
-    "access_patterns": {
-      "primary": "link_header_to_context",
-      "fallbacks": [
-        "direct_download"
+    "uris": {
+      "primary": "https://schema.org/",
+      "alternates": [
+        "http://schema.org/",
+        "https://schema.org",
+        "http://schema.org"
       ]
     },
-    "url_transformations": [],
-    "features": {
-      "inline_context": false,
-      "uses_protection": false,
-      "supports_scoped_contexts": true
+    "context": {
+      "url": "https://schema.org/docs/jsonldcontext.jsonld"
     },
-    "common_terms": [
-      "name",
-      "description",
-      "url",
-      "image"
+    "versions": {
+      "current": "latest",
+      "supported": [
+        "latest"
+      ]
+    },
+    "features": [
+      "inline_context",
+      "uses_protection",
+      "supports_scoped_contexts"
     ],
-    "common_types": [
-      "Thing",
-      "Person",
-      "Organization",
-      "Place",
-      "Event",
-      "Product"
-    ],
-    "related_vocabs": [
-      "dc",
-      "foaf"
-    ]
+    "tags": [],
+    "strategy_defaults": {},
+    "meta": {
+      "publisher": "Schema.org Community",
+      "homepage": "https://schema.org/"
+    }
   },
   "croissant": {
-    "uri": "http://mlcommons.org/croissant/",
-    "alternative_uris": [
-      "https://mlcommons.org/croissant/"
-    ],
     "prefix": "croissant",
-    "title": "CROISSANT",
-    "description": "Community Resource for Open and Inclusive Scholarly Sources and Artifacts for Novel Technologies",
-    "version": "1.0",
-    "publisher": "MLCommons",
-    "support_level": "direct",
-    "resources": {
-      "ttl": "https://raw.githubusercontent.com/mlcommons/croissant/main/docs/croissant.ttl",
-      "context": "https://raw.githubusercontent.com/mlcommons/croissant/main/docs/context.jsonld",
-      "homepage": "https://github.com/mlcommons/croissant"
-    },
-    "access_patterns": {
-      "primary": "github_raw",
-      "fallbacks": []
-    },
-    "url_transformations": [],
-    "features": {
-      "inline_context": true,
-      "uses_protection": false,
-      "supports_scoped_contexts": false
-    },
-    "common_terms": [
-      "name",
-      "description",
-      "creator",
-      "license"
-    ],
-    "common_types": [
-      "Dataset",
-      "DatasetField",
-      "Distribution"
-    ],
-    "related_vocabs": [
-      "schema",
-      "dcat"
-    ]
-  },
-  "ro-crate": {
-    "uri": "https://w3id.org/ro/crate/1.2-DRAFT/context",
-    "alternative_uris": [
-      "https://w3id.org/ro/crate/1.1/context",
-      "https://w3id.org/ro/crate/context"
-    ],
-    "prefix": "ro",
-    "title": "RO-Crate",
-    "description": "Research Object Crate (RO-Crate) metadata specification",
-    "version": "1.2-DRAFT",
-    "publisher": "ResearchObject.org",
-    "support_level": "cache",
-    "resources": {
-      "ttl": null,
-      "context": "https://w3id.org/ro/crate/1.2-DRAFT/context",
-      "homepage": "https://www.researchobject.org/ro-crate/"
-    },
-    "access_patterns": {
-      "primary": "persistent_uri",
-      "fallbacks": []
-    },
-    "url_transformations": [],
-    "features": {
-      "inline_context": false,
-      "uses_protection": false,
-      "supports_scoped_contexts": false
-    },
-    "common_terms": [
-      "name",
-      "description",
-      "author",
-      "hasPart"
-    ],
-    "common_types": [
-      "Dataset",
-      "CreativeWork",
-      "Person"
-    ],
-    "related_vocabs": [
-      "schema",
-      "dc"
-    ]
-  },
-  "vc": {
-    "uri": "https://www.w3.org/ns/credentials/v2",
-    "alternative_uris": [
-      "https://www.w3.org/2018/credentials/v1",
-      "https://www.w3.org/2018/credentials"
-    ],
-    "prefix": "vc",
-    "title": "Verifiable Credentials Data Model",
-    "description": "W3C Verifiable Credentials data model and representations",
-    "version": "v2",
-    "publisher": "W3C",
-    "support_level": "direct",
-    "resources": {
-      "ttl": null,
-      "context": "https://www.w3.org/ns/credentials/v2",
-      "backup": "https://raw.githubusercontent.com/w3c/vc-data-model/refs/heads/main/contexts/credentials/v2",
-      "homepage": "https://www.w3.org/TR/vc-data-model-2.0/"
-    },
-    "access_patterns": {
-      "primary": "github_raw",
-      "fallbacks": [
-        "direct_download"
+    "uris": {
+      "primary": "http://mlcommons.org/croissant/",
+      "alternates": [
+        "https://mlcommons.org/croissant/"
       ]
     },
-    "url_transformations": [],
-    "features": {
-      "inline_context": false,
-      "uses_protection": true,
-      "supports_scoped_contexts": true
+    "context": {
+      "url": "https://raw.githubusercontent.com/mlcommons/croissant/main/docs/context.jsonld"
     },
-    "common_terms": [
-      "issuer",
-      "credentialSubject",
-      "validFrom",
-      "validUntil"
+    "versions": {
+      "current": "1.0",
+      "supported": [
+        "1.0"
+      ]
+    },
+    "features": [
+      "inline_context",
+      "uses_protection",
+      "supports_scoped_contexts"
     ],
-    "common_types": [
-      "VerifiableCredential",
-      "VerifiablePresentation"
+    "tags": [],
+    "strategy_defaults": {},
+    "meta": {
+      "publisher": "MLCommons",
+      "homepage": "https://github.com/mlcommons/croissant"
+    }
+  },
+  "ro-crate": {
+    "prefix": "ro-crate",
+    "uris": {
+      "primary": "https://w3id.org/ro/crate/1.2-DRAFT/context",
+      "alternates": [
+        "https://w3id.org/ro/crate/1.1/context",
+        "https://w3id.org/ro/crate/context"
+      ]
+    },
+    "context": {
+      "url": "https://w3id.org/ro/crate/1.2-DRAFT/context"
+    },
+    "versions": {
+      "current": "1.2-DRAFT",
+      "supported": [
+        "1.2-DRAFT"
+      ]
+    },
+    "features": [
+      "inline_context",
+      "uses_protection",
+      "supports_scoped_contexts"
     ],
-    "related_vocabs": [
-      "schema"
-    ]
+    "tags": [],
+    "strategy_defaults": {},
+    "meta": {
+      "publisher": "ResearchObject.org",
+      "homepage": "https://www.researchobject.org/ro-crate/"
+    }
+  },
+  "vc": {
+    "prefix": "vc",
+    "uris": {
+      "primary": "https://www.w3.org/ns/credentials/v2",
+      "alternates": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://www.w3.org/2018/credentials"
+      ]
+    },
+    "context": {
+      "url": "https://www.w3.org/ns/credentials/v2"
+    },
+    "versions": {
+      "current": "v2",
+      "supported": [
+        "v2"
+      ]
+    },
+    "features": [
+      "inline_context",
+      "uses_protection",
+      "supports_scoped_contexts"
+    ],
+    "tags": [],
+    "strategy_defaults": {},
+    "meta": {
+      "publisher": "W3C",
+      "homepage": "https://www.w3.org/TR/vc-data-model-2.0/"
+    }
   },
   "epcis": {
-    "uri": "https://ref.gs1.org/epcis/",
-    "alternative_uris": [
-      "https://gs1.org/epcis/",
-      "http://gs1.org/epcis/",
-      "https://gs1.github.io/EPCIS/"
-    ],
     "prefix": "epcis",
-    "title": "EPCIS",
-    "description": "GS1 EPCIS standard for supply chain visibility",
-    "version": "2.0",
-    "publisher": "GS1",
-    "support_level": "direct",
-    "resources": {
-      "ttl": null,
-      "context": "https://raw.githubusercontent.com/gs1/EPCIS/master/JSON-LD-Context/epcis-context-root.jsonld",
+    "uris": {
+      "primary": "https://ref.gs1.org/epcis/",
+      "alternates": [
+        "https://gs1.org/epcis/",
+        "http://gs1.org/epcis/",
+        "https://gs1.github.io/EPCIS/"
+      ]
+    },
+    "context": {
+      "url": "https://raw.githubusercontent.com/gs1/EPCIS/master/JSON-LD-Context/epcis-context-root.jsonld"
+    },
+    "versions": {
+      "current": "2.0",
+      "supported": [
+        "2.0"
+      ]
+    },
+    "features": [
+      "inline_context",
+      "uses_protection",
+      "supports_scoped_contexts"
+    ],
+    "tags": [],
+    "strategy_defaults": {},
+    "meta": {
+      "publisher": "GS1",
       "homepage": "https://ref.gs1.org/standards/epcis/"
-    },
-    "access_patterns": {
-      "primary": "github_raw",
-      "fallbacks": []
-    },
-    "url_transformations": [
-      {
-        "pattern": "https://gs1\\.github\\.io/EPCIS/(.+\\.jsonld)",
-        "replacement": "https://raw.githubusercontent.com/gs1/EPCIS/master/JSON-LD-Context/\\1"
-      }
-    ],
-    "features": {
-      "inline_context": false,
-      "uses_protection": true,
-      "supports_scoped_contexts": false
-    },
-    "common_terms": [
-      "eventTime",
-      "epcList",
-      "bizLocation",
-      "bizStep"
-    ],
-    "common_types": [
-      "ObjectEvent",
-      "AggregationEvent",
-      "TransactionEvent"
-    ],
-    "related_vocabs": []
+    }
   },
   "dc": {
-    "uri": "http://purl.org/dc/terms/",
-    "alternative_uris": [
-      "http://purl.org/dc/elements/1.1/",
-      "http://dublincore.org/"
-    ],
     "prefix": "dc",
-    "title": "Dublin Core",
-    "description": "Dublin Core Metadata Initiative Terms",
-    "version": "terms",
-    "publisher": "DCMI",
-    "support_level": "cache",
-    "resources": {
-      "ttl": "https://www.dublincore.org/specifications/dublin-core/dcmi-terms/dublin_core_terms.ttl",
-      "context": "https://www.dublincore.org/contexts/dc-terms/",
+    "uris": {
+      "primary": "http://purl.org/dc/terms/",
+      "alternates": [
+        "http://purl.org/dc/elements/1.1/",
+        "http://dublincore.org/"
+      ]
+    },
+    "context": {
+      "url": "https://www.dublincore.org/contexts/dc-terms/"
+    },
+    "versions": {
+      "current": "terms",
+      "supported": [
+        "terms"
+      ]
+    },
+    "features": [
+      "inline_context",
+      "uses_protection",
+      "supports_scoped_contexts"
+    ],
+    "tags": [],
+    "strategy_defaults": {},
+    "meta": {
+      "publisher": "DCMI",
       "homepage": "https://www.dublincore.org/"
-    },
-    "access_patterns": {
-      "primary": "direct_download",
-      "fallbacks": []
-    },
-    "url_transformations": [],
-    "features": {
-      "inline_context": false,
-      "uses_protection": false,
-      "supports_scoped_contexts": false
-    },
-    "common_terms": [
-      "title",
-      "creator",
-      "date",
-      "subject"
-    ],
-    "common_types": [
-      "Agent",
-      "BibliographicResource",
-      "Location"
-    ],
-    "related_vocabs": [
-      "schema",
-      "foaf"
-    ]
+    }
   },
   "foaf": {
-    "uri": "http://xmlns.com/foaf/0.1/",
-    "alternative_uris": [
-      "http://xmlns.com/foaf/spec/",
-      "http://xmlns.com/foaf/"
-    ],
     "prefix": "foaf",
-    "title": "Friend of a Friend",
-    "description": "Friend of a Friend vocabulary for describing people and their connections",
-    "version": "0.1",
-    "publisher": "FOAF Project",
-    "support_level": "cache",
-    "resources": {
-      "ttl": "http://xmlns.com/foaf/spec/index.rdf",
-      "context": null,
+    "uris": {
+      "primary": "http://xmlns.com/foaf/0.1/",
+      "alternates": [
+        "http://xmlns.com/foaf/spec/",
+        "http://xmlns.com/foaf/"
+      ]
+    },
+    "context": {
+      "derives_from": "http://xmlns.com/foaf/spec/index.rdf"
+    },
+    "versions": {
+      "current": "0.1",
+      "supported": [
+        "0.1"
+      ]
+    },
+    "features": [
+      "inline_context",
+      "uses_protection",
+      "supports_scoped_contexts"
+    ],
+    "tags": [],
+    "strategy_defaults": {},
+    "meta": {
+      "publisher": "FOAF Project",
       "homepage": "http://xmlns.com/foaf/spec/"
-    },
-    "access_patterns": {
-      "primary": "direct_download",
-      "fallbacks": []
-    },
-    "url_transformations": [],
-    "features": {
-      "inline_context": false,
-      "uses_protection": false,
-      "supports_scoped_contexts": false
-    },
-    "common_terms": [
-      "name",
-      "mbox",
-      "knows",
-      "homepage"
-    ],
-    "common_types": [
-      "Person",
-      "Organization",
-      "Document"
-    ],
-    "related_vocabs": [
-      "schema",
-      "dc"
-    ]
+    }
   },
   "dcat": {
-    "uri": "http://www.w3.org/ns/dcat#",
-    "alternative_uris": [
-      "https://www.w3.org/ns/dcat#",
-      "http://www.w3.org/ns/dcat"
-    ],
     "prefix": "dcat",
-    "title": "Data Catalog Vocabulary",
-    "description": "W3C Data Catalog Vocabulary for describing datasets",
-    "version": "2",
-    "publisher": "W3C",
-    "support_level": "cache",
-    "resources": {
-      "ttl": "https://www.w3.org/ns/dcat2.ttl",
-      "context": null,
+    "uris": {
+      "primary": "http://www.w3.org/ns/dcat#",
+      "alternates": [
+        "https://www.w3.org/ns/dcat#",
+        "http://www.w3.org/ns/dcat"
+      ]
+    },
+    "context": {
+      "derives_from": "https://www.w3.org/ns/dcat2.ttl"
+    },
+    "versions": {
+      "current": "2",
+      "supported": [
+        "2"
+      ]
+    },
+    "features": [
+      "inline_context",
+      "uses_protection",
+      "supports_scoped_contexts"
+    ],
+    "tags": [],
+    "strategy_defaults": {},
+    "meta": {
+      "publisher": "W3C",
       "homepage": "https://www.w3.org/TR/vocab-dcat-2/"
-    },
-    "access_patterns": {
-      "primary": "direct_download",
-      "fallbacks": []
-    },
-    "url_transformations": [],
-    "features": {
-      "inline_context": false,
-      "uses_protection": false,
-      "supports_scoped_contexts": false
-    },
-    "common_terms": [
-      "distribution",
-      "downloadURL",
-      "accessURL",
-      "theme"
-    ],
-    "common_types": [
-      "Dataset",
-      "Distribution",
-      "Catalog"
-    ],
-    "related_vocabs": [
-      "dc",
-      "schema"
-    ]
+    }
   }
 }
