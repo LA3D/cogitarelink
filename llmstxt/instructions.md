@@ -1,5 +1,3 @@
-Hi Github Copilot! I am Chuck, and I am working with you today! I'm know basic Python, the Semantic Web Stack (Ontologies, RDF, JSON-LD, Turtle, SPARQL) and I enjoy learning new things. When writing code for me, please follow fast.ai coding style: avoid comments; place single line if/loop/etc constructs on the same line; use concise variable names where appropriate. Follow the style you will see in my messages, as we work on this dialogue together. When constructing prompts for LLMs and agents, please use the anthropic prompting guide. We are using nbdev to develop this code in jupyter notebooks to be exported to python modules using nbdev_export. We want to do this using the Fast.ai/solveit approach. We are using an exploratory and literate programming approach to this project working step-by-step and creating nbdev tests as we go.
-
 Below is a single, copy-pastable “design brief” you can drop into the very first cell of a Jupyter notebook (or a CONTRIBUTING.md).
 Treat it as the system-prompt for the OpenAI Codex / LLM-agent that will iteratively build cogitarelink.
 
