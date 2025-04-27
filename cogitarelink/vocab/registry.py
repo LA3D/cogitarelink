@@ -79,20 +79,84 @@ class VRegistry:
         
     # ------------- basic look-ups ----------------------------------
     def by_prefix(self, p: str) -> VocabEntry:
-        return self._data[p]
+        """Get vocabulary entry by prefix.
+        
+        Args:
+            p: The prefix to look up
+            
+        Returns:
+            The vocabulary entry
+            
+        Raises:
+            KeyError: If the prefix is not found in the registry
+        """
+        try:
+            return self._data[p]
+        except KeyError:
+            raise KeyError(f"Vocabulary prefix '{p}' not found in registry.")
     
-    def by_uri(self, uri:str) -> VocabEntry:
-        return self._alt_uri_map[_norm(uri)]
+    def by_uri(self, uri: str) -> VocabEntry:
+        """Get vocabulary entry by URI.
+        
+        Args:
+            uri: The URI to look up
+            
+        Returns:
+            The vocabulary entry
+            
+        Raises:
+            KeyError: If the URI is not found in the registry
+        """
+        normalized = _norm(uri)
+        try:
+            return self._alt_uri_map[normalized]
+        except KeyError:
+            raise KeyError(f"URI '{uri}' not found in registry.")
+    
+    def get_by_prefix(self, p: str, default=None) -> VocabEntry | None:
+        """Get vocabulary entry by prefix, returning default if not found.
+        
+        Args:
+            p: The prefix to look up
+            default: Value to return if prefix is not found
+            
+        Returns:
+            The vocabulary entry or default
+        """
+        return self._data.get(p, default)
+    
+    def get_by_uri(self, uri: str, default=None) -> VocabEntry | None:
+        """Get vocabulary entry by URI, returning default if not found.
+        
+        Args:
+            uri: The URI to look up
+            default: Value to return if URI is not found
+            
+        Returns:
+            The vocabulary entry or default
+        """
+        normalized = _norm(uri)
+        return self._alt_uri_map.get(normalized, default)
     
     def search(self, kw: str) -> List[VocabEntry]:
+        """Search for vocabularies containing keyword in title or description.
+        
+        Args:
+            kw: Keyword to search for
+            
+        Returns:
+            List of matching vocabulary entries
+        """
         kw = kw.lower()
         return [v for v in self._data.values()
                 if kw in v.description.lower() or kw in v.title.lower()]
 
     # ------------- dunder helpers ----------------------------------
     def __iter__(self): return iter(self._data)
-    def __getitem__(self, k): return self._data[k]
+    def __getitem__(self, k): return self.by_prefix(k)  # Use improved by_prefix
     def __len__(self): return len(self._data)
+    def __contains__(self, k): return k in self._data
 
 # global singleton
 registry = VRegistry()
+
