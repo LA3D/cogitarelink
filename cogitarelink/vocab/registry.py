@@ -8,6 +8,8 @@ import json, importlib.resources as pkg
 from typing import List, Dict, Any
 from pydantic import BaseModel, AnyUrl, Field, ValidationError
 from ..core.debug import get_logger
+from urllib.parse import urlparse, urlunparse
+
 
 
 
@@ -41,6 +43,16 @@ class VocabEntry(BaseModel):
     related_vocabs: List[str] = Field(default_factory=list)
 
 # %% ../../02_registry.ipynb 7
+def _norm(u:str) -> str:
+    """Lower-case scheme+host and drop a single trailing '/'."""
+    p = urlparse(u)
+    scheme, netloc, path = p.scheme.lower(), p.netloc.lower(), p.path
+    if path.endswith("/") and path != "/":
+        path = path[:-1]
+    return urlunparse((scheme, netloc, path, "", "", ""))
+
+
+# %% ../../02_registry.ipynb 8
 class VRegistry:
     "Immutable mapping of `prefix -> VocabEntry`."
     def __init__(self, raw: Dict[str, Any] | None = None):
@@ -54,18 +66,24 @@ class VRegistry:
                 invalid[k] = e.json()
         if invalid:
             log.warning("Skipped %d invalid vocab entries", len(invalid))
-        self._alt_uri_map = {
-            alt: entry for entry in self._data.values()
-            for alt in ([str(entry.uri)] + entry.alternative_uris)
-        }
+        # build once after all valid entries were loaded
+        def _to_str_list(entry):
+            "Return main + alt URIs as plain strings"
+            return [str(entry.uri), *[str(u) for u in entry.alternative_uris]]
 
+        self._alt_uri_map = {
+            _norm(url): entry
+            for entry in self._data.values()
+            for url   in _to_str_list(entry)
+        }
+        
     # ------------- basic look-ups ----------------------------------
     def by_prefix(self, p: str) -> VocabEntry:
         return self._data[p]
-
-    def by_uri(self, uri: str) -> VocabEntry:
-        return self._alt_uri_map[uri]
-
+    
+    def by_uri(self, uri:str) -> VocabEntry:
+        return self._alt_uri_map[_norm(uri)]
+    
     def search(self, kw: str) -> List[VocabEntry]:
         kw = kw.lower()
         return [v for v in self._data.values()
