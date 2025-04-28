@@ -21,12 +21,15 @@ class Composer:
     "Merge one or more vocabularies into a conflict-free `@context` dict."
 
     # --------------------------- public API ----------------------------
-    def compose(self, prefixes: List[str]) -> Dict[str, Any]:
+    def compose(self, prefixes: List[str], support_nest=False, propagate=True) -> Dict[str, Any]:
         """
         Parameters
         ----------
         prefixes : list of registry prefixes, **ordered by priority**.
                    The first prefix is treated as the primary vocabulary.
+        support_nest : bool, if True, add @nest support to the context
+        propagate : bool, if False, add @propagate: false to prevent context inheritance
+        
         Returns
         -------
         dict – JSON-LD object ready to drop into a document:
@@ -71,6 +74,21 @@ class Composer:
         # final shape must be `{\"@context\": ...}`
         if "@context" not in merged:
             merged = {"@context": merged}
+            
+        # Add JSON-LD 1.1 features if requested
+        ctx = merged["@context"]
+        
+        # Add propagation control
+        if not propagate:
+            if isinstance(ctx, dict):
+                ctx["@propagate"] = False
+            elif isinstance(ctx, list) and len(ctx) > 0 and isinstance(ctx[0], dict):
+                ctx[0]["@propagate"] = False
+                
+        # Add @nest support
+        if support_nest and isinstance(ctx, dict):
+            # This adds '@nest' to the context vocabulary
+            ctx["@nest"] = "@nest"
 
         return merged
 

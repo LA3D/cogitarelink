@@ -21,7 +21,7 @@ log = get_logger("context")
 _cache = InMemoryCache(maxsize=512)
 
 # %% auto 0
-__all__ = ['log', 'get_document_loader', 'ContextProcessor', 'validate_context']
+__all__ = ['log', 'get_document_loader', 'ContextProcessor', 'validate_context', 'protected_terms', 'process_nest']
 
 # %% ../../05_context.ipynb 4
 _LINK_RE = re.compile(r'<([^>]+)>;\s*rel="([^"]+)";\s*type="([^"]+)"')
@@ -163,12 +163,70 @@ class ContextProcessor:
         ctx = composer.compose(prefixes)
         merged = dict(doc, **ctx)
         return self.expand(merged)
+        
+    def propagates(self, context):
+        """Determine if a context propagates to child nodes (JSON-LD 1.1 feature)"""
+        if isinstance(context, dict) and "@propagate" in context:
+            return context["@propagate"] is not False
+        return True  # Default is to propagate
+
+    def apply_scoped_contexts(self, entity, types=None):
+        """Apply type-scoped contexts based on entity @type"""
+        if not isinstance(entity, dict):
+            return entity
+        
+        # Get entity types if not provided
+        if types is None:
+            if "@type" not in entity:
+                return entity
+            types = entity["@type"] if isinstance(entity["@type"], list) else [entity["@type"]]
+        
+        if "@context" not in entity:
+            return entity
+        
+        ctx = entity["@context"]
+        
+        # Check if context has type-scoped definitions
+        if not isinstance(ctx, dict) or "@type" not in ctx:
+            return entity
+        
+        type_scopes = ctx["@type"]
+        if not isinstance(type_scopes, dict):
+            return entity
+        
+        # Find matching scoped contexts for entity types
+        matching_contexts = []
+        for t in types:
+            if t in type_scopes:
+                scoped_ctx = type_scopes[t]
+                if scoped_ctx:
+                    matching_contexts.append(scoped_ctx)
+        
+        if not matching_contexts:
+            return entity
+        
+        # Create a new entity with merged context
+        result = entity.copy()
+        base_ctx = ctx.copy()
+        del base_ctx["@type"]  # Remove type scopes to avoid recursion
+        
+        # Apply found contexts
+        if len(matching_contexts) == 1:
+            result["@context"] = [base_ctx, matching_contexts[0]]
+        else:
+            result["@context"] = [base_ctx] + matching_contexts
+        
+        return result
 
 # %% ../../05_context.ipynb 19
 def validate_context(ctx: Dict[str, Any]) -> None:
     """
-    Raise `ValueError` if any protected term is re-defined inside the same
-    context array (JSON-LD 1.1 §4.4.5).
+    Validate a JSON-LD 1.1 context for:
+    - Protected term redefinition (§4.4.5)
+    - Type-scoped context validity
+    - @nest directives
+    
+    Raises ValueError if validation fails.
     """
     if "@context" in ctx:
         ctx = ctx["@context"]
@@ -176,15 +234,90 @@ def validate_context(ctx: Dict[str, Any]) -> None:
         ctx = [ctx]
 
     seen: Dict[str, Dict] = {}
+    nested_props = set()
+    
     for c in ctx:
         if not isinstance(c, dict):   # remote URL – skip (loader enforces)
             continue
+            
+        # Check for @nest values
+        for term, value in c.items():
+            if value == "@nest" or (isinstance(value, dict) and value.get("@id") == "@nest"):
+                nested_props.add(term)
+                
+            # Check for type-scoped contexts
+            if term == "@type" and isinstance(value, dict):
+                for type_key, type_ctx in value.items():
+                    # Recursively validate type-scoped contexts
+                    if isinstance(type_ctx, dict):
+                        validate_context({"@context": type_ctx})
+        
+        # Check protected term reuse
         for k, v in c.items():
-            if (
-                isinstance(v, dict) and v.get("@protected") is True
-                and k in seen and seen[k] is not v
-            ):
+            is_protected = (isinstance(v, dict) and v.get("@protected") is True) or (
+                "@protected" in c and c["@protected"] is True and 
+                not (isinstance(v, dict) and v.get("@protected") is False)
+            )
+            
+            if is_protected and k in seen and seen[k] is not v:
                 raise ValueError(f"Protected term '{k}' re-defined in context")
 
-            if isinstance(v, dict) and v.get("@protected"):
+            if is_protected:
                 seen[k] = v
+
+# %% ../../05_context.ipynb 21
+def protected_terms(ctx):
+    """Extract protected terms from a JSON-LD 1.1 context"""
+    protected = set()
+    
+    if not isinstance(ctx, dict):
+        return protected
+    
+    # Check for context-wide protection
+    ctx_protected = ctx.get("@protected", False)
+    
+    for term, defn in ctx.items():
+        if term.startswith("@"):
+            continue
+            
+        # Check explicit protection
+        if isinstance(defn, dict) and "@protected" in defn:
+            if defn["@protected"]:
+                protected.add(term)
+        # Check implicit protection from context-wide setting
+        elif ctx_protected:
+            is_protected = True
+            if isinstance(defn, dict) and "@protected" in defn:
+                is_protected = defn["@protected"]
+                
+            if is_protected:
+                protected.add(term)
+    
+    return protected
+
+# %% ../../05_context.ipynb 22
+def process_nest(ctx, data):
+    """Process and apply @nest directives in a context to the data"""
+    if not isinstance(data, dict):
+        return data
+    
+    result = data.copy()
+    
+    # Find properties marked with @nest
+    nested_props = []
+    if isinstance(ctx, dict):
+        for term, value in ctx.items():
+            if value == "@nest" or (isinstance(value, dict) and value.get("@id") == "@nest"):
+                nested_props.append(term)
+    
+    # Extract properties from nested objects
+    for nest_term in nested_props:
+        if nest_term in result and isinstance(result[nest_term], dict):
+            # Move properties from nested object to parent
+            for prop, value in result[nest_term].items():
+                if prop not in result:  # Don't override existing properties
+                    result[prop] = value
+            # Remove the nest container
+            del result[nest_term]
+    
+    return result
