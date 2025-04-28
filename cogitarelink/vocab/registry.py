@@ -4,226 +4,154 @@
 
 # %% ../../02_registry.ipynb 3
 from __future__ import annotations
-import json, importlib.resources as pkg
-from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, AnyUrl, Field, ConfigDict, ValidationError
 
-from ..core.debug import get_logger
+import hashlib, json, importlib.resources as pkg
+from datetime import datetime
+from functools import lru_cache
+from typing import Any, Dict, List, Union
+
+import httpx
+from pydantic import BaseModel, Field, AnyUrl, model_validator
 from urllib.parse import urlparse, urlunparse
 
-
-
+from ..core.debug import get_logger
+from ..core.cache import InMemoryCache
 
 # %% auto 0
-__all__ = ['log', 'registry', 'VocabEntry', 'ResourceURLs', 'VRegistry']
+__all__ = ['log', 'registry', 'ContextBlock', 'Versions', 'VocabEntry', 'preferred_collision']
 
-# %% ../../02_registry.ipynb 4
+# %% ../../02_registry.ipynb 5
 log = get_logger("registry")
 
-# Load bundled JSON once
-_RAW_JSON: Dict[str, Any] = json.loads(
-    pkg.files("cogitarelink").joinpath("data/registry_data.json").read_text()
-)
-
-# %% ../../02_registry.ipynb 6
-class VocabEntry(BaseModel):
-    uri: AnyUrl
-    alternative_uris: List[AnyUrl] = []
-    prefix: str
-    title: str
-    description: str
-    version: str
-    publisher: str
-    support_level: str            # "direct" | "cache" | "github_raw" etc.
-    resources: Dict[str, Any]
-    access_patterns: Dict[str, Any]
-    url_transformations: List[Dict[str, str]] = []
-    features: Dict[str, bool]
-    common_terms: List[str] = Field(default_factory=list)
-    common_types: List[str] = Field(default_factory=list)
-    related_vocabs: List[str] = Field(default_factory=list)
-
-# %% ../../02_registry.ipynb 7
-class ResourceURLs(BaseModel):
-    """
-    Canonical set of resource links that *may* exist for a vocabulary.
-    Only `context` **or** `ttl` is required; others are optional.
-    """
-    ttl:     Optional[AnyUrl] = None   # Turtle serialisation
-    context: Optional[AnyUrl] = None   # JSON-LD context (if published)
-    backup:  Optional[AnyUrl] = None   # Alternate mirror / raw Git link
-    homepage:Optional[AnyUrl] = None
-
+# optional rdflib backend
+try:
+    from rdflib import Graph
+    _HAS_RDFLIB = True
+except ModuleNotFoundError:
+    _HAS_RDFLIB = False
 
 # %% ../../02_registry.ipynb 8
-class VocabEntry(BaseModel):
-    """
-    Single vocabulary description used by CogitareLink.
+_cache = InMemoryCache(maxsize=256)          # shared cache instance
 
-    • All URLs are validated/well-formed (`AnyUrl`)  
-    • Optional helper properties (`has_context`, `all_uris`) make
-      client code cleaner.
-    """
-    # ---- identity ---------------------------------------------------
-    uri:              AnyUrl                 # canonical root IRI
-    alternative_uris: List[AnyUrl] = Field(default_factory=list)
-    prefix:           str
-
-    # ---- human info -------------------------------------------------
-    title:       str
-    description: str
-    version:     str
-    publisher:   str
-
-    # ---- runtime hints ----------------------------------------------
-    support_level: str                       # "direct" | "cache" | "github_raw" | ...
-    derives_context: bool = False            # we must synthesize context from TTL?
-
-    # ---- resource & access metadata ---------------------------------
-    resources:         ResourceURLs
-    access_patterns:   Dict[str, List[str]]  # primary/fallback strategy keywords
-    url_transformations: List[Dict[str, str]] = Field(default_factory=list)
-
-    # ---- JSON-LD feature flags --------------------------------------
-    features: Dict[str, bool]                # inline_context, uses_protection, ...
-
-    # ---- common terms for quick-autocomplete ------------------------
-    common_terms:  List[str] = Field(default_factory=list)
-    common_types:  List[str] = Field(default_factory=list)
-    related_vocabs:List[str] = Field(default_factory=list)
-
-    # ---- Pydantic config --------------------------------------------
-    model_config = ConfigDict(
-        extra="forbid",
-        validate_default=True,
-        frozen=True              # make instances hashable / cache-safe
-    )
-
-    # ---- helper properties ------------------------------------------
-    def has_context(self) -> bool:
-        "True if the registry entry supplies a JSON-LD context URL."
-        return bool(self.resources.context)
-
-    @property
-    def all_uris(self) -> List[str]:
-        "Canonical + alternative URIs as plain strings."
-        return [str(self.uri), *[str(u) for u in self.alternative_uris]]
-
-# %% ../../02_registry.ipynb 9
-def _norm(u:str) -> str:
-    """Lower-case scheme+host and drop a single trailing '/'."""
-    p = urlparse(u)
-    scheme, netloc, path = p.scheme.lower(), p.netloc.lower(), p.path
-    if path.endswith("/") and path != "/":
-        path = path[:-1]
-    return urlunparse((scheme, netloc, path, "", "", ""))
-
+@_cache.memoize("http")
+def _http_get(url: str) -> bytes:
+    "10 s-timeout HTTP GET with namespace-scoped cache."
+    log.debug(f"GET {url}")
+    r = httpx.get(url, follow_redirects=True, timeout=10)
+    r.raise_for_status()
+    return r.content
 
 # %% ../../02_registry.ipynb 10
-class VRegistry:
-    "Immutable mapping of `prefix -> VocabEntry`."
-    def __init__(self, raw: Dict[str, Any] | None = None):
-        raw = raw or _RAW_JSON
-        self._data: Dict[str, VocabEntry] = {}
-        invalid: Dict[str, str] = {}
-        for k, v in raw.items():
-            try:
-                self._data[k] = VocabEntry(**v)
-            except ValidationError as e:
-                invalid[k] = e.json()
-        if invalid:
-            log.warning("Skipped %d invalid vocab entries", len(invalid))
-        # build once after all valid entries were loaded
-        def _to_str_list(entry):
-            "Return main + alt URIs as plain strings"
-            return [str(entry.uri), *[str(u) for u in entry.alternative_uris]]
+class ContextBlock(BaseModel):
+    "Exactly **one** of `url`, `inline`, `derives_from` must be provided."
+    url:          AnyUrl | None = None        # remote .jsonld
+    inline:       Dict[str, Any] | None = None
+    derives_from: AnyUrl | None = None        # .ttl, .rdf, …
 
-        self._alt_uri_map = {
-            _norm(url): entry
-            for entry in self._data.values()
-            for url   in _to_str_list(entry)
-        }
-        
-    # ------------- basic look-ups ----------------------------------
-    def by_prefix(self, p: str) -> VocabEntry:
-        """Get vocabulary entry by prefix.
-        
-        Args:
-            p: The prefix to look up
-            
-        Returns:
-            The vocabulary entry
-            
-        Raises:
-            KeyError: If the prefix is not found in the registry
-        """
+    sha256: str | None = None                # filled on first fetch
+
+    @model_validator(mode="after")
+    def _single_source(cls, v):
+        if sum(x is not None for x in (v.url, v.inline, v.derives_from)) != 1:
+            raise ValueError("Provide exactly one of url / inline / derives_from")
+        return v
+
+# %% ../../02_registry.ipynb 11
+class Versions(BaseModel):
+    current:   str
+    supported: List[str] = Field(default_factory=list)
+
+# %% ../../02_registry.ipynb 13
+class VocabEntry(BaseModel):
+    prefix:    str
+    uris:      Dict[str, Union[AnyUrl, List[AnyUrl]]]  # {"primary": .., "alternates":[..]}
+    context:   ContextBlock
+    versions:  Versions
+
+    features:  set[str] = Field(default_factory=set)
+    tags:      set[str] = Field(default_factory=set)
+    strategy_defaults: Dict[str, str] = Field(default_factory=dict)
+    meta:      Dict[str, Any] = Field(default_factory=dict)
+
+    # ------------------------------------------------------------------ #
+    # public API
+    # ------------------------------------------------------------------ #
+    def context_payload(self) -> Dict[str, Any]:
+        "Return (and cache) the merged JSON-LD @context dict."
+        return _load_ctx(self.prefix, self.versions.current)   # see below
+
+# %% ../../02_registry.ipynb 15
+@lru_cache(maxsize=256)
+def _load_ctx(prefix: str, version: str) -> Dict[str, Any]:
+    """Internal LRU-cached loader for a given prefix+version."""
+    e = registry[prefix]
+
+    # pick raw bytes -----------------------------------------------------
+    if e.context.inline is not None:                     # already a dict
+        raw_dict = e.context.inline
+    elif e.context.url is not None:                      # remote .jsonld
+        raw_dict = json.loads(_http_get(str(e.context.url)))
+    else:                                                # derives_from *.ttl
+        if not _HAS_RDFLIB:
+            raise RuntimeError("Deriving context requires `rdflib` installed")
+        ttl = _http_get(str(e.context.derives_from))
+        g = Graph().parse(data=ttl, format="turtle")
+        raw_dict = {"@context": {p: str(iri) for p, iri in g.namespaces()}}
+
+    # compute sha once and persist back into in-memory entry -------------
+    s = hashlib.sha256(
+        json.dumps(raw_dict, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    e.context.sha256 = s
+
+    return raw_dict
+
+# %% ../../02_registry.ipynb 17
+class _Registry:
+    "Read-only registry; supports prefix *and* alias URL look-ups."
+
+    def __init__(self):
+        fp = pkg.files("cogitarelink").joinpath("data/registry_data.json")
+        raw: Dict[str, Any] = json.loads(fp.read_text())
+
+        self._v: Dict[str, VocabEntry] = {k: VocabEntry(**v) for k, v in raw.items()}
+
+        # build alias map → prefix
+        self._alias: Dict[str, str] = {}
+        for p, e in self._v.items():
+            for url in e.uris.values():
+                self._alias[self._norm(url)] = p
+
+    # ---------------- basic mapping protocol --------------------------
+    def __getitem__(self, p: str) -> VocabEntry:
+        return self._v[p]
+
+    def __iter__(self):
+        return iter(self._v.values())
+
+    # ---------------- convenience helpers ----------------------------
+    def resolve(self, ident: str) -> VocabEntry:
+        "Accept prefix **or** any alias URI."
+        if ident in self._v:
+            return self._v[ident]
         try:
-            return self._data[p]
-        except KeyError:
-            raise KeyError(f"Vocabulary prefix '{p}' not found in registry.")
-    
-    def by_uri(self, uri: str) -> VocabEntry:
-        """Get vocabulary entry by URI.
-        
-        Args:
-            uri: The URI to look up
-            
-        Returns:
-            The vocabulary entry
-            
-        Raises:
-            KeyError: If the URI is not found in the registry
-        """
-        normalized = _norm(uri)
-        try:
-            return self._alt_uri_map[normalized]
-        except KeyError:
-            raise KeyError(f"URI '{uri}' not found in registry.")
-    
-    def get_by_prefix(self, p: str, default=None) -> VocabEntry | None:
-        """Get vocabulary entry by prefix, returning default if not found.
-        
-        Args:
-            p: The prefix to look up
-            default: Value to return if prefix is not found
-            
-        Returns:
-            The vocabulary entry or default
-        """
-        return self._data.get(p, default)
-    
-    def get_by_uri(self, uri: str, default=None) -> VocabEntry | None:
-        """Get vocabulary entry by URI, returning default if not found.
-        
-        Args:
-            uri: The URI to look up
-            default: Value to return if URI is not found
-            
-        Returns:
-            The vocabulary entry or default
-        """
-        normalized = _norm(uri)
-        return self._alt_uri_map.get(normalized, default)
-    
-    def search(self, kw: str) -> List[VocabEntry]:
-        """Search for vocabularies containing keyword in title or description.
-        
-        Args:
-            kw: Keyword to search for
-            
-        Returns:
-            List of matching vocabulary entries
-        """
-        kw = kw.lower()
-        return [v for v in self._data.values()
-                if kw in v.description.lower() or kw in v.title.lower()]
+            return self._v[self._alias[self._norm(ident)]]
+        except KeyError as e:
+            raise KeyError(f"{ident!r} not found in registry") from e
 
-    # ------------- dunder helpers ----------------------------------
-    def __iter__(self): return iter(self._data)
-    def __getitem__(self, k): return self.by_prefix(k)  # Use improved by_prefix
-    def __len__(self): return len(self._data)
-    def __contains__(self, k): return k in self._data
+    @staticmethod
+    def _norm(u: str) -> str:
+        p = urlparse(str(u))
+        return urlunparse((p.scheme.lower(), p.netloc.lower(), p.path.rstrip("/"),
+                           "", "", ""))
 
-# global singleton
-registry = VRegistry()
 
+registry = _Registry()
+
+# %% ../../02_registry.ipynb 19
+def preferred_collision(a: str, b: str) -> Dict[str, str] | None:
+    """Return strategy hint if vocab *a* nominates one for *b*."""
+    try:
+        return registry[a].strategy_defaults.get(b)     # type: ignore
+    except KeyError:
+        return None
