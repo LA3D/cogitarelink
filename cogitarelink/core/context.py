@@ -5,9 +5,10 @@
 # %% ../../05_context.ipynb 3
 from __future__ import annotations
 
-import json, hashlib
+import re, json, hashlib
+from http import HTTPStatus
 from functools import lru_cache
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from pyld import jsonld
 
@@ -22,39 +23,118 @@ _cache = InMemoryCache(maxsize=512)
 # %% auto 0
 __all__ = ['log', 'get_document_loader', 'ContextProcessor']
 
-# %% ../../05_context.ipynb 5
+# %% ../../05_context.ipynb 4
+_LINK_RE = re.compile(r'<([^>]+)>;\s*rel="([^"]+)";\s*type="([^"]+)"')
+
+# %% ../../05_context.ipynb 7
+def _parse_link_header(hdr: str) -> List[Tuple[str, str, str]]:
+    "Return list of (url, rel, type) triples from RFC 8288 Link header."
+    return _LINK_RE.findall(hdr)
+
 @_cache.memoize("jsonld-doc")
-def _http_get(url: str) -> Dict[str, Any]:
-    import httpx, json as _json
-    log.debug(f"doc-loader GET {url}")
+def _http_get(url: str) -> "httpx.Response":
+    "GET with redirect, 10 s timeout, memoised by URL."
+    import httpx
+    log.debug(f"GET {url}")
     r = httpx.get(url, follow_redirects=True, timeout=10)
     r.raise_for_status()
-    return dict(contextUrl=None, documentUrl=url, document=r.text)
+    return r  # caller decides how to interpret
 
-def get_document_loader():
-    "Return a pyld-compatible loader that understands registry *prefixes and URIs*."
-    _mem: Dict[str, Dict[str, Any]] = {}
+# %% ../../05_context.ipynb 9
+def _wrap_json_doc(text: str, url: str) -> Dict[str, Any]:
+    return dict(contextUrl=None, documentUrl=url, document=text)
+
+def _try_dereference(url: str) -> Dict[str, Any] | None:
+    """
+    Return a pyld‐style remote-doc dict if dereference succeeds,
+    else None (caller will fall back to registry).
+    """
+    try:
+        r = _http_get(url)
+    except Exception as e:
+        log.debug(f"network fetch failed for {url}: {e}")
+        return None
+
+    ctype = r.headers.get("content-type", "").split(";")[0].strip()
+    body  = r.text
+
+    # 1️⃣ JSON-LD or already a context
+    if ctype in ("application/ld+json", "application/json"):
+        try:
+            json.loads(body)  # sanity check
+            return _wrap_json_doc(body, url)
+        except json.JSONDecodeError:
+            pass  # keep inspecting
+
+    # 2️⃣ Turtle → derive minimal context
+    if ctype in ("text/turtle", "application/x-turtle"):
+        from rdflib import Graph
+        g = Graph().parse(data=body, format="turtle")
+        ctx = {"@context": {p: str(iri) for p, iri in g.namespaces()}}
+        return _wrap_json_doc(json.dumps(ctx), url)
+
+    # 3️⃣ HTML with Link: header (Schema.org pattern)
+    link_hdr = r.headers.get("Link")
+    if link_hdr:
+        for link, rel, typ in _parse_link_header(link_hdr):
+            if rel == "alternate" and typ == "application/ld+json":
+                return _try_dereference(link)  # recursive but cached
+    return None
+
+# %% ../../05_context.ipynb 10
+def get_document_loader(network_first: bool = True):
+    """
+    Return a pyld‐compatible document loader.
+
+    * `network_first=True`  – follow‐your-nose, registry is fallback.
+    * `network_first=False` – current behaviour (registry first, then HTTP).
+    """
+    mem: Dict[str, Dict[str, Any]] = {}
 
     def loader(url: str):
-        # 1️⃣  Try registry (prefix **or** alias URL)
-        try:
-            entry = registry.resolve(url)
-            ctx   = entry.context_payload()
-            return dict(contextUrl=None, documentUrl=url, document=json.dumps(ctx))
-        except KeyError:
-            pass  # not a known vocab – proceed
+        attempts = []
 
-        # 2️⃣  Memoised HTTP fetch (sandboxed envs may still block; caller must catch)
-        if url not in _mem:
-            _mem[url] = _http_get(url)
-        return _mem[url]
+        def _push(res, label):
+            if res:
+                mem[url] = res
+                return res
+            attempts.append(label)
+            return None
+
+        # ① network
+        if network_first:
+            doc = _push(_try_dereference(url), "network")
+            if doc: return doc
+
+        # ② registry
+        try:
+            entry  = registry.resolve(url)
+            ctx    = entry.context_payload()
+            return _wrap_json_doc(json.dumps(ctx), url)
+        except KeyError:
+            attempts.append("registry")
+
+        # ③ network second-chance (when registry_first mode)
+        if not network_first:
+            doc = _push(_try_dereference(url), "network")
+            if doc: return doc
+
+        # fail – raise LLM-friendly JsonLdError
+        detail = {"attempts": attempts, "url": url}
+        raise JsonLdError(
+            f"Could not load linked-data document at <{url}>. "
+            "Tried network fetch and registry fallback.",
+            "jsonld.LoadDocumentError",
+            code="loading document failed",
+            details=detail
+        )
 
     return loader
 
-# Register globally so every pyld call uses it
-jsonld.set_document_loader(get_document_loader())
+# register globally (network_first=True by default)
+jsonld.set_document_loader(get_document_loader(network_first=True))
 
-# %% ../../05_context.ipynb 7
+# %% ../../05_context.ipynb 13
 class ContextProcessor:
     "Thin wrapper around pyld with sensible defaults."
 
