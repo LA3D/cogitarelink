@@ -11,10 +11,10 @@ from typing import Any, Dict, List
 
 from pyld import jsonld
 
-from ..core.debug import get_logger
-from ..core.cache import InMemoryCache
-from .registry import registry
-from .composer import composer
+from .debug import get_logger
+from .cache import InMemoryCache
+from ..vocab.registry import registry
+from ..vocab.composer import composer
 
 log = get_logger("context")
 _cache = InMemoryCache(maxsize=512)
