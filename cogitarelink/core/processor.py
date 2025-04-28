@@ -3,6 +3,8 @@
 # %% ../../08_processor.ipynb 2
 from __future__ import annotations
 from typing import Dict, Any
+from collections import Counter
+
 
 from .debug import get_logger
 from .context import ContextProcessor
@@ -22,13 +24,19 @@ class EntityProcessor:
         self.ctx   = ctx_proc or ContextProcessor()
         self.graph = graph or GraphManager()
         self.index: Dict[str, Entity] = {}
+        self.vocab_counter: Counter[str] = Counter()
 
     # ------------------------------------------------------------------
     def add(self, data: Dict[str, Any], vocab=["schema"]) -> Entity:
-        "Create Entity, expand + ingest, index by sha."
         ent = Entity(vocab=vocab, content=data)
+        self._ingest_entity(ent)
+        return ent
+
+    def _ingest_entity(self, ent: Entity):
         expanded = self.ctx.expand(ent.as_json)
         nquads   = self.ctx.normalize(expanded)
         self.graph.ingest_nquads(nquads)
         self.index[ent.sha256] = ent
-        return ent
+        self.vocab_counter.update(ent.vocab)
+        for child in ent.children:
+            self._ingest_entity(child)

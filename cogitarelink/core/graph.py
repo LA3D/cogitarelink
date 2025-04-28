@@ -26,6 +26,7 @@ class GraphBackend:
     def add_nquads(self, nquads: str, graph_id: str | None = None) -> None: ...
     def triples(self, subj=None, pred=None, obj=None) -> Iterable[Tuple]: ...
     def size(self) -> int: ...
+    def add_named_graph(self, graph_id: str, nquads: str): ...
 
 # %% ../../07_graph.ipynb 7
 class InMemoryGraph(GraphBackend):
@@ -54,6 +55,7 @@ class InMemoryGraph(GraphBackend):
             yield s, p, o
 
     def size(self): return len(self._triples)
+    def add_named_graph(self, graph_id, nquads): self.add_nquads(nquads)
 
 # %% ../../07_graph.ipynb 9
 if _HAS_RDFLIB:
@@ -70,6 +72,9 @@ if _HAS_RDFLIB:
             for s, p, o, _ctx in q: yield s, p, o
 
         def size(self): return len(self.ds)
+        def add_named_graph(self, graph_id, nquads):
+            g = self.ds.graph(graph_id)
+            g.parse(data=nquads, format="nquads")
 
 # %% ../../07_graph.ipynb 11
 class GraphManager:
@@ -101,3 +106,8 @@ class GraphManager:
     def query(self, subj=None, pred=None, obj=None):
         return list(self._backend.triples(subj, pred, obj))
     def size(self): return self._backend.size()
+    def ingest_entity(self, ent:"Entity"):
+        self.ingest_nquads(ent.normalized())
+        for child in ent.children:
+            gid=f"{ent.id}#child"
+            self._backend.add_named_graph(gid, child.normalized())

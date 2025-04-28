@@ -21,7 +21,7 @@ log = get_logger("context")
 _cache = InMemoryCache(maxsize=512)
 
 # %% auto 0
-__all__ = ['log', 'get_document_loader', 'ContextProcessor']
+__all__ = ['log', 'get_document_loader', 'ContextProcessor', 'validate_context']
 
 # %% ../../05_context.ipynb 4
 _LINK_RE = re.compile(r'<([^>]+)>;\s*rel="([^"]+)";\s*type="([^"]+)"')
@@ -163,3 +163,28 @@ class ContextProcessor:
         ctx = composer.compose(prefixes)
         merged = dict(doc, **ctx)
         return self.expand(merged)
+
+# %% ../../05_context.ipynb 19
+def validate_context(ctx: Dict[str, Any]) -> None:
+    """
+    Raise `ValueError` if any protected term is re-defined inside the same
+    context array (JSON-LD 1.1 §4.4.5).
+    """
+    if "@context" in ctx:
+        ctx = ctx["@context"]
+    if not isinstance(ctx, list):
+        ctx = [ctx]
+
+    seen: Dict[str, Dict] = {}
+    for c in ctx:
+        if not isinstance(c, dict):   # remote URL – skip (loader enforces)
+            continue
+        for k, v in c.items():
+            if (
+                isinstance(v, dict) and v.get("@protected") is True
+                and k in seen and seen[k] is not v
+            ):
+                raise ValueError(f"Protected term '{k}' re-defined in context")
+
+            if isinstance(v, dict) and v.get("@protected"):
+                seen[k] = v

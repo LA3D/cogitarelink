@@ -5,11 +5,13 @@
 # %% ../../06_entity.ipynb 2
 from __future__ import annotations
 
+from fastcore.basics import patch
 import hashlib, json
 from datetime import datetime
 from functools import cached_property
 from typing import Any, Dict, List, Optional
 from copy import deepcopy  # Add this import!
+import uuid
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -31,6 +33,19 @@ def _deep_hash(d: Dict[str, Any]) -> str:
     ).hexdigest()
 
 # %% ../../06_entity.ipynb 6
+# helper reused by the property
+def _extract_children(data):
+    kids=[]
+    for k,v in list(data.items()):
+        if isinstance(v, dict) and ("@type" in v or "type" in v):
+            kids.append(v); data.pop(k)
+        elif isinstance(v, list):
+            for item in list(v):
+                if isinstance(item, dict) and ("@type" in item or "type" in item):
+                    kids.append(item); v.remove(item)
+    return kids
+
+# %% ../../06_entity.ipynb 7
 class Entity(BaseModel):
     """
     Immutable view of a JSON-LD resource with fixes for the identified issues.
@@ -97,3 +112,24 @@ class Entity(BaseModel):
         if name == 'content' and isinstance(attr, dict):
             return deepcopy(attr)
         return attr
+    
+
+    # Apply patch first
+    @cached_property # Then apply cached_property
+    def children(self: Entity) -> List["Entity"]:
+        "Child Entities whose dicts contain an explicit @type."
+        # Ensure we work on a copy to avoid modifying the original content
+        content_copy = deepcopy(self.content)
+        kids_raw = _extract_children(content_copy)
+        # Pass the parent's vocab to the children
+        return [Entity(vocab=self.vocab, content=k) for k in kids_raw]
+
+# %% ../../06_entity.ipynb 10
+@model_validator(mode="after")
+def _attach_context(cls, v):
+    # Generate blank-node ID if missing
+    if v.id is None:
+        object.__setattr__(v, "id", f"urn:uuid:{uuid.uuid4()}")
+    ctx = composer.compose(v.vocab)["@context"]
+    object.__setattr__(v, "_ctx", ctx)
+    return v
