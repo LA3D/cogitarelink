@@ -2,9 +2,12 @@
 
 # %% ../../08_processor.ipynb 2
 from __future__ import annotations
-from typing import Dict, Any
+from typing import Dict, Any, List
 from collections import Counter
+import uuid
 
+from pyld import jsonld
+from pyld.jsonld import JsonLdError
 
 from .debug import get_logger
 from .context import ContextProcessor
@@ -55,24 +58,27 @@ class EntityProcessor:
         if "vc" in vocab and isinstance(data, dict):
             # Check for credentialSubject field which needs special treatment
             if "credentialSubject" in data and isinstance(data["credentialSubject"], dict):
-                # Handle credential subject as a linked entity
-                subject_data = data["credentialSubject"]
+                # Create a copy of the data without the credentialSubject
+                # This prevents the VC entity from containing the subject directly
+                vc_data = data.copy()
+                subject_data = vc_data.pop("credentialSubject")
                 
-                # First create the main VC entity
-                ent = Entity(vocab=vocab, content=data)
+                # Create the main VC entity 
+                ent = Entity(vocab=vocab, content=vc_data)
                 self._ingest_entity(ent)
                 
-                # Now handle the credential subject as a separate entity
-                # If the subject doesn't have explicit ID, generate one
+                # Generate an ID for the subject if it doesn't have one
                 subject_id = subject_data.get("@id", subject_data.get("id"))
                 if not subject_id:
                     subject_id = f"urn:uuid:{uuid.uuid4()}"
                     subject_data["@id"] = subject_id
                 
-                # Create and store the subject entity
-                subject_vocab = vocab  # Use same vocab by default, could be customized
-                subject_entity = Entity(vocab=subject_vocab, content=subject_data)
+                # Create the subject entity with only schema vocabulary to avoid conflicts
+                subject_entity = Entity(vocab=["schema"], content=subject_data)
                 self._ingest_entity(subject_entity, parent_id=ent.id)
+                
+                # Add a reference back to the subject in the VC entity
+                ent.content["credentialSubject"] = {"@id": subject_id}
                 
                 # Store in credential_subjects map for easy retrieval
                 if ent.id not in self.credential_subjects:
@@ -145,8 +151,26 @@ class EntityProcessor:
         parent_id: Optional ID of parent entity
         """
         # Expand and normalize for graph store
-        expanded = self.ctx.expand(ent.as_json)
-        nquads = self.ctx.normalize(expanded)
+        try:
+            expanded = self.ctx.expand(ent.as_json)
+            nquads = self.ctx.normalize(expanded)
+        except jsonld.JsonLdError as e:
+            # Handle protected term redefinition error by trying a different strategy
+            if "protected term redefinition" in str(e):
+                log.warning(f"Protected term conflict for entity {ent.id}: {e}")
+                # Try with a graph partition strategy
+                try:
+                    # Wrap the context in a way that isolates it
+                    context_copy = ent.as_json.copy()
+                    if isinstance(context_copy.get("@context"), dict):
+                        context_copy["@context"] = [{"@vocab": "http://schema.org/"}, context_copy["@context"]]
+                    expanded = self.ctx.expand(context_copy)
+                    nquads = self.ctx.normalize(expanded)
+                except Exception as e2:
+                    log.error(f"Failed to resolve protected term conflict: {e2}")
+                    raise
+            else:
+                raise
         
         # Store in graph with proper relationship tracking
         if parent_id:
