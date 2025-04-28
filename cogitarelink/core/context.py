@@ -25,36 +25,33 @@ __all__ = ['log', 'get_document_loader', 'ContextProcessor']
 # %% ../../05_context.ipynb 5
 @_cache.memoize("jsonld-doc")
 def _http_get(url: str) -> Dict[str, Any]:
-    "Shared HTTP fetch with timeout and local cache."
-    import httpx
-
+    import httpx, json as _json
     log.debug(f"doc-loader GET {url}")
     r = httpx.get(url, follow_redirects=True, timeout=10)
     r.raise_for_status()
-    return dict(
-        contextUrl = None,          # pyld keys are camelCase
-        documentUrl= url,
-        document   = r.text,
-    )
+    return dict(contextUrl=None, documentUrl=url, document=r.text)
 
 def get_document_loader():
-    "Return a pyld-compatible loader that understands registry prefixes."
-    cache = {}
+    "Return a pyld-compatible loader that understands registry *prefixes and URIs*."
+    _mem: Dict[str, Dict[str, Any]] = {}
 
     def loader(url: str):
-        # fast path: registry prefix
-        if url in registry._v:                     # type: ignore (private attr use ok inside package)
-            ctx = registry[url].context_payload()
+        # 1️⃣  Try registry (prefix **or** alias URL)
+        try:
+            entry = registry.resolve(url)
+            ctx   = entry.context_payload()
             return dict(contextUrl=None, documentUrl=url, document=json.dumps(ctx))
+        except KeyError:
+            pass  # not a known vocab – proceed
 
-        # memoised HTTP path
-        if url not in cache:
-            cache[url] = _http_get(url)
-        return cache[url]
+        # 2️⃣  Memoised HTTP fetch (sandboxed envs may still block; caller must catch)
+        if url not in _mem:
+            _mem[url] = _http_get(url)
+        return _mem[url]
 
     return loader
 
-# register globally so other modules need not call it
+# Register globally so every pyld call uses it
 jsonld.set_document_loader(get_document_loader())
 
 # %% ../../05_context.ipynb 7
