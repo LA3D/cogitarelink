@@ -71,14 +71,19 @@ class Entity(BaseModel):
     # validators
     # ------------------------------------------------------------------
     @model_validator(mode="after")
-    def _attach_context(cls, v):
+    def _attach_context(self) -> "Entity":
+        # Generate blank-node ID if missing
+        if self.id is None:
+            object.__setattr__(self, "id", f"urn:uuid:{uuid.uuid4()}")
+            
         # Compose once and store in private attr _ctx
-        ctx = composer.compose(v.vocab)["@context"]
-        object.__setattr__(v, "_ctx", ctx)
+        ctx = composer.compose(self.vocab)["@context"]
+        object.__setattr__(self, "_ctx", ctx)
+        
         # Make a deep copy of content to ensure immutability
-        immutable_content = deepcopy(v.content)
-        object.__setattr__(v, "content", immutable_content)
-        return v
+        immutable_content = deepcopy(self.content)
+        object.__setattr__(self, "content", immutable_content)
+        return self
 
     # ------------------------------------------------------------------
     # public helpers
@@ -123,13 +128,3 @@ class Entity(BaseModel):
         kids_raw = _extract_children(content_copy)
         # Pass the parent's vocab to the children
         return [Entity(vocab=self.vocab, content=k) for k in kids_raw]
-
-# %% ../../06_entity.ipynb 10
-@model_validator(mode="after")
-def _attach_context(cls, v):
-    # Generate blank-node ID if missing
-    if v.id is None:
-        object.__setattr__(v, "id", f"urn:uuid:{uuid.uuid4()}")
-    ctx = composer.compose(v.vocab)["@context"]
-    object.__setattr__(v, "_ctx", ctx)
-    return v

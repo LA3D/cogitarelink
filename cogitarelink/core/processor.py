@@ -25,18 +25,177 @@ class EntityProcessor:
         self.graph = graph or GraphManager()
         self.index: Dict[str, Entity] = {}
         self.vocab_counter: Counter[str] = Counter()
+        # Track relationships between entities for better navigation
+        self.parent_children: Dict[str, List[str]] = {}
+        self.child_parent: Dict[str, str] = {}
+        # Track credential subjects for VC handling
+        self.credential_subjects: Dict[str, Dict[str, Entity]] = {}
+        # Track @graph containers and their entries
+        self.graph_containers: Dict[str, List[str]] = {}
 
     # ------------------------------------------------------------------
     def add(self, data: Dict[str, Any], vocab=["schema"]) -> Entity:
+        """
+        Add a new entity (and all child entities) to the processor
+        
+        Parameters
+        ----------
+        data: Raw content for the entity
+        vocab: List of vocabulary prefixes to use for context
+        
+        Returns
+        -------
+        The created Entity instance
+        """
+        # Handle @graph arrays specially
+        if "@graph" in data and isinstance(data["@graph"], list):
+            return self._process_graph_document(data, vocab)
+        
+        # Special handling for credential subjects if using VC vocabulary
+        if "vc" in vocab and isinstance(data, dict):
+            # Check for credentialSubject field which needs special treatment
+            if "credentialSubject" in data and isinstance(data["credentialSubject"], dict):
+                # Handle credential subject as a linked entity
+                subject_data = data["credentialSubject"]
+                
+                # First create the main VC entity
+                ent = Entity(vocab=vocab, content=data)
+                self._ingest_entity(ent)
+                
+                # Now handle the credential subject as a separate entity
+                # If the subject doesn't have explicit ID, generate one
+                subject_id = subject_data.get("@id", subject_data.get("id"))
+                if not subject_id:
+                    subject_id = f"urn:uuid:{uuid.uuid4()}"
+                    subject_data["@id"] = subject_id
+                
+                # Create and store the subject entity
+                subject_vocab = vocab  # Use same vocab by default, could be customized
+                subject_entity = Entity(vocab=subject_vocab, content=subject_data)
+                self._ingest_entity(subject_entity, parent_id=ent.id)
+                
+                # Store in credential_subjects map for easy retrieval
+                if ent.id not in self.credential_subjects:
+                    self.credential_subjects[ent.id] = {}
+                self.credential_subjects[ent.id][subject_id] = subject_entity
+                
+                return ent
+        
+        # Standard entity creation
         ent = Entity(vocab=vocab, content=data)
         self._ingest_entity(ent)
         return ent
+    
+    def _process_graph_document(self, data: Dict[str, Any], vocab: List[str]) -> Entity:
+        """
+        Process a document with @graph array
+        
+        Parameters
+        ----------
+        data: Document with @graph array
+        vocab: List of vocabulary prefixes
+        
+        Returns
+        -------
+        Container Entity for the @graph document
+        """
+        # Create the container entity
+        container = Entity(vocab=vocab, content=data)
+        graph_entries = []
+        
+        # Process each entry in the @graph array
+        for graph_entry in data.get("@graph", []):
+            if not isinstance(graph_entry, dict):
+                continue
+                
+            # Generate a unique ID if not provided
+            if "@id" not in graph_entry and "id" not in graph_entry:
+                graph_entry["@id"] = f"urn:graph:{uuid.uuid4()}"
+                
+            # Create an entity for this graph entry
+            # If entry doesn't have context, it inherits from container
+            if "@context" not in graph_entry:
+                # Clone the context from container
+                entry_with_context = {**graph_entry}
+                # We'll apply context during entity creation via vocab
+            else:
+                entry_with_context = graph_entry
+                
+            entry_entity = Entity(vocab=vocab, content=entry_with_context)
+            self._ingest_entity(entry_entity, parent_id=container.id)
+            
+            # Track this as a graph entry
+            graph_entries.append(entry_entity.id)
+            
+        # Track graph entries in the container
+        self.graph_containers[container.id] = graph_entries
+        
+        # Process the container entity itself
+        self._ingest_entity(container)
+        
+        return container
 
-    def _ingest_entity(self, ent: Entity):
+    def _ingest_entity(self, ent: Entity, parent_id: str = None):
+        """
+        Process entity and its children recursively
+        
+        Parameters
+        ----------
+        ent: Entity to ingest
+        parent_id: Optional ID of parent entity
+        """
+        # Expand and normalize for graph store
         expanded = self.ctx.expand(ent.as_json)
-        nquads   = self.ctx.normalize(expanded)
-        self.graph.ingest_nquads(nquads)
+        nquads = self.ctx.normalize(expanded)
+        
+        # Store in graph with proper relationship tracking
+        if parent_id:
+            # Track the parent-child relationship
+            if parent_id not in self.parent_children:
+                self.parent_children[parent_id] = []
+            self.parent_children[parent_id].append(ent.id)
+            self.child_parent[ent.id] = parent_id
+            
+            # Use dedicated graph ID based on parent
+            graph_id = f"{parent_id}#child_{ent.id}"
+            self.graph.ingest_nquads(nquads, graph_id)
+        else:
+            # Root entity goes in default graph
+            self.graph.ingest_nquads(nquads)
+        
+        # Index the entity for fast lookup
         self.index[ent.sha256] = ent
         self.vocab_counter.update(ent.vocab)
+        
+        # Process all child entities
         for child in ent.children:
-            self._ingest_entity(child)
+            self._ingest_entity(child, parent_id=ent.id)
+            
+    def get_by_id(self, entity_id: str) -> Entity | None:
+        """Retrieve entity by ID (not hash)"""
+        for entity in self.index.values():
+            if entity.id == entity_id:
+                return entity
+        return None
+    
+    def get_children(self, entity_id: str) -> List[Entity]:
+        """Get all child entities for a given entity ID"""
+        child_ids = self.parent_children.get(entity_id, [])
+        return [self.get_by_id(child_id) for child_id in child_ids if self.get_by_id(child_id)]
+    
+    def get_parent(self, entity_id: str) -> Entity | None:
+        """Get parent entity for a given entity ID"""
+        parent_id = self.child_parent.get(entity_id)
+        if parent_id:
+            return self.get_by_id(parent_id)
+        return None
+    
+    def get_credential_subjects(self, vc_id: str) -> List[Entity]:
+        """Get credential subject entities for a given VC entity ID"""
+        subjects = self.credential_subjects.get(vc_id, {})
+        return list(subjects.values())
+    
+    def get_graph_entries(self, container_id: str) -> List[Entity]:
+        """Get all graph entries for a @graph container entity"""
+        entry_ids = self.graph_containers.get(container_id, [])
+        return [self.get_by_id(entry_id) for entry_id in entry_ids if self.get_by_id(entry_id)]
