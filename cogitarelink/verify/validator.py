@@ -28,9 +28,9 @@ def validate_entity(target: Union[Entity, str],
     """
     Parameters
     ----------
-    target : Entity **or** N-Quads string.
-    shapes_graph : SHACL shapes as N-Quads or Turtle.
-    graph_manager : optional GraphManager if you’ve already ingested the data.
+    target : Entity **or** serialized RDF string (ttl, nt, etc).
+    shapes_graph : SHACL shapes as Turtle.
+    graph_manager : optional GraphManager if you've already ingested the data.
 
     Returns True on conformant; False otherwise.
     Raises RuntimeError if pySHACL is unavailable.
@@ -41,13 +41,13 @@ def validate_entity(target: Union[Entity, str],
     if isinstance(target, Entity):
         data = target.normalized
     else:
-        data = target  # assume N-Quads str
+        data = target  # assume serialized RDF
 
     conforms, _r, _msg = validate(
         data_graph=data,
         shacl_graph=shapes_graph,
-        data_graph_format="nquads",
-        shacl_graph_format="turtle",      # heuristically default to TTL
+        data_graph_format="turtle",  # Use turtle instead of nquads
+        shacl_graph_format="turtle",
         inference="rdfs",
         advanced=True,
     )
