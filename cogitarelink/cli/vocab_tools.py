@@ -48,7 +48,7 @@ def registry_tools(registry=None) -> Dict[str, Callable]:
             result[prefix] = {
                 "prefix": entry.prefix,
                 "uri": entry.uris.get("primary"),
-                "versions": entry.versions.dict(),
+                "versions": entry.versions.model_dump(),  # Updated from dict() to model_dump() for pydantic v2
                 "features": list(entry.features)
             }
         return result
@@ -77,7 +77,7 @@ def registry_tools(registry=None) -> Dict[str, Callable]:
                 "derives_from": str(entry.context.derives_from) if entry.context.derives_from else None,
                 "sha256": entry.context.sha256
             },
-            "versions": entry.versions.dict(),
+            "versions": entry.versions.model_dump(),  # Updated from dict() to model_dump() for pydantic v2
             "features": list(entry.features),
             "tags": list(entry.tags),
             "strategy_defaults": entry.strategy_defaults,
@@ -618,15 +618,15 @@ class VocabToolAgent(Agent):
         """Register all vocabulary-specific tools."""
         # Register registry tools
         for name, func in registry_tools().items():
-            self.register_tool(func, name=name)
+            self.register_tool(func=func, name=name)
         
         # Register context tools
         for name, func in context_tools().items():
-            self.register_tool(func, name=name)
+            self.register_tool(func=func, name=name)
         
         # Register retrieval tools
         for name, func in retrieval_tools().items():
-            self.register_tool(func, name=name)
+            self.register_tool(func=func, name=name)
         
         # Register specialized vocabulary tools for Croissant
         self._register_croissant_tools()
@@ -634,7 +634,7 @@ class VocabToolAgent(Agent):
     def _register_croissant_tools(self):
         """Register specialized tools for working with Croissant schemas."""
         
-        @self.register_tool(name="create_croissant_dataset")
+        # Define the create_croissant_dataset function
         def create_croissant_dataset(name: str, description: str = None, 
                                    recordsets: List[Dict] = None) -> Dict[str, Any]:
             """
@@ -703,7 +703,10 @@ class VocabToolAgent(Agent):
                 "dataset": dataset
             }
         
-        @self.register_tool(name="align_dataset_to_wikidata")
+        # Register the function properly
+        self.register_tool(func=create_croissant_dataset, name="create_croissant_dataset")
+        
+        # Define the align_dataset_to_wikidata function
         def align_dataset_to_wikidata(dataset: Dict[str, Any],
                                     confidence_threshold: float = 0.7) -> Dict[str, Any]:
             """
@@ -787,6 +790,9 @@ class VocabToolAgent(Agent):
                 "alignment_count": len(alignments)
             }
         
+        # Register the function properly
+        self.register_tool(func=align_dataset_to_wikidata, name="align_dataset_to_wikidata")
+    
     def resolve_croissant_vocabulary(self) -> Dict[str, Any]:
         """Robust resolution of the Croissant vocabulary."""
         # First try normal context resolution through the registry
