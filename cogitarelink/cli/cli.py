@@ -9,6 +9,13 @@ __all__ = ['log', 'ToolRegistry', 'AgentContext', 'Agent', 'cli_main']
 __all__ = ['Agent', 'AgentContext', 'ToolRegistry', 'cli_main']
 
 # %% ../../09_cli.ipynb 5
+import sys
+import json
+import argparse
+from typing import Dict, List, Any, Callable, Optional, Union
+from pathlib import Path
+import importlib.metadata
+
 from ..core.debug import get_logger
 from ..core.cache import InMemoryCache, DiskCache
 
