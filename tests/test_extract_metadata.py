@@ -103,7 +103,6 @@ def test_extract_metadata():
     assert json_ld_embedded.get("data")[0].get("@type") == "Product"
     print("✓ Successfully used extract_embedded_jsonld")
     
-    return result
 
 if __name__ == "__main__":
     result = test_extract_metadata()

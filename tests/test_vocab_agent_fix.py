@@ -36,7 +36,6 @@ def test_create_croissant_dataset():
     assert align_result["success"] is True
     print("✓ align_dataset_to_wikidata tool works correctly!")
     
-    return result
 
 if __name__ == "__main__":
     dataset = test_create_croissant_dataset()

@@ -30,32 +30,50 @@ class GraphBackend:
 
 # %% ../../07_graph.ipynb 7
 class InMemoryGraph(GraphBackend):
-    "Very small, set-based triple store (no indexes)."
+    """In-memory graph using rdflib ConjunctiveGraph as a lightweight fallback."""
     def __init__(self):
-        self._triples: set[Tuple] = set()
+        # Use RDFLib Graph instead of deprecated ConjunctiveGraph
+        self._g = Graph()
+        self._manual = False
+        self._triples: set[tuple[str,str,str]] = set()
 
     def add_nquads(self, nquads: str, graph_id: str | None = None) -> None:
-        for line in nquads.strip().splitlines():
-            parts = line.rstrip(" .").split(" ", 3)
-            if len(parts) == 3: # Handle N-Triples like format S P O
-                s, p, o = parts
-                self._triples.add((s, p, o))
-            elif len(parts) == 4: # Handle N-Quads format S P O G
-                s, p, o, _g = parts # Ignore graph component (_g)
-                self._triples.add((s, p, o))
-            else:
-                log.warning(f"Skipping malformed line: {line}")
-
+        # Fallback to manual parsing if no absolute IRIs present
+        if '://' not in nquads:
+            self._manual = True
+            for line in nquads.strip().splitlines():
+                parts = line.rstrip(' .').split(' ', 3)
+                if len(parts) >= 3:
+                    s, p, o = parts[0], parts[1], parts[2]
+                    self._triples.add((s, p, o))
+            return
+        # Use rdflib to parse N-Quads or N-Triples, with nt fallback
+        try:
+            self._g.parse(data=nquads, format='nquads')
+        except Exception:
+            # Fallback to N-Triples parser
+            self._g.parse(data=nquads, format='nt')
 
     def triples(self, subj=None, pred=None, obj=None):
-        for s, p, o in self._triples:
-            if subj and subj != s:   continue
-            if pred and pred != p:   continue
-            if obj  and obj  != o:   continue
-            yield s, p, o
+        # Yield from manual store if active
+        if self._manual:
+            for s, p, o in self._triples:
+                if subj and subj != s:   continue
+                if pred and pred != p:   continue
+                if obj  and obj  != o:   continue
+                yield s, p, o
+            return
+        # Otherwise yield from rdflib graph
+        yield from self._g.triples((subj, pred, obj))
 
-    def size(self): return len(self._triples)
-    def add_named_graph(self, graph_id, nquads): self.add_nquads(nquads)
+    def size(self) -> int:
+        # Count manual triples if fallback, else rdflib graph size
+        return len(self._triples) if self._manual else len(self._g)
+
+    def add_named_graph(self, graph_id: str, nquads: str):
+        # Delegate to add_nquads for named graphs
+        self.add_nquads(nquads, graph_id)
+
 
 # %% ../../07_graph.ipynb 9
 if _HAS_RDFLIB:

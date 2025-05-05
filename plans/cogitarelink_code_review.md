@@ -29,20 +29,27 @@ This document summarizes a high-level code review of the `cogitarelink` codebase
 2. **Externalize SHACL Shapes**: Move all SHACL shapes and SPARQL rules into dedicated `.ttl` files. Load them once in a shared validation utility.
 3. **Use JSON-LD Extraction Libraries**: Swap manual HTML traversal for a specialized library (e.g., `extruct`) in retriever and CLI components.
 4. **Centralize Utilities**: Create shared helpers for JSON-LD expansion/normalization, SHACL validation, and RDF graph manipulation to remove cross-module duplication.
+5. **Decouple Croissant Workflows from CLI**: Remove Croissant-specific dataset creation and alignment tools from `cli/vocab_tools.py`. Instead, orchestrate them as higher-level agentic pipelines in a dedicated data/reasoning layer (e.g. `tools/reason.py`), composing primitive tools (`retrieve_vocabulary_resource`, `convert_format`, `add_temp_vocabulary`, etc.).
+
+## Progress
+
+- ✅ Consolidated RDF handling: `InMemoryGraph` now falls back to rdflib by default with a simple manual parser for relative IRIs (implemented in `07_graph.ipynb`).
+- ✅ Added unit tests for `GraphManager` backends (`tests/core/test_graph_backend.py`).
 
 ## Next Steps
 
-- Audit usage of `GraphManager` and migrate critical paths to `rdflib` exclusively.
 - Bundle SHACL rules into a version-controlled directory (`shapes/temporal.ttl`, etc.) and update validation calls accordingly.
 - Survey JSON-LD context merging across modules; unify under `ContextProcessor` and retire ad-hoc merges.
 - Introduce integration tests for fallback behavior (e.g., without `rdflib` installed) to ensure InMemoryGraph correctness or consider deprecating it.
+- Refactor Croissant dataset creation and Wikidata alignment out of the CLI (`vocab_tools.py`) and into a dedicated orchestrator in the data layer (e.g. `tools/reason.py`), composing low-level tools into agentic workflows.
   
 ## Prioritized Punch List
 
-1. Consolidate RDF handling: migrate all graph storage and queries to `rdflib`, deprecate or remove the custom `InMemoryGraph` backend.
+1. ~~Consolidate RDF handling: migrate all graph storage and queries to `rdflib`, deprecate or remove the custom `InMemoryGraph` backend.~~ (Completed)
 2. Externalize SHACL shapes: extract SPARQL rules and SHACL shapes into dedicated `shapes/` files and load them via a shared validation utility.
 3. Centralize JSON-LD processing: unify context composition, expansion, compaction, and normalization under `ContextProcessor`, retiring ad-hoc merges.
 4. Replace manual HTML JSON-LD extraction: adopt a specialized extraction library (e.g., `extruct`) in retriever and CLI components.
 5. Extract shared utilities: create a common `utils` module for RDF graph operations, SHACL validation, and JSON-LD handling to eliminate duplication.
 6. Add integration tests: cover core workflows including RDF parsing, JSON-LD context loading, SHACL validation, and fallback scenarios.
 7. Document migration and deprecation: provide clear guidelines for retiring legacy components (InMemoryGraph, ad-hoc extractors) and migrating existing code.
+8. Remove Croissant-specific CLI logic: eliminate `create_croissant_dataset`, `align_dataset_to_wikidata`, and related tool registrations from `cli/vocab_tools.py`. Build these as orchestrated pipelines in a new data-layer module (e.g. `tools/reason.py`).

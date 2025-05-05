@@ -50,7 +50,6 @@ def test_basic_agent():
     version = agent.run_tool('get_version')
     print(f"CogitareLink version: {version}")
     
-    return agent
 
 def test_vocab_tool_agent():
     """Test the VocabToolAgent functionality"""
@@ -101,11 +100,11 @@ def test_vocab_tool_agent():
         except Exception as e:
             print(f"Error exploring registry: {e}")
         
-        return agent
         
+    # Removed return to avoid PytestReturnNotNoneWarning
+    
     except Exception as e:
         print(f"Error creating VocabToolAgent: {e}")
-        return None
 
 if __name__ == "__main__":
     # Test the basic agent

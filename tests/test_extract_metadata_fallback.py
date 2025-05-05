@@ -74,7 +74,6 @@ def test_extract_metadata_fallback():
             assert len(og_data) > 0
             print("✓ Successfully extracted OpenGraph in fallback mode")
         
-        return result
     
     finally:
         # Restore extruct module if it was present before

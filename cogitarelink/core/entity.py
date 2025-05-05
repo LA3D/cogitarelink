@@ -60,7 +60,7 @@ class Entity(BaseModel):
     """
 
     id:      Optional[str]          = Field(default=None, alias="@id")
-    vocab:   List[str]              = Field(min_items=1)
+    vocab:   List[str]              = Field(min_length=1)
     content: Dict[str, Any]         = Field(default_factory=dict)
     meta:    Dict[str, Any] | None  = None
     created: datetime               = Field(default_factory=datetime.utcnow)

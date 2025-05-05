@@ -1,6 +1,7 @@
 import pytest, tempfile, shutil, time
 from pathlib import Path
-from fastcore.test import *
+# Note: avoid importing all fastcore test utilities to prevent pytest discovery errors
+# from fastcore.test import *
 
 try:
     from cogitarelink.core.cache import DiskCache
