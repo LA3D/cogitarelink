@@ -418,6 +418,149 @@ def retrieval_tools(retriever=None) -> Dict[str, Callable]:
         
         return result
     
+    def extract_metadata(html_content: str, base_url: str = None, 
+                       formats: List[str] = None) -> Dict[str, Any]:
+        """
+        Extract metadata from HTML in multiple formats using extruct.
+        
+        Parameters:
+            html_content: HTML content to analyze
+            base_url: Base URL for resolving relative URIs
+            formats: List of formats to extract ('json-ld','rdfa','microdata','opengraph','microformat')
+                    Default: all formats
+            
+        Returns:
+            Dictionary with metadata for each format
+        """
+        from cogitarelink.integration.retriever import json_parse
+        
+        # Default to all supported formats if none specified
+        formats = formats or ['json-ld', 'rdfa', 'microdata', 'opengraph', 'microformat']
+        
+        try:
+            # Use extruct library to extract metadata
+            import extruct
+            from w3lib.html import get_base_url
+            
+            # Set the base URL for resolving relative URIs
+            base = get_base_url(html_content, base_url or '')
+            
+            # Extract all requested metadata formats
+            extracted = extruct.extract(
+                html_content,
+                base_url=base,
+                syntaxes=formats,
+                uniform=True  # Return uniform results
+            )
+            
+            # Process and validate each format
+            processed_data = {}
+            format_counts = {}
+            
+            for format_type, items in extracted.items():
+                if not items:
+                    continue
+                    
+                if format_type == 'json-ld':
+                    # Process and validate each JSON-LD item
+                    valid_items = []
+                    for item in items:
+                        json_ld, error = json_parse(json.dumps(item), uri=base)
+                        if json_ld:
+                            valid_items.append(json_ld)
+                    
+                    if valid_items:
+                        processed_data[format_type] = valid_items
+                        format_counts[format_type] = len(valid_items)
+                else:
+                    # Other formats don't need validation
+                    processed_data[format_type] = items
+                    format_counts[format_type] = len(items)
+            
+            # Check if we found any metadata
+            if not processed_data:
+                return {
+                    "success": False,
+                    "error": f"No metadata found in formats: {', '.join(formats)}",
+                    "formats_requested": formats
+                }
+            
+            return {
+                "success": True,
+                "metadata": processed_data,
+                "formats": list(processed_data.keys()),
+                "counts": format_counts,
+                "total_items": sum(format_counts.values())
+            }
+            
+        except ImportError:
+            # Fallback to limited BeautifulSoup-based extraction if extruct is not available
+            from bs4 import BeautifulSoup
+            
+            results = {}
+            counts = {}
+            
+            try:
+                soup = BeautifulSoup(html_content, "html.parser")
+                
+                # Only JSON-LD is supported with BeautifulSoup fallback
+                if 'json-ld' in formats:
+                    jsonld_scripts = soup.select("script[type='application/ld+json']")
+                    if jsonld_scripts:
+                        jsonld_data = []
+                        for script in jsonld_scripts:
+                            json_ld, error = json_parse(script.string, uri=base_url)
+                            if json_ld:
+                                jsonld_data.append(json_ld)
+                        
+                        if jsonld_data:
+                            results['json-ld'] = jsonld_data
+                            counts['json-ld'] = len(jsonld_data)
+                
+                # OpenGraph meta tags
+                if 'opengraph' in formats:
+                    og_data = {}
+                    og_tags = soup.select("meta[property^='og:']")
+                    for tag in og_tags:
+                        prop = tag.get('property')
+                        content = tag.get('content')
+                        if prop and content:
+                            og_data[prop] = content
+                    
+                    if og_data:
+                        results['opengraph'] = [og_data]  # Match uniform format with a list
+                        counts['opengraph'] = 1
+                
+                if not results:
+                    return {
+                        "success": False,
+                        "error": f"No metadata found with BeautifulSoup fallback in formats: {', '.join(formats)}",
+                        "formats_requested": formats,
+                        "note": "Limited extraction capabilities without extruct"
+                    }
+                
+                return {
+                    "success": True,
+                    "metadata": results,
+                    "formats": list(results.keys()),
+                    "counts": counts,
+                    "total_items": sum(counts.values()),
+                    "note": "Limited extraction with BeautifulSoup fallback"
+                }
+                
+            except Exception as e:
+                return {
+                    "success": False,
+                    "error": f"Metadata extraction error: {str(e)}",
+                    "formats_requested": formats
+                }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Metadata extraction error: {str(e)}",
+                "formats_requested": formats
+            }
+    
     def extract_embedded_jsonld(html_content: str, base_url: str = None) -> Dict[str, Any]:
         """
         Extract JSON-LD content embedded in HTML.
@@ -429,35 +572,20 @@ def retrieval_tools(retriever=None) -> Dict[str, Callable]:
         Returns:
             Extracted JSON-LD data if found
         """
-        from bs4 import BeautifulSoup
-        from cogitarelink.integration.retriever import json_parse
+        # Use the more comprehensive extract_metadata function with 'json-ld' format only
+        result = extract_metadata(html_content, base_url, formats=['json-ld'])
         
-        try:
-            soup = BeautifulSoup(html_content, "html.parser")
-            jsonld_scripts = soup.select("script[type='application/ld+json']")
-            
-            if not jsonld_scripts:
-                return {
-                    "success": False,
-                    "error": "No JSON-LD script tags found in HTML"
-                }
-            
-            results = []
-            for script in jsonld_scripts:
-                json_ld, error = json_parse(script.string, uri=base_url)
-                if json_ld:
-                    results.append(json_ld)
-            
+        if result.get("success", False):
             return {
-                "success": bool(results),
-                "data": results,
-                "count": len(results),
-                "error": None if results else "Failed to parse embedded JSON-LD"
+                "success": True,
+                "data": result.get("metadata", {}).get("json-ld", []),
+                "count": result.get("counts", {}).get("json-ld", 0),
+                "error": None
             }
-        except Exception as e:
+        else:
             return {
                 "success": False,
-                "error": f"HTML parsing error: {str(e)}"
+                "error": result.get("error", "JSON-LD extraction failed")
             }
     
     def convert_format(content: str, from_format: str, to_format: str = "json-ld") -> Dict[str, Any]:
@@ -598,6 +726,7 @@ def retrieval_tools(retriever=None) -> Dict[str, Callable]:
     
     # Add all functions to the tools dictionary
     tools["retrieve_vocabulary_resource"] = retrieve_vocabulary_resource
+    tools["extract_metadata"] = extract_metadata
     tools["extract_embedded_jsonld"] = extract_embedded_jsonld
     tools["convert_format"] = convert_format
     tools["wikidata_search"] = wikidata_search
@@ -613,6 +742,20 @@ class VocabToolAgent(Agent):
     def __init__(self, name: str = "vocab-agent"):
         super().__init__(name=name)
         self._register_vocab_tools()
+        
+    def run_tool(self, tool_name: str, **kwargs) -> Any:
+        """Override run_tool to fix name parameter issue."""
+        try:
+            # Get the tool directly from the registry
+            tool = self.tools.get(tool_name)
+            func = tool["function"]
+            # Execute the function directly
+            result = func(**kwargs)
+            self.context.log_action(tool_name, kwargs, result)
+            return result
+        except Exception as e:
+            self.context.log_action(tool_name, kwargs, e)
+            raise
     
     def _register_vocab_tools(self):
         """Register all vocabulary-specific tools."""
@@ -650,26 +793,37 @@ class VocabToolAgent(Agent):
             """
             # Try to get the Croissant context
             try:
-                ctx_result = self.run_tool("load_context_for_vocabulary", prefix="croissant")
+                # Use tool function directly to avoid run_tool parameter issue
+                tool = self.tools.get("load_context_for_vocabulary")
+                ctx_result = tool["function"](prefix="croissant")
+                
                 if not ctx_result.get("success", False):
                     # Try to load from TTL (fallback)
                     ttl_url = "https://raw.githubusercontent.com/mlcommons/croissant/main/docs/croissant.ttl"
-                    ttl_result = self.run_tool("retrieve_vocabulary_resource", 
-                                              uri=ttl_url,
-                                              format_hint="turtle")
+                    
+                    # Use tool functions directly to avoid run_tool parameter issue
+                    retrieve_tool = self.tools.get("retrieve_vocabulary_resource")
+                    ttl_result = retrieve_tool["function"](uri=ttl_url, format_hint="turtle")
+                    
                     if ttl_result.get("success", False) and "content" in ttl_result:
                         # Convert TTL to JSON-LD
-                        convert_result = self.run_tool("convert_format",
-                                                     content=ttl_result["content"],
-                                                     from_format="turtle")
+                        convert_tool = self.tools.get("convert_format")
+                        convert_result = convert_tool["function"](
+                            content=ttl_result["content"],
+                            from_format="turtle"
+                        )
+                        
                         if convert_result.get("success", False):
                             # Add as temporary vocabulary
-                            self.run_tool("add_temp_vocabulary",
-                                        prefix="croissant",
-                                        uri="http://mlcommons.org/croissant/",
-                                        inline_context=convert_result["data"].get("@context", {}))
+                            add_vocab_tool = self.tools.get("add_temp_vocabulary")
+                            add_vocab_tool["function"](
+                                prefix="croissant",
+                                uri="http://mlcommons.org/croissant/",
+                                inline_context=convert_result["data"].get("@context", {})
+                            )
+                            
                             # Try to load again
-                            ctx_result = self.run_tool("load_context_for_vocabulary", prefix="croissant")
+                            ctx_result = tool["function"](prefix="croissant")
             except Exception as e:
                 self.context.remember("croissant_error", str(e))
                 # Use a minimal context as fallback
@@ -751,9 +905,12 @@ class VocabToolAgent(Agent):
                     
                     # Try to align with Wikidata
                     try:
-                        alignment = self.run_tool("align_property_to_wikidata",
-                                                property_name=field_name,
-                                                description=field_desc)
+                        # Use tool function directly to avoid run_tool parameter issue
+                        align_tool = self.tools.get("align_property_to_wikidata")
+                        alignment = align_tool["function"](
+                            property_name=field_name,
+                            description=field_desc
+                        )
                         
                         if alignment.get("success", False) and alignment.get("best_match"):
                             best_match = alignment["best_match"]
@@ -795,7 +952,7 @@ class VocabToolAgent(Agent):
     
     def resolve_croissant_vocabulary(self) -> Dict[str, Any]:
         """Robust resolution of the Croissant vocabulary."""
-        # First try normal context resolution through the registry
+        # Use the override run_tool method to fix parameter issue
         vocab_result = self.run_tool("get_vocabulary_info", prefix="croissant")
         
         if not vocab_result.get("success", False):
