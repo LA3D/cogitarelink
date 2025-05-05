@@ -1,0 +1,28 @@
+{
+  "@context": {
+    "@vocab": "https://ontology.crc.nd.edu/earth616/"
+  },
+  "@type": "Event",
+  "@id": "urn:example:event:1234",
+  "name": "Example Event",
+  "description": "A sample Event using the Earth616 ontology context",
+  "startTime": "2023-01-01T00:00:00Z",
+  "endTime": "2023-01-02T00:00:00Z",
+  "location": {
+    "@type": "Place",
+    "name": "Example Location",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "South Bend",
+      "addressRegion": "IN",
+      "addressCountry": "US"
+    }
+  },
+  "participant": [
+    {
+      "@type": "Organization",
+      "@id": "urn:example:org:1",
+      "name": "Example Organization"
+    }
+  ]
+}
