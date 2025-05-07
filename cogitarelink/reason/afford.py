@@ -8,10 +8,12 @@ import json
 from typing import List
 from pydantic import BaseModel
 from rdflib import Graph, RDF
+from rdflib.plugins.sparql.parser import parseQuery
+
 from ..core.debug import get_logger
 
 # %% auto 0
-__all__ = ['log', 'Affordance', 'AffordanceScanner']
+__all__ = ['log', 'Affordance', 'AffordanceScanner', 'bgp_to_graph']
 
 # %% ../../60_afford.ipynb 3
 log = get_logger("afford")
@@ -44,3 +46,14 @@ class AffordanceScanner:
                 out.append(Affordance(iri=str(s), kind=self.HINTS[term]))
         log.debug("found %d affordances", len(out))
         return out
+
+# %% ../../60_afford.ipynb 5
+def bgp_to_graph(sparql: str) -> Graph:
+    """Parse a SPARQL BGP into an RDFLib Graph of triples."""
+    g = Graph()
+    # very naive: assumes single BGP, turns each triple pattern into a statement
+    parsed = parseQuery(sparql)
+    triples = parsed['where'][0]['triples']  # adjust based on rdflib version
+    for s,p,o in triples:
+        g.add((_term(s), _term(p), _term(o)))
+    return g

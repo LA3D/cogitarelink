@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 from typing import List, Tuple
 from pydantic import BaseModel
-from rdflib import Graph, RDF, ConjunctiveGraph
+from rdflib import Graph, RDF, Dataset
 from ..core.debug import get_logger
 from .prov import wrap_patch_with_prov
 from pyshacl import validate
@@ -20,8 +20,8 @@ log = get_logger("sandbox")
 
 
 # %% ../../61_sandbox.ipynb 4
-def _to_graph(data:str|dict, fmt="json-ld") -> ConjunctiveGraph:
-    g = ConjunctiveGraph()
+def _to_graph(data:str|dict, fmt="json-ld") -> Dataset:
+    g = Dataset()
     g.parse(data=data if isinstance(data,str) else json.dumps(data), format=fmt)
     return g
 
@@ -42,11 +42,18 @@ def reason_over(*,
 
     if shapes_turtle:
         shapes=_to_graph(shapes_turtle, fmt="turtle")
-        conforms, r, _ = validate(data, shacl_graph=shapes,
+        conforms, r, results_graph = validate(data, shacl_graph=shapes,
                                   iterate_rules=True, advanced=True, inplace=True)
         # `data` mutated in‑place; diff = data − original
         patch += r
+        
+        # Check for violations more explicitly
+        has_violations = len(results_graph) > 0
         summary=f"SHACL run; conforms:{conforms}; added {len(r)} triples"
+        
+        if has_violations:
+            summary += "; violations found"
+
     elif query:
         patch += data.query(query).graph
         summary=f"CONSTRUCT produced {len(patch)} triples"
