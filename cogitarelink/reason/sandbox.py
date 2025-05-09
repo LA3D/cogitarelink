@@ -47,8 +47,14 @@ def reason_over(*,
         # `data` mutated in‑place; diff = data − original
         patch += r
         
-        # Check for violations more explicitly
-        has_violations = len(results_graph) > 0
+        # Check for violations more explicitly by checking the results_graph content
+        violation_triples = []
+        if results_graph is not None and len(results_graph) > 0:
+            for s, p, o in results_graph:
+                if 'ValidationResult' in str(o) or 'violation' in str(o).lower():
+                    violation_triples.append((s, p, o))
+        
+        has_violations = len(violation_triples) > 0
         summary=f"SHACL run; conforms:{conforms}; added {len(r)} triples"
         
         if has_violations:
