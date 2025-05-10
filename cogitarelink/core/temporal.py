@@ -4,6 +4,16 @@
 
 # %% ../../72_temporal_reasoning_tests.ipynb 2
 from __future__ import annotations
+from fastcore.test import test_ne, test_eq
+from datetime import datetime, timezone, timedelta
+import json
+
+# %% auto 0
+__all__ = ['log', 'Namespaces', 'ensure_timezone', 'TimeInstant', 'TimeInterval', 'InstantReification', 'IntervalReification',
+           'LifespanReification', 'Event', 'create_temporal_rules', 'infer_temporal_relations', 'create_jsonld_context',
+           'event_to_jsonld', 'create_test_events']
+
+# %% ../../72_temporal_reasoning_tests.ipynb 3
 from typing import Union, List, Dict, Tuple, Optional
 from pydantic import BaseModel, ConfigDict
 from rdflib import Graph, Namespace, URIRef, Literal as RDFLiteral, BNode
@@ -14,22 +24,17 @@ from .graph import GraphManager
 from .debug import get_logger
 from ..reason.prov import wrap_patch_with_prov
 
-# %% auto 0
-__all__ = ['log', 'Namespaces', 'ensure_timezone', 'TimeInstant', 'TimeInterval', 'InstantReification', 'IntervalReification',
-           'LifespanReification', 'Event', 'create_temporal_rules', 'infer_temporal_relations', 'create_jsonld_context',
-           'event_to_jsonld', 'create_test_events']
-
-# %% ../../72_temporal_reasoning_tests.ipynb 3
+# %% ../../72_temporal_reasoning_tests.ipynb 4
 log = get_logger("temporal")
 
-# %% ../../72_temporal_reasoning_tests.ipynb 4
+# %% ../../72_temporal_reasoning_tests.ipynb 5
 # Define our namespaces
 class Namespaces:
     EVENT = Namespace("https://example.org/event-ontology#")
     OLIVE = Namespace("https://example.org/olive-temporal#")
     TEMP = Namespace("https://example.org/temporal-relations#")
 
-# %% ../../72_temporal_reasoning_tests.ipynb 5
+# %% ../../72_temporal_reasoning_tests.ipynb 6
 def ensure_timezone(dt):
     "Ensure a datetime has timezone information (UTC if none)"
     if dt.tzinfo is None: return dt.replace(tzinfo=timezone.utc)
@@ -58,7 +63,7 @@ class TimeInstant(BaseModel):
         
         return g, node
 
-# %% ../../72_temporal_reasoning_tests.ipynb 6
+# %% ../../72_temporal_reasoning_tests.ipynb 7
 class TimeInterval(BaseModel):
     "Represents a period of time with a start and end"
     startTime: Union[TimeInstant, Dict]
@@ -98,7 +103,7 @@ class TimeInterval(BaseModel):
         
         return g, node
 
-# %% ../../72_temporal_reasoning_tests.ipynb 7
+# %% ../../72_temporal_reasoning_tests.ipynb 8
 class InstantReification(BaseModel):
     "Reification of a relationship at a specific moment in time"
     subject: str
@@ -137,7 +142,7 @@ class InstantReification(BaseModel):
             
         return g, node
 
-# %% ../../72_temporal_reasoning_tests.ipynb 8
+# %% ../../72_temporal_reasoning_tests.ipynb 9
 class IntervalReification(BaseModel):
     "Reification of a relationship over a time interval"
     subject: str
@@ -176,7 +181,7 @@ class IntervalReification(BaseModel):
             
         return g, node
 
-# %% ../../72_temporal_reasoning_tests.ipynb 9
+# %% ../../72_temporal_reasoning_tests.ipynb 10
 class LifespanReification(BaseModel):
     "Reification of a relationship over its entire lifespan"
     subject: str
@@ -205,7 +210,7 @@ class LifespanReification(BaseModel):
             
         return g, node
 
-# %% ../../72_temporal_reasoning_tests.ipynb 10
+# %% ../../72_temporal_reasoning_tests.ipynb 11
 class Event(BaseModel):
     "Core event model that supports temporal reification"
     id: str
@@ -318,7 +323,7 @@ class Event(BaseModel):
         
         return g
 
-# %% ../../72_temporal_reasoning_tests.ipynb 11
+# %% ../../72_temporal_reasoning_tests.ipynb 12
 def create_temporal_rules():
     "Create SPARQL rules for temporal reasoning"
     inference_rules = """
@@ -424,7 +429,7 @@ def infer_temporal_relations(event_graph):
     # Return the graph with inferred relationships
     return event_graph
 
-# %% ../../72_temporal_reasoning_tests.ipynb 12
+# %% ../../72_temporal_reasoning_tests.ipynb 13
 def create_jsonld_context():
     "Create a JSON-LD context for our event model"
     return {
@@ -458,7 +463,7 @@ def create_jsonld_context():
         }
     }
 
-# %% ../../72_temporal_reasoning_tests.ipynb 13
+# %% ../../72_temporal_reasoning_tests.ipynb 14
 def event_to_jsonld(event, include_temporal_relations=True):
     "Convert an Event to JSON-LD, optionally including inferred temporal relationships"
     # Convert to dict using pydantic
@@ -509,7 +514,7 @@ def event_to_jsonld(event, include_temporal_relations=True):
     
     return event_dict
 
-# %% ../../72_temporal_reasoning_tests.ipynb 14
+# %% ../../72_temporal_reasoning_tests.ipynb 15
 def create_test_events():
     "Create test events for demonstrating temporal reasoning"
     # Morning Meeting

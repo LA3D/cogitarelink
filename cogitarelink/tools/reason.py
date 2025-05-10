@@ -42,8 +42,8 @@ def reason_tool(jsonld:str,
                                  shapes_turtle=shapes_turtle,
                                  query=query)
     # Convert JSON-LD to nquads format for ingestion
-    from rdflib import Graph
-    temp_g = Graph()
+    from rdflib import Graph, ConjunctiveGraph
+    temp_g = ConjunctiveGraph()  # Use ConjunctiveGraph for nquads
     temp_g.parse(data=patch, format="json-ld")
     nquads = temp_g.serialize(format="nquads")
     gm.ingest_nquads(nquads, graph_id="patch")
