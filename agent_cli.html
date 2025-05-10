@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.7.30">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="Command-line interface designed specifically for agent interactions">
+
+<title>Agent-Enabled CLI – Linked Data Navigation with AI Agents</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-de070a7b0ab54f8780927367ac907214.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-c4832a576a2b2751674216aa53ffbffd.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="Agent-Enabled CLI – Linked Data Navigation with AI Agents">
+<meta property="og:description" content="Command-line interface designed specifically for agent interactions">
+<meta property="og:site_name" content="Linked Data Navigation with AI Agents">
+<meta name="twitter:title" content="Agent-Enabled CLI – Linked Data Navigation with AI Agents">
+<meta name="twitter:description" content="Command-line interface designed specifically for agent interactions">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-sidebar floating nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">Linked Data Navigation with AI Agents</span>
+    </a>
+  </div>
+        <div class="quarto-navbar-tools tools-end">
+</div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./agent_cli.html">Agent-Enabled CLI</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">cogitarelink</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./debug.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Core Debug</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./cache.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Core Cache</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./registry.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Vocabulary Registry</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./collision.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Collision Resolver</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./composer.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Context Composer</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./context.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Context Processor</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./entity.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Entity</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./graph.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Graph Manager</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./processor.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Entity Processor</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./cli.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Command-Line Interface</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./vocab_tools.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Vocabulary Tools for Agentic Systems</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./agent_cli.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Agent-Enabled CLI</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./afford.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Affordance Extraction</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./sandbox.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Reason Sandbox</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./obqc.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Ontology Based Query Checks</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./sparql_tools.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">SPARQL Tools for Semantic Memory</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./tool_reason.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Reason Tools</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./micro_tests.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Reason Tools Micro Test</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./temporal_reasoning_tests.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Temporal Reasoning Micro Tests</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./temporal_llm_integration.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Temporal LLM Integration Tests</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./signer.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Digital Signer</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./validator.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">SHACL Validator</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./prov.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prov Wrapper</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./utils.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">utils</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#agent-optimized-cli" id="toc-agent-optimized-cli" class="nav-link active" data-scroll-target="#agent-optimized-cli">Agent-Optimized CLI</a>
+  <ul class="collapse">
+  <li><a href="#agentcli" id="toc-agentcli" class="nav-link" data-scroll-target="#agentcli">AgentCLI</a></li>
+  <li><a href="#command-line-interface" id="toc-command-line-interface" class="nav-link" data-scroll-target="#command-line-interface">Command Line Interface</a>
+  <ul class="collapse">
+  <li><a href="#agent_cli_main" id="toc-agent_cli_main" class="nav-link" data-scroll-target="#agent_cli_main">agent_cli_main</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#testing-the-agent-cli" id="toc-testing-the-agent-cli" class="nav-link" data-scroll-target="#testing-the-agent-cli">Testing the Agent CLI</a></li>
+  <li><a href="#next-steps" id="toc-next-steps" class="nav-link" data-scroll-target="#next-steps">Next Steps</a></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/la3d/cogitarelink/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="agent_cli.html.md"><i class="bi bi-file-code"></i>CommonMark</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Agent-Enabled CLI</h1>
+</div>
+
+<div>
+  <div class="description">
+    Command-line interface designed specifically for agent interactions
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<section id="agent-optimized-cli" class="level1">
+<h1>Agent-Optimized CLI</h1>
+<p>This notebook builds on the core CLI infrastructure to create a CLI that’s optimized for agent interactions.</p>
+<p>Our key goals are:</p>
+<ol type="1">
+<li><strong>Automatic Tool Registration</strong>: Include all available tools without manual configuration</li>
+<li><strong>Agent-Friendly Output</strong>: Structured JSON with agent guidance</li>
+<li><strong>Category-Based Tool Organization</strong>: Help agents discover relevant tools</li>
+<li><strong>Earth616 Support</strong>: First-class support for earth616_ontology as a test case</li>
+<li><strong>Consistent Structure</strong>: Predictable response format for reliable parsing</li>
+</ol>
+<div id="cell-3" class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Fix the imports at the top of the file\nfrom cogitarelink.cli.cli import Agent, ToolRegistry\nfrom cogitarelink.core.debug import get_logger\nimport sys\nimport json\nimport argparse\nfrom typing import Dict, List, Any, Callable, Optional, Union\nfrom pathlib import Path\n\nlog = get_logger(\"agent_cli\")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-4" class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> AgentCLI(Agent):</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Agent optimized for CLI interactions with other agents."""</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, name: <span class="bu">str</span> <span class="op">=</span> <span class="st">"agent-cli"</span>):</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">super</span>().<span class="fu">__init__</span>(name<span class="op">=</span>name)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.context.remember(<span class="st">"agent_mode"</span>, <span class="va">True</span>)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>._register_all_tools()</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> _register_all_tools(<span class="va">self</span>):</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Register all available tools from other agents."""</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Register vocabulary tools</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">try</span>:</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>            <span class="im">from</span> cogitarelink.cli.vocab_tools <span class="im">import</span> VocabToolAgent</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>            vocab_agent <span class="op">=</span> VocabToolAgent()</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Register all vocab tools</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> name, tool <span class="kw">in</span> vocab_agent.tools.tools.items():</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> name <span class="kw">not</span> <span class="kw">in</span> <span class="va">self</span>.tools.tools <span class="kw">and</span> name <span class="kw">not</span> <span class="kw">in</span> [<span class="st">"get_version"</span>, <span class="st">"list_tools"</span>, <span class="st">"get_agent_memory"</span>]:</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>                    <span class="va">self</span>.tools.tools[name] <span class="op">=</span> tool</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.context.remember(<span class="st">"has_vocab_tools"</span>, <span class="va">True</span>)</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>            log.info(<span class="ss">f"Registered </span><span class="sc">{</span><span class="bu">len</span>(vocab_agent.tools.tools) <span class="op">-</span> <span class="dv">3</span><span class="sc">}</span><span class="ss"> vocabulary tools"</span>)</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.context.remember(<span class="st">"has_vocab_tools"</span>, <span class="va">False</span>)</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.context.remember(<span class="st">"vocab_tools_error"</span>, <span class="bu">str</span>(e))</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>            log.error(<span class="ss">f"Failed to register vocabulary tools: </span><span class="sc">{</span>e<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Add earth616 specific tools</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>._register_earth616_tools()</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> _register_earth616_tools(<span class="va">self</span>):</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Register tools specifically for working with earth616 ontology."""</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>        <span class="at">@self.tools.register</span>(name<span class="op">=</span><span class="st">"register_earth616"</span>, </span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>                           description<span class="op">=</span><span class="st">"Register earth616 ontology with the system"</span>)</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>        <span class="kw">def</span> register_earth616() <span class="op">-&gt;</span> Dict[<span class="bu">str</span>, Any]:</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>            <span class="co">"""Register the earth616 ontology with the vocabulary registry."""</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>            CONTEXT_URL <span class="op">=</span> <span class="st">"https://raw.githubusercontent.com/crcresearch/earth616_ontology/refs/heads/main/release/contexts/latest/context-base.jsonld"</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>            ONTOLOGY_URL <span class="op">=</span> <span class="st">"https://raw.githubusercontent.com/crcresearch/earth616_ontology/refs/heads/main/release/ontology/latest/ontology.ttl"</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>            PREFIX <span class="op">=</span> <span class="st">"earth616"</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>            URI_BASE <span class="op">=</span> <span class="st">"https://ontology.crc.nd.edu/earth616/"</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Step 1: Retrieve the context</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>            context_result <span class="op">=</span> <span class="va">self</span>.run_tool(<span class="st">"retrieve_vocabulary_resource"</span>, uri<span class="op">=</span>CONTEXT_URL)</span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="kw">not</span> context_result.get(<span class="st">"success"</span>, <span class="va">False</span>):</span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>                <span class="cf">return</span> {</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"success"</span>: <span class="va">False</span>,</span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"error"</span>: <span class="ss">f"Failed to retrieve earth616 context: </span><span class="sc">{</span>context_result<span class="sc">.</span>get(<span class="st">'error'</span>, <span class="st">'Unknown error'</span>)<span class="sc">}</span><span class="ss">"</span>,</span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"agent_guidance"</span>: {</span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"description"</span>: <span class="st">"Failed to retrieve the earth616 context."</span>,</span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"suggestions"</span>: [</span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>                            <span class="st">"Check internet connection"</span>,</span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>                            <span class="st">"Verify the earth616 context URL is accessible"</span>,</span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>                            <span class="st">"Try again later"</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>                        ]</span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>                    }</span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>                }</span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Print debug info about the context result</span></span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Context result keys: </span><span class="sc">{</span>context_result<span class="sc">.</span>keys()<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Try different keys that might contain the context</span></span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="st">"content"</span> <span class="kw">in</span> context_result:</span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a>                context <span class="op">=</span> context_result[<span class="st">"content"</span>]</span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>            <span class="cf">elif</span> <span class="st">"data"</span> <span class="kw">in</span> context_result:</span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>                context <span class="op">=</span> context_result[<span class="st">"data"</span>]</span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span>:</span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a>                <span class="co"># If we can't find the context, use context_url instead</span></span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a>                <span class="cf">return</span> {</span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"success"</span>: <span class="va">False</span>,</span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"error"</span>: <span class="ss">f"Could not extract context from result: </span><span class="sc">{</span>context_result<span class="sc">}</span><span class="ss">"</span>,</span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"agent_guidance"</span>: {</span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"description"</span>: <span class="st">"Failed to process the context data."</span>,</span>
+<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"suggestions"</span>: [</span>
+<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a>                            <span class="st">"Try using context_url instead of inline_context"</span></span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a>                        ]</span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a>                    }</span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a>                }</span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Step 2: Register the vocabulary</span></span>
+<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a>            add_result <span class="op">=</span> <span class="va">self</span>.run_tool(<span class="st">"add_temp_vocabulary"</span>, </span>
+<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a>                                      prefix<span class="op">=</span>PREFIX,</span>
+<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a>                                      uri<span class="op">=</span>URI_BASE,</span>
+<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a>                                      context_url<span class="op">=</span>CONTEXT_URL)</span>
+<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="kw">not</span> add_result.get(<span class="st">"success"</span>, <span class="va">False</span>):</span>
+<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a>                <span class="cf">return</span> {</span>
+<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"success"</span>: <span class="va">False</span>,</span>
+<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"error"</span>: <span class="ss">f"Failed to register earth616 vocabulary: </span><span class="sc">{</span>add_result<span class="sc">.</span>get(<span class="st">'error'</span>, <span class="st">'Unknown error'</span>)<span class="sc">}</span><span class="ss">"</span>,</span>
+<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"agent_guidance"</span>: {</span>
+<span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"description"</span>: <span class="st">"Failed to register the earth616 vocabulary."</span>,</span>
+<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"suggestions"</span>: [</span>
+<span id="cb2-95"><a href="#cb2-95" aria-hidden="true" tabindex="-1"></a>                            <span class="st">"Check if the vocabulary is already registered"</span>,</span>
+<span id="cb2-96"><a href="#cb2-96" aria-hidden="true" tabindex="-1"></a>                            <span class="st">"Try again with a different prefix if there's a conflict"</span></span>
+<span id="cb2-97"><a href="#cb2-97" aria-hidden="true" tabindex="-1"></a>                        ]</span>
+<span id="cb2-98"><a href="#cb2-98" aria-hidden="true" tabindex="-1"></a>                    }</span>
+<span id="cb2-99"><a href="#cb2-99" aria-hidden="true" tabindex="-1"></a>                }</span>
+<span id="cb2-100"><a href="#cb2-100" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-101"><a href="#cb2-101" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Step 3: Store information about the SHACL shapes</span></span>
+<span id="cb2-102"><a href="#cb2-102" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.context.remember(<span class="st">"earth616_shapes_url"</span>, </span>
+<span id="cb2-103"><a href="#cb2-103" aria-hidden="true" tabindex="-1"></a>                                <span class="st">"https://raw.githubusercontent.com/crcresearch/earth616_ontology/main/release/shapes/shacl/latest/shapes.ttl"</span>)</span>
+<span id="cb2-104"><a href="#cb2-104" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-105"><a href="#cb2-105" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Step 4: Return success response with guidance</span></span>
+<span id="cb2-106"><a href="#cb2-106" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> {</span>
+<span id="cb2-107"><a href="#cb2-107" aria-hidden="true" tabindex="-1"></a>                <span class="st">"success"</span>: <span class="va">True</span>,</span>
+<span id="cb2-108"><a href="#cb2-108" aria-hidden="true" tabindex="-1"></a>                <span class="st">"message"</span>: <span class="ss">f"Successfully registered earth616 ontology with prefix '</span><span class="sc">{</span>PREFIX<span class="sc">}</span><span class="ss">'"</span>,</span>
+<span id="cb2-109"><a href="#cb2-109" aria-hidden="true" tabindex="-1"></a>                <span class="st">"context_size"</span>: <span class="bu">len</span>(<span class="bu">str</span>(context)),</span>
+<span id="cb2-110"><a href="#cb2-110" aria-hidden="true" tabindex="-1"></a>                <span class="st">"agent_guidance"</span>: {</span>
+<span id="cb2-111"><a href="#cb2-111" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"description"</span>: <span class="st">"The earth616 ontology is now registered in the system."</span>,</span>
+<span id="cb2-112"><a href="#cb2-112" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"next_steps"</span>: [</span>
+<span id="cb2-113"><a href="#cb2-113" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"Get vocabulary information: cogitarelink --run-tool get_vocabulary_info --args '{</span><span class="ch">\"</span><span class="st">prefix</span><span class="ch">\"</span><span class="st">:</span><span class="ch">\"</span><span class="st">earth616</span><span class="ch">\"</span><span class="st">}'"</span>,</span>
+<span id="cb2-114"><a href="#cb2-114" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"Compose a context: cogitarelink --run-tool compose_context --args '{</span><span class="ch">\"</span><span class="st">prefixes</span><span class="ch">\"</span><span class="st">:[</span><span class="ch">\"</span><span class="st">earth616</span><span class="ch">\"</span><span class="st">]}'"</span>,</span>
+<span id="cb2-115"><a href="#cb2-115" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"Generate an example: cogitarelink --run-tool generate_earth616_example"</span></span>
+<span id="cb2-116"><a href="#cb2-116" aria-hidden="true" tabindex="-1"></a>                    ]</span>
+<span id="cb2-117"><a href="#cb2-117" aria-hidden="true" tabindex="-1"></a>                }</span>
+<span id="cb2-118"><a href="#cb2-118" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb2-119"><a href="#cb2-119" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb2-120"><a href="#cb2-120" aria-hidden="true" tabindex="-1"></a>        <span class="at">@self.tools.register</span>(name<span class="op">=</span><span class="st">"generate_earth616_example"</span>,</span>
+<span id="cb2-121"><a href="#cb2-121" aria-hidden="true" tabindex="-1"></a>                           description<span class="op">=</span><span class="st">"Generate an example entity using the earth616 ontology"</span>)</span>
+<span id="cb2-122"><a href="#cb2-122" aria-hidden="true" tabindex="-1"></a>        <span class="kw">def</span> generate_earth616_example(entity_type: <span class="bu">str</span> <span class="op">=</span> <span class="st">"Event"</span>) <span class="op">-&gt;</span> Dict[<span class="bu">str</span>, Any]:</span>
+<span id="cb2-123"><a href="#cb2-123" aria-hidden="true" tabindex="-1"></a>            <span class="co">"""Generate an example entity using the earth616 ontology."""</span></span>
+<span id="cb2-124"><a href="#cb2-124" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-125"><a href="#cb2-125" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Step 1: Check if earth616 is registered, if not register it</span></span>
+<span id="cb2-126"><a href="#cb2-126" aria-hidden="true" tabindex="-1"></a>            vocab_info <span class="op">=</span> <span class="va">self</span>.run_tool(<span class="st">"get_vocabulary_info"</span>, prefix<span class="op">=</span><span class="st">"earth616"</span>)</span>
+<span id="cb2-127"><a href="#cb2-127" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-128"><a href="#cb2-128" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="kw">not</span> vocab_info.get(<span class="st">"success"</span>, <span class="va">False</span>):</span>
+<span id="cb2-129"><a href="#cb2-129" aria-hidden="true" tabindex="-1"></a>                <span class="bu">print</span>(<span class="st">"Earth616 vocabulary not found, auto-registering..."</span>)</span>
+<span id="cb2-130"><a href="#cb2-130" aria-hidden="true" tabindex="-1"></a>                register_result <span class="op">=</span> <span class="va">self</span>.run_tool(<span class="st">"register_earth616"</span>)</span>
+<span id="cb2-131"><a href="#cb2-131" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb2-132"><a href="#cb2-132" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> <span class="kw">not</span> register_result.get(<span class="st">"success"</span>, <span class="va">False</span>):</span>
+<span id="cb2-133"><a href="#cb2-133" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">return</span> {</span>
+<span id="cb2-134"><a href="#cb2-134" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"success"</span>: <span class="va">False</span>,</span>
+<span id="cb2-135"><a href="#cb2-135" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"error"</span>: <span class="ss">f"Failed to auto-register earth616: </span><span class="sc">{</span>register_result<span class="sc">.</span>get(<span class="st">'error'</span>, <span class="st">'Unknown error'</span>)<span class="sc">}</span><span class="ss">"</span>,</span>
+<span id="cb2-136"><a href="#cb2-136" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"agent_guidance"</span>: {</span>
+<span id="cb2-137"><a href="#cb2-137" aria-hidden="true" tabindex="-1"></a>                            <span class="st">"description"</span>: <span class="st">"Failed to automatically register the earth616 vocabulary."</span>,</span>
+<span id="cb2-138"><a href="#cb2-138" aria-hidden="true" tabindex="-1"></a>                            <span class="st">"suggestions"</span>: [</span>
+<span id="cb2-139"><a href="#cb2-139" aria-hidden="true" tabindex="-1"></a>                                <span class="st">"Try explicitly running: cogitarelink --run-tool register_earth616"</span></span>
+<span id="cb2-140"><a href="#cb2-140" aria-hidden="true" tabindex="-1"></a>                            ]</span>
+<span id="cb2-141"><a href="#cb2-141" aria-hidden="true" tabindex="-1"></a>                        }</span>
+<span id="cb2-142"><a href="#cb2-142" aria-hidden="true" tabindex="-1"></a>                    }</span>
+<span id="cb2-143"><a href="#cb2-143" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-144"><a href="#cb2-144" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Step 2: Create a simple context directly</span></span>
+<span id="cb2-145"><a href="#cb2-145" aria-hidden="true" tabindex="-1"></a>            context_obj <span class="op">=</span> {</span>
+<span id="cb2-146"><a href="#cb2-146" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@context"</span>: {</span>
+<span id="cb2-147"><a href="#cb2-147" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"@vocab"</span>: <span class="st">"https://ontology.crc.nd.edu/earth616/"</span></span>
+<span id="cb2-148"><a href="#cb2-148" aria-hidden="true" tabindex="-1"></a>                }</span>
+<span id="cb2-149"><a href="#cb2-149" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb2-150"><a href="#cb2-150" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-151"><a href="#cb2-151" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Print debug info</span></span>
+<span id="cb2-152"><a href="#cb2-152" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Using simplified context: </span><span class="sc">{</span>context_obj<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb2-153"><a href="#cb2-153" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-154"><a href="#cb2-154" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Step 3: Create an example entity</span></span>
+<span id="cb2-155"><a href="#cb2-155" aria-hidden="true" tabindex="-1"></a>            example_data <span class="op">=</span> {</span>
+<span id="cb2-156"><a href="#cb2-156" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@context"</span>: context_obj,</span>
+<span id="cb2-157"><a href="#cb2-157" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@type"</span>: entity_type,</span>
+<span id="cb2-158"><a href="#cb2-158" aria-hidden="true" tabindex="-1"></a>                <span class="st">"@id"</span>: <span class="ss">f"urn:example:</span><span class="sc">{</span>entity_type<span class="sc">.</span>lower()<span class="sc">}</span><span class="ss">:1234"</span>,</span>
+<span id="cb2-159"><a href="#cb2-159" aria-hidden="true" tabindex="-1"></a>                <span class="st">"name"</span>: <span class="ss">f"Example </span><span class="sc">{</span>entity_type<span class="sc">}</span><span class="ss">"</span>,</span>
+<span id="cb2-160"><a href="#cb2-160" aria-hidden="true" tabindex="-1"></a>                <span class="st">"description"</span>: <span class="ss">f"A sample </span><span class="sc">{</span>entity_type<span class="sc">}</span><span class="ss"> using the Earth616 ontology context"</span></span>
+<span id="cb2-161"><a href="#cb2-161" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb2-162"><a href="#cb2-162" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-163"><a href="#cb2-163" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Add type-specific properties</span></span>
+<span id="cb2-164"><a href="#cb2-164" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> entity_type <span class="op">==</span> <span class="st">"Event"</span>:</span>
+<span id="cb2-165"><a href="#cb2-165" aria-hidden="true" tabindex="-1"></a>                example_data.update({</span>
+<span id="cb2-166"><a href="#cb2-166" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"startTime"</span>: <span class="st">"2023-01-01T00:00:00Z"</span>,</span>
+<span id="cb2-167"><a href="#cb2-167" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"endTime"</span>: <span class="st">"2023-01-02T00:00:00Z"</span>,</span>
+<span id="cb2-168"><a href="#cb2-168" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"location"</span>: {</span>
+<span id="cb2-169"><a href="#cb2-169" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"@type"</span>: <span class="st">"Place"</span>,</span>
+<span id="cb2-170"><a href="#cb2-170" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"name"</span>: <span class="st">"Example Location"</span>,</span>
+<span id="cb2-171"><a href="#cb2-171" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"address"</span>: {</span>
+<span id="cb2-172"><a href="#cb2-172" aria-hidden="true" tabindex="-1"></a>                            <span class="st">"@type"</span>: <span class="st">"PostalAddress"</span>,</span>
+<span id="cb2-173"><a href="#cb2-173" aria-hidden="true" tabindex="-1"></a>                            <span class="st">"addressLocality"</span>: <span class="st">"South Bend"</span>,</span>
+<span id="cb2-174"><a href="#cb2-174" aria-hidden="true" tabindex="-1"></a>                            <span class="st">"addressRegion"</span>: <span class="st">"IN"</span>,</span>
+<span id="cb2-175"><a href="#cb2-175" aria-hidden="true" tabindex="-1"></a>                            <span class="st">"addressCountry"</span>: <span class="st">"US"</span></span>
+<span id="cb2-176"><a href="#cb2-176" aria-hidden="true" tabindex="-1"></a>                        }</span>
+<span id="cb2-177"><a href="#cb2-177" aria-hidden="true" tabindex="-1"></a>                    },</span>
+<span id="cb2-178"><a href="#cb2-178" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"participant"</span>: [</span>
+<span id="cb2-179"><a href="#cb2-179" aria-hidden="true" tabindex="-1"></a>                        {</span>
+<span id="cb2-180"><a href="#cb2-180" aria-hidden="true" tabindex="-1"></a>                            <span class="st">"@type"</span>: <span class="st">"Organization"</span>,</span>
+<span id="cb2-181"><a href="#cb2-181" aria-hidden="true" tabindex="-1"></a>                            <span class="st">"@id"</span>: <span class="st">"urn:example:org:1"</span>,</span>
+<span id="cb2-182"><a href="#cb2-182" aria-hidden="true" tabindex="-1"></a>                            <span class="st">"name"</span>: <span class="st">"Example Organization"</span></span>
+<span id="cb2-183"><a href="#cb2-183" aria-hidden="true" tabindex="-1"></a>                        }</span>
+<span id="cb2-184"><a href="#cb2-184" aria-hidden="true" tabindex="-1"></a>                    ]</span>
+<span id="cb2-185"><a href="#cb2-185" aria-hidden="true" tabindex="-1"></a>                })</span>
+<span id="cb2-186"><a href="#cb2-186" aria-hidden="true" tabindex="-1"></a>            <span class="cf">elif</span> entity_type <span class="op">==</span> <span class="st">"Place"</span>:</span>
+<span id="cb2-187"><a href="#cb2-187" aria-hidden="true" tabindex="-1"></a>                example_data.update({</span>
+<span id="cb2-188"><a href="#cb2-188" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"geo"</span>: {</span>
+<span id="cb2-189"><a href="#cb2-189" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"@type"</span>: <span class="st">"GeoCoordinates"</span>,</span>
+<span id="cb2-190"><a href="#cb2-190" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"latitude"</span>: <span class="fl">41.6764</span>,</span>
+<span id="cb2-191"><a href="#cb2-191" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"longitude"</span>: <span class="op">-</span><span class="fl">86.2520</span></span>
+<span id="cb2-192"><a href="#cb2-192" aria-hidden="true" tabindex="-1"></a>                    },</span>
+<span id="cb2-193"><a href="#cb2-193" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"address"</span>: {</span>
+<span id="cb2-194"><a href="#cb2-194" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"@type"</span>: <span class="st">"PostalAddress"</span>,</span>
+<span id="cb2-195"><a href="#cb2-195" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"addressLocality"</span>: <span class="st">"South Bend"</span>,</span>
+<span id="cb2-196"><a href="#cb2-196" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"addressRegion"</span>: <span class="st">"IN"</span>,</span>
+<span id="cb2-197"><a href="#cb2-197" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"addressCountry"</span>: <span class="st">"US"</span></span>
+<span id="cb2-198"><a href="#cb2-198" aria-hidden="true" tabindex="-1"></a>                    }</span>
+<span id="cb2-199"><a href="#cb2-199" aria-hidden="true" tabindex="-1"></a>                })</span>
+<span id="cb2-200"><a href="#cb2-200" aria-hidden="true" tabindex="-1"></a>            <span class="cf">elif</span> entity_type <span class="op">==</span> <span class="st">"Person"</span> <span class="kw">or</span> entity_type <span class="op">==</span> <span class="st">"Organization"</span>:</span>
+<span id="cb2-201"><a href="#cb2-201" aria-hidden="true" tabindex="-1"></a>                example_data.update({</span>
+<span id="cb2-202"><a href="#cb2-202" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"url"</span>: <span class="ss">f"https://example.org/</span><span class="sc">{</span>entity_type<span class="sc">.</span>lower()<span class="sc">}</span><span class="ss">/1234"</span>,</span>
+<span id="cb2-203"><a href="#cb2-203" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"email"</span>: <span class="ss">f"info@example.org"</span></span>
+<span id="cb2-204"><a href="#cb2-204" aria-hidden="true" tabindex="-1"></a>                })</span>
+<span id="cb2-205"><a href="#cb2-205" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-206"><a href="#cb2-206" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Return the example with guidance</span></span>
+<span id="cb2-207"><a href="#cb2-207" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> {</span>
+<span id="cb2-208"><a href="#cb2-208" aria-hidden="true" tabindex="-1"></a>                <span class="st">"success"</span>: <span class="va">True</span>,</span>
+<span id="cb2-209"><a href="#cb2-209" aria-hidden="true" tabindex="-1"></a>                <span class="st">"example"</span>: example_data,</span>
+<span id="cb2-210"><a href="#cb2-210" aria-hidden="true" tabindex="-1"></a>                <span class="st">"agent_guidance"</span>: {</span>
+<span id="cb2-211"><a href="#cb2-211" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"description"</span>: <span class="ss">f"Generated an example </span><span class="sc">{</span>entity_type<span class="sc">}</span><span class="ss"> using earth616 ontology."</span>,</span>
+<span id="cb2-212"><a href="#cb2-212" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"next_steps"</span>: [</span>
+<span id="cb2-213"><a href="#cb2-213" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"Convert to other formats: cogitarelink --run-tool convert_format --args '{</span><span class="ch">\"</span><span class="st">content</span><span class="ch">\"</span><span class="st">: </span><span class="ch">\"</span><span class="st">&lt;example&gt;</span><span class="ch">\"</span><span class="st">, </span><span class="ch">\"</span><span class="st">from_format</span><span class="ch">\"</span><span class="st">: </span><span class="ch">\"</span><span class="st">json-ld</span><span class="ch">\"</span><span class="st">, </span><span class="ch">\"</span><span class="st">to_format</span><span class="ch">\"</span><span class="st">: </span><span class="ch">\"</span><span class="st">turtle</span><span class="ch">\"</span><span class="st">}'"</span>,</span>
+<span id="cb2-214"><a href="#cb2-214" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"Generate examples of other types: cogitarelink --run-tool generate_earth616_example --args '{</span><span class="ch">\"</span><span class="st">entity_type</span><span class="ch">\"</span><span class="st">: </span><span class="ch">\"</span><span class="st">Organization</span><span class="ch">\"</span><span class="st">}'"</span></span>
+<span id="cb2-215"><a href="#cb2-215" aria-hidden="true" tabindex="-1"></a>                    ],</span>
+<span id="cb2-216"><a href="#cb2-216" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"available_types"</span>: [<span class="st">"Event"</span>, <span class="st">"Place"</span>, <span class="st">"Person"</span>, <span class="st">"Organization"</span>, <span class="st">"Product"</span>]</span>
+<span id="cb2-217"><a href="#cb2-217" aria-hidden="true" tabindex="-1"></a>                }</span>
+<span id="cb2-218"><a href="#cb2-218" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb2-219"><a href="#cb2-219" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-220"><a href="#cb2-220" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> categorize_tools(<span class="va">self</span>) <span class="op">-&gt;</span> Dict[<span class="bu">str</span>, List[Dict[<span class="bu">str</span>, Any]]]:</span>
+<span id="cb2-221"><a href="#cb2-221" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Categorize all tools by their purpose."""</span></span>
+<span id="cb2-222"><a href="#cb2-222" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Get all tools</span></span>
+<span id="cb2-223"><a href="#cb2-223" aria-hidden="true" tabindex="-1"></a>        all_tools <span class="op">=</span> <span class="va">self</span>.run_tool(<span class="st">"list_tools"</span>)</span>
+<span id="cb2-224"><a href="#cb2-224" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb2-225"><a href="#cb2-225" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Define categories</span></span>
+<span id="cb2-226"><a href="#cb2-226" aria-hidden="true" tabindex="-1"></a>        categories <span class="op">=</span> {</span>
+<span id="cb2-227"><a href="#cb2-227" aria-hidden="true" tabindex="-1"></a>            <span class="st">"core"</span>: [],</span>
+<span id="cb2-228"><a href="#cb2-228" aria-hidden="true" tabindex="-1"></a>            <span class="st">"registry"</span>: [],</span>
+<span id="cb2-229"><a href="#cb2-229" aria-hidden="true" tabindex="-1"></a>            <span class="st">"context"</span>: [],</span>
+<span id="cb2-230"><a href="#cb2-230" aria-hidden="true" tabindex="-1"></a>            <span class="st">"retrieval"</span>: [],</span>
+<span id="cb2-231"><a href="#cb2-231" aria-hidden="true" tabindex="-1"></a>            <span class="st">"validation"</span>: [],</span>
+<span id="cb2-232"><a href="#cb2-232" aria-hidden="true" tabindex="-1"></a>            <span class="st">"earth616"</span>: []</span>
+<span id="cb2-233"><a href="#cb2-233" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-234"><a href="#cb2-234" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb2-235"><a href="#cb2-235" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Categorize each tool</span></span>
+<span id="cb2-236"><a href="#cb2-236" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> tool <span class="kw">in</span> all_tools:</span>
+<span id="cb2-237"><a href="#cb2-237" aria-hidden="true" tabindex="-1"></a>            name <span class="op">=</span> tool.get(<span class="st">"name"</span>, <span class="st">""</span>)</span>
+<span id="cb2-238"><a href="#cb2-238" aria-hidden="true" tabindex="-1"></a>            desc <span class="op">=</span> tool.get(<span class="st">"description"</span>, <span class="st">""</span>).lower()</span>
+<span id="cb2-239"><a href="#cb2-239" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-240"><a href="#cb2-240" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Core tools</span></span>
+<span id="cb2-241"><a href="#cb2-241" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> name <span class="kw">in</span> [<span class="st">"get_version"</span>, <span class="st">"list_tools"</span>, <span class="st">"get_agent_memory"</span>]:</span>
+<span id="cb2-242"><a href="#cb2-242" aria-hidden="true" tabindex="-1"></a>                categories[<span class="st">"core"</span>].append(tool)</span>
+<span id="cb2-243"><a href="#cb2-243" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Earth616 tools</span></span>
+<span id="cb2-244"><a href="#cb2-244" aria-hidden="true" tabindex="-1"></a>            <span class="cf">elif</span> <span class="st">"earth616"</span> <span class="kw">in</span> name <span class="kw">or</span> <span class="st">"earth616"</span> <span class="kw">in</span> desc:</span>
+<span id="cb2-245"><a href="#cb2-245" aria-hidden="true" tabindex="-1"></a>                categories[<span class="st">"earth616"</span>].append(tool)</span>
+<span id="cb2-246"><a href="#cb2-246" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Registry tools</span></span>
+<span id="cb2-247"><a href="#cb2-247" aria-hidden="true" tabindex="-1"></a>            <span class="cf">elif</span> <span class="bu">any</span>(x <span class="kw">in</span> name <span class="cf">for</span> x <span class="kw">in</span> [<span class="st">"registry"</span>, <span class="st">"vocabulary"</span>, <span class="st">"vocab"</span>]) <span class="kw">or</span> <span class="op">\</span></span>
+<span id="cb2-248"><a href="#cb2-248" aria-hidden="true" tabindex="-1"></a>                 <span class="bu">any</span>(x <span class="kw">in</span> desc <span class="cf">for</span> x <span class="kw">in</span> [<span class="st">"registry"</span>, <span class="st">"vocabulary"</span>, <span class="st">"vocab"</span>]):</span>
+<span id="cb2-249"><a href="#cb2-249" aria-hidden="true" tabindex="-1"></a>                categories[<span class="st">"registry"</span>].append(tool)</span>
+<span id="cb2-250"><a href="#cb2-250" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Context tools</span></span>
+<span id="cb2-251"><a href="#cb2-251" aria-hidden="true" tabindex="-1"></a>            <span class="cf">elif</span> <span class="bu">any</span>(x <span class="kw">in</span> name <span class="cf">for</span> x <span class="kw">in</span> [<span class="st">"context"</span>, <span class="st">"compose"</span>]) <span class="kw">or</span> <span class="op">\</span></span>
+<span id="cb2-252"><a href="#cb2-252" aria-hidden="true" tabindex="-1"></a>                 <span class="bu">any</span>(x <span class="kw">in</span> desc <span class="cf">for</span> x <span class="kw">in</span> [<span class="st">"context"</span>, <span class="st">"compose"</span>]):</span>
+<span id="cb2-253"><a href="#cb2-253" aria-hidden="true" tabindex="-1"></a>                categories[<span class="st">"context"</span>].append(tool)</span>
+<span id="cb2-254"><a href="#cb2-254" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Retrieval tools</span></span>
+<span id="cb2-255"><a href="#cb2-255" aria-hidden="true" tabindex="-1"></a>            <span class="cf">elif</span> <span class="bu">any</span>(x <span class="kw">in</span> name <span class="cf">for</span> x <span class="kw">in</span> [<span class="st">"retrieve"</span>, <span class="st">"fetch"</span>, <span class="st">"search"</span>, <span class="st">"convert"</span>]) <span class="kw">or</span> <span class="op">\</span></span>
+<span id="cb2-256"><a href="#cb2-256" aria-hidden="true" tabindex="-1"></a>                 <span class="bu">any</span>(x <span class="kw">in</span> desc <span class="cf">for</span> x <span class="kw">in</span> [<span class="st">"retrieve"</span>, <span class="st">"fetch"</span>, <span class="st">"search"</span>, <span class="st">"convert"</span>]):</span>
+<span id="cb2-257"><a href="#cb2-257" aria-hidden="true" tabindex="-1"></a>                categories[<span class="st">"retrieval"</span>].append(tool)</span>
+<span id="cb2-258"><a href="#cb2-258" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Validation tools</span></span>
+<span id="cb2-259"><a href="#cb2-259" aria-hidden="true" tabindex="-1"></a>            <span class="cf">elif</span> <span class="bu">any</span>(x <span class="kw">in</span> name <span class="cf">for</span> x <span class="kw">in</span> [<span class="st">"validate"</span>, <span class="st">"verify"</span>, <span class="st">"check"</span>, <span class="st">"shape"</span>]) <span class="kw">or</span> <span class="op">\</span></span>
+<span id="cb2-260"><a href="#cb2-260" aria-hidden="true" tabindex="-1"></a>                 <span class="bu">any</span>(x <span class="kw">in</span> desc <span class="cf">for</span> x <span class="kw">in</span> [<span class="st">"validate"</span>, <span class="st">"verify"</span>, <span class="st">"check"</span>, <span class="st">"shape"</span>]):</span>
+<span id="cb2-261"><a href="#cb2-261" aria-hidden="true" tabindex="-1"></a>                categories[<span class="st">"validation"</span>].append(tool)</span>
+<span id="cb2-262"><a href="#cb2-262" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Default to core</span></span>
+<span id="cb2-263"><a href="#cb2-263" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span>:</span>
+<span id="cb2-264"><a href="#cb2-264" aria-hidden="true" tabindex="-1"></a>                categories[<span class="st">"core"</span>].append(tool)</span>
+<span id="cb2-265"><a href="#cb2-265" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb2-266"><a href="#cb2-266" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> categories</span>
+<span id="cb2-267"><a href="#cb2-267" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-268"><a href="#cb2-268" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> run_tool_with_guidance(<span class="va">self</span>, name: <span class="bu">str</span>, <span class="op">**</span>kwargs) <span class="op">-&gt;</span> Dict[<span class="bu">str</span>, Any]:</span>
+<span id="cb2-269"><a href="#cb2-269" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Run a tool and add agent guidance to the result."""</span></span>
+<span id="cb2-270"><a href="#cb2-270" aria-hidden="true" tabindex="-1"></a>        <span class="cf">try</span>:</span>
+<span id="cb2-271"><a href="#cb2-271" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Run the tool</span></span>
+<span id="cb2-272"><a href="#cb2-272" aria-hidden="true" tabindex="-1"></a>            result <span class="op">=</span> <span class="va">self</span>.run_tool(name, <span class="op">**</span>kwargs)</span>
+<span id="cb2-273"><a href="#cb2-273" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-274"><a href="#cb2-274" aria-hidden="true" tabindex="-1"></a>            <span class="co"># If already has agent guidance, return as is</span></span>
+<span id="cb2-275"><a href="#cb2-275" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="bu">isinstance</span>(result, <span class="bu">dict</span>) <span class="kw">and</span> <span class="st">"agent_guidance"</span> <span class="kw">in</span> result:</span>
+<span id="cb2-276"><a href="#cb2-276" aria-hidden="true" tabindex="-1"></a>                <span class="cf">return</span> result</span>
+<span id="cb2-277"><a href="#cb2-277" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-278"><a href="#cb2-278" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Create guidance based on the tool and result</span></span>
+<span id="cb2-279"><a href="#cb2-279" aria-hidden="true" tabindex="-1"></a>            guidance <span class="op">=</span> {</span>
+<span id="cb2-280"><a href="#cb2-280" aria-hidden="true" tabindex="-1"></a>                <span class="st">"description"</span>: <span class="ss">f"Successfully ran tool: </span><span class="sc">{</span>name<span class="sc">}</span><span class="ss">"</span></span>
+<span id="cb2-281"><a href="#cb2-281" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb2-282"><a href="#cb2-282" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-283"><a href="#cb2-283" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Add next steps based on the tool</span></span>
+<span id="cb2-284"><a href="#cb2-284" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> name <span class="op">==</span> <span class="st">"retrieve_vocabulary_resource"</span>:</span>
+<span id="cb2-285"><a href="#cb2-285" aria-hidden="true" tabindex="-1"></a>                guidance[<span class="st">"next_steps"</span>] <span class="op">=</span> [</span>
+<span id="cb2-286"><a href="#cb2-286" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"Register this as a vocabulary: cogitarelink --run-tool add_temp_vocabulary"</span></span>
+<span id="cb2-287"><a href="#cb2-287" aria-hidden="true" tabindex="-1"></a>                ]</span>
+<span id="cb2-288"><a href="#cb2-288" aria-hidden="true" tabindex="-1"></a>            <span class="cf">elif</span> name <span class="op">==</span> <span class="st">"add_temp_vocabulary"</span>:</span>
+<span id="cb2-289"><a href="#cb2-289" aria-hidden="true" tabindex="-1"></a>                guidance[<span class="st">"next_steps"</span>] <span class="op">=</span> [</span>
+<span id="cb2-290"><a href="#cb2-290" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"Get vocabulary info: cogitarelink --run-tool get_vocabulary_info"</span>,</span>
+<span id="cb2-291"><a href="#cb2-291" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"Compose a context: cogitarelink --run-tool compose_context"</span></span>
+<span id="cb2-292"><a href="#cb2-292" aria-hidden="true" tabindex="-1"></a>                ]</span>
+<span id="cb2-293"><a href="#cb2-293" aria-hidden="true" tabindex="-1"></a>            <span class="cf">elif</span> name <span class="op">==</span> <span class="st">"compose_context"</span>:</span>
+<span id="cb2-294"><a href="#cb2-294" aria-hidden="true" tabindex="-1"></a>                guidance[<span class="st">"next_steps"</span>] <span class="op">=</span> [</span>
+<span id="cb2-295"><a href="#cb2-295" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"Use this context in your JSON-LD documents"</span></span>
+<span id="cb2-296"><a href="#cb2-296" aria-hidden="true" tabindex="-1"></a>                ]</span>
+<span id="cb2-297"><a href="#cb2-297" aria-hidden="true" tabindex="-1"></a>            <span class="cf">elif</span> name <span class="op">==</span> <span class="st">"convert_format"</span>:</span>
+<span id="cb2-298"><a href="#cb2-298" aria-hidden="true" tabindex="-1"></a>                guidance[<span class="st">"next_steps"</span>] <span class="op">=</span> [</span>
+<span id="cb2-299"><a href="#cb2-299" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"You can convert between various formats including: json-ld, turtle, n3, xml"</span></span>
+<span id="cb2-300"><a href="#cb2-300" aria-hidden="true" tabindex="-1"></a>                ]</span>
+<span id="cb2-301"><a href="#cb2-301" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-302"><a href="#cb2-302" aria-hidden="true" tabindex="-1"></a>            <span class="co"># If result is a dict, add the guidance directly</span></span>
+<span id="cb2-303"><a href="#cb2-303" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="bu">isinstance</span>(result, <span class="bu">dict</span>):</span>
+<span id="cb2-304"><a href="#cb2-304" aria-hidden="true" tabindex="-1"></a>                result[<span class="st">"agent_guidance"</span>] <span class="op">=</span> guidance</span>
+<span id="cb2-305"><a href="#cb2-305" aria-hidden="true" tabindex="-1"></a>                <span class="cf">return</span> result</span>
+<span id="cb2-306"><a href="#cb2-306" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span>:</span>
+<span id="cb2-307"><a href="#cb2-307" aria-hidden="true" tabindex="-1"></a>                <span class="co"># Wrap the result in a dict with guidance</span></span>
+<span id="cb2-308"><a href="#cb2-308" aria-hidden="true" tabindex="-1"></a>                <span class="cf">return</span> {</span>
+<span id="cb2-309"><a href="#cb2-309" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"success"</span>: <span class="va">True</span>,</span>
+<span id="cb2-310"><a href="#cb2-310" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"result"</span>: result,</span>
+<span id="cb2-311"><a href="#cb2-311" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"agent_guidance"</span>: guidance</span>
+<span id="cb2-312"><a href="#cb2-312" aria-hidden="true" tabindex="-1"></a>                }</span>
+<span id="cb2-313"><a href="#cb2-313" aria-hidden="true" tabindex="-1"></a>        <span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
+<span id="cb2-314"><a href="#cb2-314" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Create an error response with guidance</span></span>
+<span id="cb2-315"><a href="#cb2-315" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> {</span>
+<span id="cb2-316"><a href="#cb2-316" aria-hidden="true" tabindex="-1"></a>                <span class="st">"success"</span>: <span class="va">False</span>,</span>
+<span id="cb2-317"><a href="#cb2-317" aria-hidden="true" tabindex="-1"></a>                <span class="st">"error"</span>: <span class="ss">f"Error running tool </span><span class="sc">{</span>name<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span><span class="bu">str</span>(e)<span class="sc">}</span><span class="ss">"</span>,</span>
+<span id="cb2-318"><a href="#cb2-318" aria-hidden="true" tabindex="-1"></a>                <span class="st">"agent_guidance"</span>: {</span>
+<span id="cb2-319"><a href="#cb2-319" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"description"</span>: <span class="ss">f"There was an error running the tool '</span><span class="sc">{</span>name<span class="sc">}</span><span class="ss">'."</span>,</span>
+<span id="cb2-320"><a href="#cb2-320" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"suggestions"</span>: [</span>
+<span id="cb2-321"><a href="#cb2-321" aria-hidden="true" tabindex="-1"></a>                        <span class="ss">f"Check if '</span><span class="sc">{</span>name<span class="sc">}</span><span class="ss">' exists: cogitarelink --list-tools"</span>,</span>
+<span id="cb2-322"><a href="#cb2-322" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"Check that all required arguments are provided"</span>,</span>
+<span id="cb2-323"><a href="#cb2-323" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"If working with vocabularies, make sure they are registered first"</span></span>
+<span id="cb2-324"><a href="#cb2-324" aria-hidden="true" tabindex="-1"></a>                    ]</span>
+<span id="cb2-325"><a href="#cb2-325" aria-hidden="true" tabindex="-1"></a>                }</span>
+<span id="cb2-326"><a href="#cb2-326" aria-hidden="true" tabindex="-1"></a>            }</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>def agent_cli_main(): “““Main entry point for the agent-optimized CLI.”“” # Skip argument parsing when run inside a notebook in_notebook = ‘ipykernel’ in sys.modules</p>
+<pre><code>if in_notebook:
+    # Default behavior for notebook - create an agent and return it
+    return AgentCLI()
+
+# Create our agent-optimized CLI
+agent = AgentCLI()
+
+# Parse arguments
+parser = argparse.ArgumentParser(description="CogitareLink: Semantic Memory Tools for Agents")
+parser.add_argument('--version', action='store_true', help='Show version and exit')
+parser.add_argument('--list-tools', action='store_true', help='List available tools')
+parser.add_argument('--category', help='Filter tools by category (registry, context, retrieval, validation, earth616)')
+parser.add_argument('--run-tool', metavar='TOOL', help='Run a specific tool')
+parser.add_argument('--args', metavar='JSON', help='JSON arguments for tool')
+parser.add_argument('--args-file', metavar='FILE', help='File containing JSON arguments for tool')
+
+args = parser.parse_args()
+
+if args.version:
+    version = agent.run_tool('get_version')
+    result = {
+        "version": version,
+        "agent_guidance": {
+            "description": "CogitareLink is a tool for working with Linked Open Data as semantic memory.",
+            "next_steps": [
+                "List available tools: cogitarelink --list-tools",
+                "Register earth616 ontology: cogitarelink --run-tool register_earth616"
+            ]
+        }
+    }
+    print(json.dumps(result, indent=2))
+    return 0
+    
+if args.list_tools:
+    # Get tools by category
+    categories = agent.categorize_tools()
+    
+    # Filter by category if requested
+    if args.category and args.category in categories:
+        tools_dict = {args.category: categories[args.category]}
+    else:
+        tools_dict = categories
+    
+    # Format for agent consumption
+    result = {
+        "tools_by_category": {}
+    }
+    
+    for category, tools in tools_dict.items():
+        result["tools_by_category"][category] = [
+            {
+                "name": tool["name"],
+                "description": tool["description"],
+                "arguments": tool.get("signature", {})
+            } for tool in tools
+        ]
+    
+    # Add agent guidance
+    result["agent_guidance"] = {
+        "description": "These are the available tools in CogitareLink.",
+        "usage": "To use a tool: cogitarelink --run-tool TOOL_NAME --args '{\"arg1\": \"value1\"}'",
+        "earth616_workflow": [
+            "1. Register earth616: cogitarelink --run-tool register_earth616",
+            "2. Generate example data: cogitarelink --run-tool generate_earth616_example",
+            "3. Convert to other formats: cogitarelink --run-tool convert_format"
+        ]
+    }
+    
+    print(json.dumps(result, indent=2))
+    return 0
+    
+if args.run_tool:
+    tool_name = args.run_tool
+    tool_args = {}
+    
+    # Get tool args from --args or --args-file
+    if args.args:
+        try:
+            tool_args = json.loads(args.args)
+        except json.JSONDecodeError as e:
+            error_result = {
+                "success": False,
+                "error": f"Error parsing JSON arguments: {str(e)}",
+                "agent_guidance": {
+                    "description": "There was an error parsing the JSON arguments.",
+                    "suggestions": [
+                        "Check JSON syntax and try again",
+                        "For complex or large arguments, use --args-file instead"
+                    ]
+                }
+            }
+            print(json.dumps(error_result, indent=2))
+            return 1
+    elif args.args_file:
+        try:
+            with open(args.args_file, 'r') as f:
+                tool_args = json.loads(f.read())
+        except FileNotFoundError:
+            error_result = {
+                "success": False,
+                "error": f"Arguments file not found: {args.args_file}",
+                "agent_guidance": {
+                    "description": "The specified arguments file was not found.",
+                    "suggestions": [
+                        "Check the file path and try again"
+                    ]
+                }
+            }
+            print(json.dumps(error_result, indent=2))
+            return 1
+        except json.JSONDecodeError as e:
+            error_result = {
+                "success": False,
+                "error": f"Error parsing JSON in arguments file: {str(e)}",
+                "agent_guidance": {
+                    "description": "There was an error parsing the JSON in the arguments file.",
+                    "suggestions": [
+                        "Check JSON syntax in the file and try again"
+                    ]
+                }
+            }
+            print(json.dumps(error_result, indent=2))
+            return 1
+    
+    # Run the tool with guidance
+    result = agent.run_tool_with_guidance(tool_name, **tool_args)
+    print(json.dumps(result, indent=2, default=str))
+    return 0 if result.get("success", False) else 1
+
+# Default behavior - show help with agent guidance
+parser.print_help()
+
+# Add agent guidance
+help_guidance = {
+    "agent_guidance": {
+        "description": "CogitareLink is a tool for working with Linked Open Data as semantic memory.",
+        "available_commands": [
+            "--list-tools: List all available tools",
+            "--category CATEGORY: Filter tools by category (registry, context, retrieval, validation, earth616)",
+            "--run-tool TOOL: Run a specific tool",
+            "--args '{\"arg1\": \"value1\"}': Provide JSON arguments for the tool",
+            "--args-file file.json: Provide arguments from a JSON file"
+        ],
+        "getting_started": [
+            "1. List available tools: cogitarelink --list-tools",
+            "2. Register earth616 ontology: cogitarelink --run-tool register_earth616",
+            "3. Generate an example: cogitarelink --run-tool generate_earth616_example"
+        ]
+    }
+}
+
+print("\n" + json.dumps(help_guidance, indent=2))
+return 0</code></pre>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/cli/agent_cli.py#L25" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="agentcli" class="level3">
+<h3 class="anchored" data-anchor-id="agentcli">AgentCLI</h3>
+<blockquote class="blockquote">
+<pre><code> AgentCLI (name:str='agent-cli')</code></pre>
+</blockquote>
+<p><em>Agent optimized for CLI interactions with other agents.</em></p>
+</section>
+<section id="command-line-interface" class="level2">
+<h2 class="anchored" data-anchor-id="command-line-interface">Command Line Interface</h2>
+<p>Now, let’s create the main CLI function that uses our agent:</p>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/cli/agent_cli.py#L353" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="agent_cli_main" class="level3">
+<h3 class="anchored" data-anchor-id="agent_cli_main">agent_cli_main</h3>
+<blockquote class="blockquote">
+<pre><code> agent_cli_main ()</code></pre>
+</blockquote>
+<p><em>Main entry point for the agent-optimized CLI.</em></p>
+</section>
+</section>
+</section>
+<section id="testing-the-agent-cli" class="level1">
+<h1>Testing the Agent CLI</h1>
+<p>Let’s create an instance of our agent CLI and test its basic functionality:</p>
+<div id="cell-10" class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>agent_cli <span class="op">=</span> AgentCLI()</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Test categorization of tools</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>categories <span class="op">=</span> agent_cli.categorize_tools()</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> category, tools <span class="kw">in</span> categories.items():</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>category<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span><span class="bu">len</span>(tools)<span class="sc">}</span><span class="ss"> tools"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>core: 9 tools
+registry: 9 tools
+context: 0 tools
+retrieval: 2 tools
+validation: 0 tools
+earth616: 2 tools</code></pre>
+</div>
+</div>
+<div id="cell-11" class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Test earth616 tools</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> tool <span class="kw">in</span> categories.get(<span class="st">"earth616"</span>, []):</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>tool[<span class="st">'name'</span>]<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>tool[<span class="st">'description'</span>]<span class="sc">}</span><span class="ss">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>register_earth616: Register earth616 ontology with the system
+generate_earth616_example: Generate an example entity using the earth616 ontology</code></pre>
+</div>
+</div>
+</section>
+<section id="next-steps" class="level1">
+<h1>Next Steps</h1>
+<p>This implementation provides a minimal but functional agent-enabled CLI with the following features:</p>
+<ol type="1">
+<li><strong>Automatic Tool Registration</strong>: Imports and registers all tools from VocabToolAgent</li>
+<li><strong>Earth616-Specific Tools</strong>: Special tools for easily working with earth616_ontology</li>
+<li><strong>Agent Guidance</strong>: Structured output with guidance on next steps</li>
+<li><strong>Category Organization</strong>: Tools organized by category for better discovery</li>
+<li><strong>Support for Arguments File</strong>: Ability to pass large JSON arguments via file</li>
+</ol>
+<p>After testing and refinement, we should expand this with more validation tools and more sophisticated SHACL and inference capabilities.</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+        const codeEl = trigger.previousElementSibling.cloneNode(true);
+        for (const childEl of codeEl.children) {
+          if (isCodeAnnotation(childEl)) {
+            childEl.remove();
+          }
+        }
+        return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/la3d\.github\.io\/cogitarelink\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/la3d/cogitarelink/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>

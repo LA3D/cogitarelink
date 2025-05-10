@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.7.30">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="Tools for working with SPARQL and Linked Data in CogitareLink">
+
+<title>SPARQL Tools for Semantic Memory – Linked Data Navigation with AI Agents</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-de070a7b0ab54f8780927367ac907214.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-c4832a576a2b2751674216aa53ffbffd.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="SPARQL Tools for Semantic Memory – Linked Data Navigation with AI Agents">
+<meta property="og:description" content="Tools for working with SPARQL and Linked Data in CogitareLink">
+<meta property="og:site_name" content="Linked Data Navigation with AI Agents">
+<meta name="twitter:title" content="SPARQL Tools for Semantic Memory – Linked Data Navigation with AI Agents">
+<meta name="twitter:description" content="Tools for working with SPARQL and Linked Data in CogitareLink">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-sidebar floating nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">Linked Data Navigation with AI Agents</span>
+    </a>
+  </div>
+        <div class="quarto-navbar-tools tools-end">
+</div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./sparql_tools.html">SPARQL Tools for Semantic Memory</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">cogitarelink</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./debug.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Core Debug</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./cache.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Core Cache</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./registry.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Vocabulary Registry</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./collision.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Collision Resolver</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./composer.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Context Composer</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./context.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Context Processor</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./entity.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Entity</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./graph.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Graph Manager</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./processor.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Entity Processor</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./cli.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Command-Line Interface</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./vocab_tools.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Vocabulary Tools for Agentic Systems</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./agent_cli.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agent-Enabled CLI</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./afford.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Affordance Extraction</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./sandbox.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Reason Sandbox</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./obqc.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Ontology Based Query Checks</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./sparql_tools.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">SPARQL Tools for Semantic Memory</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./tool_reason.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Reason Tools</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./micro_tests.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Reason Tools Micro Test</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./temporal_reasoning_tests.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Temporal Reasoning Micro Tests</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./temporal_llm_integration.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Temporal LLM Integration Tests</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./signer.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Digital Signer</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./validator.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">SHACL Validator</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./prov.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prov Wrapper</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./utils.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">utils</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#module-structure-and-tool-taxonomy" id="toc-module-structure-and-tool-taxonomy" class="nav-link active" data-scroll-target="#module-structure-and-tool-taxonomy">Module Structure and Tool Taxonomy</a>
+  <ul class="collapse">
+  <li><a href="#core-query-functions" id="toc-core-query-functions" class="nav-link" data-scroll-target="#core-query-functions">1. Core Query Functions</a></li>
+  <li><a href="#discovery-tools" id="toc-discovery-tools" class="nav-link" data-scroll-target="#discovery-tools">2. Discovery Tools</a></li>
+  <li><a href="#transformation-utilities" id="toc-transformation-utilities" class="nav-link" data-scroll-target="#transformation-utilities">3. Transformation Utilities</a></li>
+  <li><a href="#obqc-integration-ontology-based-query-checking" id="toc-obqc-integration-ontology-based-query-checking" class="nav-link" data-scroll-target="#obqc-integration-ontology-based-query-checking">4. OBQC Integration (Ontology-Based Query Checking)</a></li>
+  <li><a href="#linked-data-integration" id="toc-linked-data-integration" class="nav-link" data-scroll-target="#linked-data-integration">5. Linked Data Integration</a></li>
+  </ul></li>
+  <li><a href="#workflow-patterns-for-semantic-exploration" id="toc-workflow-patterns-for-semantic-exploration" class="nav-link" data-scroll-target="#workflow-patterns-for-semantic-exploration">Workflow Patterns for Semantic Exploration</a>
+  <ul class="collapse">
+  <li><a href="#entity-centric-exploration" id="toc-entity-centric-exploration" class="nav-link" data-scroll-target="#entity-centric-exploration">1. Entity-Centric Exploration</a></li>
+  <li><a href="#discovery-first-pattern" id="toc-discovery-first-pattern" class="nav-link" data-scroll-target="#discovery-first-pattern">2. Discovery-First Pattern</a></li>
+  <li><a href="#progressive-query-refinement" id="toc-progressive-query-refinement" class="nav-link" data-scroll-target="#progressive-query-refinement">3. Progressive Query Refinement</a></li>
+  <li><a href="#follow-your-nose-traversal" id="toc-follow-your-nose-traversal" class="nav-link" data-scroll-target="#follow-your-nose-traversal">4. Follow-Your-Nose Traversal</a></li>
+  <li><a href="#sparqltoolagent" id="toc-sparqltoolagent" class="nav-link" data-scroll-target="#sparqltoolagent">SPARQLToolAgent</a></li>
+  <li><a href="#sparql_execution_tools" id="toc-sparql_execution_tools" class="nav-link" data-scroll-target="#sparql_execution_tools">sparql_execution_tools</a></li>
+  <li><a href="#sparql_validator_tools" id="toc-sparql_validator_tools" class="nav-link" data-scroll-target="#sparql_validator_tools">sparql_validator_tools</a></li>
+  <li><a href="#sparql_parser_tools" id="toc-sparql_parser_tools" class="nav-link" data-scroll-target="#sparql_parser_tools">sparql_parser_tools</a></li>
+  <li><a href="#build_graph_from_query" id="toc-build_graph_from_query" class="nav-link" data-scroll-target="#build_graph_from_query">build_graph_from_query</a></li>
+  <li><a href="#parse_sparql_query" id="toc-parse_sparql_query" class="nav-link" data-scroll-target="#parse_sparql_query">parse_sparql_query</a></li>
+  <li><a href="#sparql_query" id="toc-sparql_query" class="nav-link" data-scroll-target="#sparql_query">sparql_query</a></li>
+  <li><a href="#ld_fetch" id="toc-ld_fetch" class="nav-link" data-scroll-target="#ld_fetch">ld_fetch</a></li>
+  </ul></li>
+  <li><a href="#obqc-rules-for-query-validation" id="toc-obqc-rules-for-query-validation" class="nav-link" data-scroll-target="#obqc-rules-for-query-validation">OBQC Rules for Query Validation</a>
+  <ul class="collapse">
+  <li><a href="#obqc-rule-structure" id="toc-obqc-rule-structure" class="nav-link" data-scroll-target="#obqc-rule-structure">OBQC Rule Structure</a></li>
+  <li><a href="#obqc-integration-process" id="toc-obqc-integration-process" class="nav-link" data-scroll-target="#obqc-integration-process">OBQC Integration Process</a></li>
+  <li><a href="#diagnostic-information" id="toc-diagnostic-information" class="nav-link" data-scroll-target="#diagnostic-information">Diagnostic Information</a></li>
+  </ul></li>
+  <li><a href="#integration-with-cogitarelink-memory-model" id="toc-integration-with-cogitarelink-memory-model" class="nav-link" data-scroll-target="#integration-with-cogitarelink-memory-model">Integration with CogitareLink Memory Model</a>
+  <ul class="collapse">
+  <li><a href="#memory-storage-flow" id="toc-memory-storage-flow" class="nav-link" data-scroll-target="#memory-storage-flow">Memory Storage Flow</a></li>
+  <li><a href="#named-graph-organization" id="toc-named-graph-organization" class="nav-link" data-scroll-target="#named-graph-organization">Named Graph Organization</a></li>
+  <li><a href="#provenance-tracking" id="toc-provenance-tracking" class="nav-link" data-scroll-target="#provenance-tracking">Provenance Tracking</a></li>
+  <li><a href="#integration-with-core-components" id="toc-integration-with-core-components" class="nav-link" data-scroll-target="#integration-with-core-components">Integration with Core Components</a></li>
+  <li><a href="#sparql_json_to_jsonld" id="toc-sparql_json_to_jsonld" class="nav-link" data-scroll-target="#sparql_json_to_jsonld">sparql_json_to_jsonld</a></li>
+  <li><a href="#sparql_discover" id="toc-sparql_discover" class="nav-link" data-scroll-target="#sparql_discover">sparql_discover</a></li>
+  </ul></li>
+  <li><a href="#agent-usage-guidelines" id="toc-agent-usage-guidelines" class="nav-link" data-scroll-target="#agent-usage-guidelines">Agent Usage Guidelines</a>
+  <ul class="collapse">
+  <li><a href="#query-construction-best-practices" id="toc-query-construction-best-practices" class="nav-link" data-scroll-target="#query-construction-best-practices">Query Construction Best Practices</a></li>
+  <li><a href="#error-recovery-strategies" id="toc-error-recovery-strategies" class="nav-link" data-scroll-target="#error-recovery-strategies">Error Recovery Strategies</a></li>
+  <li><a href="#endpoint-compatibility" id="toc-endpoint-compatibility" class="nav-link" data-scroll-target="#endpoint-compatibility">Endpoint Compatibility</a></li>
+  <li><a href="#memory-management" id="toc-memory-management" class="nav-link" data-scroll-target="#memory-management">Memory Management</a></li>
+  <li><a href="#practical-examples" id="toc-practical-examples" class="nav-link" data-scroll-target="#practical-examples">Practical Examples</a></li>
+  <li><a href="#check_query_patterns" id="toc-check_query_patterns" class="nav-link" data-scroll-target="#check_query_patterns">check_query_patterns</a></li>
+  <li><a href="#generate_query_fixes" id="toc-generate_query_fixes" class="nav-link" data-scroll-target="#generate_query_fixes">generate_query_fixes</a></li>
+  <li><a href="#refine_query_with_ontology" id="toc-refine_query_with_ontology" class="nav-link" data-scroll-target="#refine_query_with_ontology">refine_query_with_ontology</a></li>
+  </ul></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/la3d/cogitarelink/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="sparql_tools.html.md"><i class="bi bi-file-code"></i>CommonMark</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">SPARQL Tools for Semantic Memory</h1>
+</div>
+
+<div>
+  <div class="description">
+    Tools for working with SPARQL and Linked Data in CogitareLink
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<section id="module-structure-and-tool-taxonomy" class="level2">
+<h2 class="anchored" data-anchor-id="module-structure-and-tool-taxonomy">Module Structure and Tool Taxonomy</h2>
+<p>The SPARQL Tools module is organized into five functional categories, each addressing a specific aspect of semantic web interaction:</p>
+<section id="core-query-functions" class="level3">
+<h3 class="anchored" data-anchor-id="core-query-functions">1. Core Query Functions</h3>
+<ul>
+<li><strong>sparql_query</strong>: The primary interface for executing any SPARQL 1.1 query against endpoints</li>
+<li><strong>describe_resource</strong>: Convenience wrapper for DESCRIBE queries that fetch complete resource descriptions</li>
+</ul>
+<p>These core functions handle HTTP requests with proper content negotiation, result parsing, and optional integration with CogitareLink’s memory model through the GraphManager.</p>
+</section>
+<section id="discovery-tools" class="level3">
+<h3 class="anchored" data-anchor-id="discovery-tools">2. Discovery Tools</h3>
+<ul>
+<li><strong>sparql_discover</strong>: Meta-query capabilities to learn about an endpoint’s structure and contents</li>
+<li>**_discover_void**: Find dataset metadata using W3C’s VoID specification</li>
+<li>**_discover_service_description**: Extract capabilities via SPARQL Service Description</li>
+<li>**_discover_introspection**: Sample predicates and classes with lightweight queries</li>
+</ul>
+<p>The discovery functions allow agents to explore previously unknown SPARQL endpoints without hardcoded knowledge of their schemas.</p>
+</section>
+<section id="transformation-utilities" class="level3">
+<h3 class="anchored" data-anchor-id="transformation-utilities">3. Transformation Utilities</h3>
+<ul>
+<li><strong>sparql_json_to_jsonld</strong>: Convert SPARQL JSON results into JSON-LD for semantic memory</li>
+<li>**_extract_context_from_results**: Helper to determine relevant context vocabulary from query results</li>
+</ul>
+<p>These utilities ensure consistent representation between query results and CogitareLink’s memory model.</p>
+</section>
+<section id="obqc-integration-ontology-based-query-checking" class="level3">
+<h3 class="anchored" data-anchor-id="obqc-integration-ontology-based-query-checking">4. OBQC Integration (Ontology-Based Query Checking)</h3>
+<ul>
+<li><strong>validate_query_against_ontology</strong>: Ensure queries don’t violate ontological constraints</li>
+<li><strong>check_query_patterns</strong>: Lint queries for common issues like missing LIMIT clauses</li>
+<li><strong>generate_query_fixes</strong>: Suggest improvements based on validation results</li>
+<li><strong>refine_query_with_ontology</strong>: Iteratively improve queries through validation cycles</li>
+</ul>
+<p>By integrating with CogitareLink’s OBQC system, these tools help agents formulate valid and efficient queries.</p>
+</section>
+<section id="linked-data-integration" class="level3">
+<h3 class="anchored" data-anchor-id="linked-data-integration">5. Linked Data Integration</h3>
+<ul>
+<li><strong>ld_fetch</strong>: Retrieve and ingest Linked Data resources with full content negotiation</li>
+</ul>
+<p>This function manages dereferencing URIs and ingesting external resources into semantic memory.</p>
+</section>
+</section>
+<section id="workflow-patterns-for-semantic-exploration" class="level2">
+<h2 class="anchored" data-anchor-id="workflow-patterns-for-semantic-exploration">Workflow Patterns for Semantic Exploration</h2>
+<p>Based on experiments with SPARQL endpoints and Linked Data resources, four effective workflow patterns have emerged for agentic semantic exploration:</p>
+<section id="entity-centric-exploration" class="level3">
+<h3 class="anchored" data-anchor-id="entity-centric-exploration">1. Entity-Centric Exploration</h3>
+<p>This pattern focuses on exploring information about a specific entity:</p>
+<ol type="1">
+<li><p><strong>Identify Entity</strong>: Find URI/ID with label-based search</p>
+<pre class="sparql"><code>SELECT ?entity WHERE { ?entity rdfs:label "Entity Name"@en . }</code></pre></li>
+<li><p><strong>Verify Identity</strong>: Check type and description</p>
+<pre class="sparql"><code>SELECT ?desc ?type WHERE { 
+  wd:Q42 schema:description ?desc . FILTER(LANG(?desc) = "en")
+  wd:Q42 wdt:P31 ?type .
+}</code></pre></li>
+<li><p><strong>Explore Properties</strong>: Discover direct attributes</p>
+<pre class="sparql"><code>SELECT ?prop ?value WHERE { wd:Q42 ?prop ?value . }</code></pre></li>
+<li><p><strong>Expand Relationships</strong>: Find connections to other entities</p>
+<pre class="sparql"><code>SELECT ?related ?relationship WHERE {
+  { wd:Q42 ?relationship ?related . } UNION
+  { ?related ?relationship wd:Q42 . }
+}</code></pre></li>
+</ol>
+</section>
+<section id="discovery-first-pattern" class="level3">
+<h3 class="anchored" data-anchor-id="discovery-first-pattern">2. Discovery-First Pattern</h3>
+<p>Before querying an unfamiliar endpoint, discover its capabilities:</p>
+<ol type="1">
+<li><p><strong>Discover Endpoint</strong>: Find schemas, prefixes, and graph structure</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>metadata <span class="op">=</span> sparql_discover(endpoint_url)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div></li>
+<li><p><strong>Sample Vocabulary</strong>: Extract common predicates and classes</p>
+<pre class="sparql"><code>SELECT DISTINCT ?p WHERE { ?s ?p ?o } LIMIT 20
+SELECT DISTINCT ?class WHERE { ?s a ?class } LIMIT 20</code></pre></li>
+<li><p><strong>Construct Prefixed Queries</strong>: Use discovered prefixes</p>
+<pre class="sparql"><code>PREFIX wdt: &lt;http://www.wikidata.org/prop/direct/&gt;
+PREFIX wd: &lt;http://www.wikidata.org/entity/&gt;
+SELECT ?item ?label WHERE { ... }</code></pre></li>
+</ol>
+</section>
+<section id="progressive-query-refinement" class="level3">
+<h3 class="anchored" data-anchor-id="progressive-query-refinement">3. Progressive Query Refinement</h3>
+<p>Iteratively refine queries through validation and improvement cycles:</p>
+<ol type="1">
+<li><p><strong>Draft Query</strong>: Create initial SPARQL query</p>
+<pre class="sparql"><code>SELECT ?book WHERE { ?book a schema:Book . }</code></pre></li>
+<li><p><strong>Validate</strong>: Check against ontology</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>validation <span class="op">=</span> validate_query_against_ontology(query, ontology_ttl)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div></li>
+<li><p><strong>Refine</strong>: Apply fixes based on validation</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>refined <span class="op">=</span> refine_query_with_ontology(query, ontology_ttl)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div></li>
+<li><p><strong>Execute</strong>: Run the refined query</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>results <span class="op">=</span> sparql_query(endpoint_url, refined[<span class="st">"refined_query"</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div></li>
+</ol>
+</section>
+<section id="follow-your-nose-traversal" class="level3">
+<h3 class="anchored" data-anchor-id="follow-your-nose-traversal">4. Follow-Your-Nose Traversal</h3>
+<p>Explore connections across knowledge sources by following links:</p>
+<ol type="1">
+<li><p><strong>Find External Identifier</strong>: Locate identifier for cross-reference</p>
+<pre class="sparql"><code>SELECT ?viafID WHERE { wd:Q42 wdt:P214 ?viafID . }</code></pre></li>
+<li><p><strong>Construct Resource URL</strong>: Build URL from identifier</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>viaf_url <span class="op">=</span> <span class="ss">f"https://viaf.org/viaf/</span><span class="sc">{</span>viaf_id<span class="sc">}</span><span class="ss">/rdf.xml"</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div></li>
+<li><p><strong>Fetch Linked Resource</strong>: Retrieve and ingest</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>external_data <span class="op">=</span> ld_fetch(uri<span class="op">=</span>viaf_url, store_result<span class="op">=</span><span class="va">True</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div></li>
+<li><p><strong>Query Combined Knowledge</strong>: Use local query over integrated data</p>
+<pre class="sparql"><code>SELECT ?property ?value WHERE {
+  &lt;http://viaf.org/viaf/113230702&gt; ?property ?value .
+}</code></pre></li>
+</ol>
+<p>These patterns can be composed and combined to address complex semantic exploration tasks across multiple datasets and knowledge sources.</p>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools/sparql.py#L65" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="sparqltoolagent" class="level3">
+<h3 class="anchored" data-anchor-id="sparqltoolagent">SPARQLToolAgent</h3>
+<blockquote class="blockquote">
+<pre><code> SPARQLToolAgent ()</code></pre>
+</blockquote>
+<p><em>Initialize self. See help(type(self)) for accurate signature.</em></p>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools/sparql.py#L57" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="sparql_execution_tools" class="level3">
+<h3 class="anchored" data-anchor-id="sparql_execution_tools">sparql_execution_tools</h3>
+<blockquote class="blockquote">
+<pre><code> sparql_execution_tools ()</code></pre>
+</blockquote>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools/sparql.py#L49" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="sparql_validator_tools" class="level3">
+<h3 class="anchored" data-anchor-id="sparql_validator_tools">sparql_validator_tools</h3>
+<blockquote class="blockquote">
+<pre><code> sparql_validator_tools ()</code></pre>
+</blockquote>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools/sparql.py#L43" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="sparql_parser_tools" class="level3">
+<h3 class="anchored" data-anchor-id="sparql_parser_tools">sparql_parser_tools</h3>
+<blockquote class="blockquote">
+<pre><code> sparql_parser_tools ()</code></pre>
+</blockquote>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools/sparql.py#L38" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="build_graph_from_query" class="level3">
+<h3 class="anchored" data-anchor-id="build_graph_from_query">build_graph_from_query</h3>
+<blockquote class="blockquote">
+<pre><code> build_graph_from_query (q:str)</code></pre>
+</blockquote>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools/sparql.py#L35" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="parse_sparql_query" class="level3">
+<h3 class="anchored" data-anchor-id="parse_sparql_query">parse_sparql_query</h3>
+<blockquote class="blockquote">
+<pre><code> parse_sparql_query (q:str)</code></pre>
+</blockquote>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools/sparql.py#L87" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="sparql_query" class="level3">
+<h3 class="anchored" data-anchor-id="sparql_query">sparql_query</h3>
+<blockquote class="blockquote">
+<pre><code> sparql_query (endpoint_url:str, query:str, query_type:str='SELECT',
+               result_format:str='json', store_result:bool=False,
+               graph_id:Optional[str]=None, timeout:int=30)</code></pre>
+</blockquote>
+<p>*Execute a SPARQL query against a SPARQL 1.1 endpoint.</p>
+<p>Args: endpoint_url: URL of the SPARQL endpoint query: SPARQL query string (SELECT, ASK, CONSTRUCT, DESCRIBE) query_type: One of ‘SELECT’, ‘ASK’, ‘CONSTRUCT’, ‘DESCRIBE’ result_format: Desired result format (e.g.&nbsp;‘json’, ‘turtle’, ‘json-ld’) store_result: Whether to ingest CONSTRUCT/DESCRIBE results into memory graph_id: Named graph identifier for stored results timeout: HTTP request timeout in seconds</p>
+<p>Returns: A dict containing raw results or ingestion metadata.*</p>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools/sparql.py#L236" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="ld_fetch" class="level3">
+<h3 class="anchored" data-anchor-id="ld_fetch">ld_fetch</h3>
+<blockquote class="blockquote">
+<pre><code> ld_fetch (uri:str, format:str='json-ld', store_result:bool=True,
+           graph_id:Optional[str]=None, timeout:int=30)</code></pre>
+</blockquote>
+<p>*Fetch a Linked Data resource and ingest into memory.</p>
+<p>Args: uri: The resource URI to fetch format: Preferred RDF format (‘json-ld’, ‘turtle’, ‘xml’, ‘n-triples’) store_result: Whether to ingest the fetched data into memory graph_id: Named graph identifier for stored results timeout: HTTP request timeout in seconds</p>
+<p>Returns: A dict with fetch metadata and ingestion counts.*</p>
+</section>
+</section>
+<section id="obqc-rules-for-query-validation" class="level2">
+<h2 class="anchored" data-anchor-id="obqc-rules-for-query-validation">OBQC Rules for Query Validation</h2>
+<p>The SPARQL tools include integration with CogitareLink’s Ontology-Based Query Checking (OBQC) system. This validation framework helps ensure that SPARQL queries respect the semantic constraints defined in domain ontologies.</p>
+<section id="obqc-rule-structure" class="level3">
+<h3 class="anchored" data-anchor-id="obqc-rule-structure">OBQC Rule Structure</h3>
+<p>The core OBQC rules are defined in <code>cogitarelink/data/system/obqc.ttl</code> and implement five fundamental validation checks:</p>
+<ol type="1">
+<li><p><strong>Domain Validation (Rule 1)</strong>: Ensures that subjects of properties are properly typed according to <code>rdfs:domain</code> or <code>schema:domainIncludes</code> declarations.</p></li>
+<li><p><strong>Range Validation (Rule 2)</strong>: Verifies that objects of properties are properly typed according to <code>rdfs:range</code> or <code>schema:rangeIncludes</code> declarations.</p></li>
+<li><p><strong>Multiple Domain Detection (Rule 3)</strong>: Warns when properties have multiple domain declarations, suggesting that the query should explicitly specify subject types.</p></li>
+<li><p><strong>Multiple Range Detection (Rule 4)</strong>: Warns when properties have multiple range declarations, suggesting that the query should explicitly specify object types.</p></li>
+<li><p><strong>Property Definition Check (Rule 5)</strong>: Identifies predicates that are missing from the ontology or are not defined as a <code>schema:Property</code>, <code>owl:ObjectProperty</code>, or <code>rdf:Property</code>.</p></li>
+</ol>
+</section>
+<section id="obqc-integration-process" class="level3">
+<h3 class="anchored" data-anchor-id="obqc-integration-process">OBQC Integration Process</h3>
+<p>When using functions like <code>validate_query_against_ontology</code> and <a href="https://la3d.github.io/cogitarelink/sparql_tools.html#refine_query_with_ontology"><code>refine_query_with_ontology</code></a>, the following process occurs:</p>
+<ol type="1">
+<li>The SPARQL query is parsed and transformed into an RDF graph representation</li>
+<li>The OBQC rules are applied against this graph and the provided ontology</li>
+<li>Any violations are detected and reported with explanatory messages</li>
+<li>For refinement, these violations are used to suggest fixes to the query</li>
+</ol>
+<p>Here’s a simplified example of the OBQC validation process:</p>
+<div class="sourceCode" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># A query with potential ontology violations</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>query <span class="op">=</span> <span class="st">"""</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="st">SELECT ?person ?book WHERE {</span></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="st">  ?person schema:wrote ?book .</span></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="st">}</span></span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Validating against an ontology that defines schema:author (not schema:wrote)</span></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> validate_query_against_ontology(query, ontology_ttl)</span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Result might contain:</span></span>
+<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a><span class="co"># {</span></span>
+<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a><span class="co">#   "valid": False,</span></span>
+<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a><span class="co">#   "violations": [</span></span>
+<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a><span class="co">#     "Property https://schema.org/wrote is not defined in ontology or as schema:Property."</span></span>
+<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a><span class="co">#   ],</span></span>
+<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a><span class="co">#   "query_graph": {...},</span></span>
+<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a><span class="co">#   "suggestions": [</span></span>
+<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a><span class="co">#     "Consider using schema:author instead of schema:wrote"</span></span>
+<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a><span class="co">#   ]</span></span>
+<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a><span class="co"># }</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="diagnostic-information" class="level3">
+<h3 class="anchored" data-anchor-id="diagnostic-information">Diagnostic Information</h3>
+<p>The OBQC system provides detailed diagnostic information for each violation:</p>
+<ul>
+<li><strong>Violation Type</strong>: One of the five OBQC diagnostic classes (DomainViolation, RangeViolation, etc.)</li>
+<li><strong>Explanation</strong>: A human-readable description of the issue</li>
+<li><strong>Affected Elements</strong>: The specific properties, subjects, or objects involved</li>
+<li><strong>Expected Types</strong>: For domain/range violations, the expected types that should be declared</li>
+</ul>
+<p>This diagnostic information enables the <a href="https://la3d.github.io/cogitarelink/sparql_tools.html#refine_query_with_ontology"><code>refine_query_with_ontology</code></a> function to make intelligent suggestions for improving queries.</p>
+</section>
+</section>
+<section id="integration-with-cogitarelink-memory-model" class="level2">
+<h2 class="anchored" data-anchor-id="integration-with-cogitarelink-memory-model">Integration with CogitareLink Memory Model</h2>
+<p>The SPARQL tools are designed to integrate seamlessly with CogitareLink’s semantic memory system, enabling agents to build and extend their knowledge over time.</p>
+<section id="memory-storage-flow" class="level3">
+<h3 class="anchored" data-anchor-id="memory-storage-flow">Memory Storage Flow</h3>
+<p>When working with SPARQL results and Linked Data, the typical memory integration flow is:</p>
+<ol type="1">
+<li><strong>Query Execution</strong>: Retrieve data from a SPARQL endpoint or Linked Data resource</li>
+<li><strong>Format Conversion</strong>: Convert to a uniform representation (JSON-LD or N-Quads)</li>
+<li><strong>Provenance Attachment</strong>: Add metadata about source, query, and timestamp</li>
+<li><strong>GraphManager Ingestion</strong>: Store in the appropriate named graph</li>
+<li><strong>URI-Based Addressing</strong>: Use URIs as natural keys for retrieval</li>
+</ol>
+<div class="sourceCode" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Example memory integration flow</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> sparql_query(</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>    endpoint_url<span class="op">=</span><span class="st">"https://query.wikidata.org/sparql"</span>,</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>    query<span class="op">=</span><span class="st">"CONSTRUCT { ?entity ?p ?o } WHERE { ?entity wdt:P31 wd:Q146 . ?entity ?p ?o } LIMIT 100"</span>,</span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>    query_type<span class="op">=</span><span class="st">"CONSTRUCT"</span>,</span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>    result_format<span class="op">=</span><span class="st">"json-ld"</span>,</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>    store_result<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>    graph_id<span class="op">=</span><span class="st">"cats_graph"</span></span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Data is now available in GraphManager for later queries</span></span>
+<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>gm <span class="op">=</span> GraphManager(use_rdflib<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a>cats_data <span class="op">=</span> gm.query(graph_id<span class="op">=</span><span class="st">"cats_graph"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="named-graph-organization" class="level3">
+<h3 class="anchored" data-anchor-id="named-graph-organization">Named Graph Organization</h3>
+<p>The SPARQL tools use named graphs to organize imported knowledge:</p>
+<ol type="1">
+<li><strong>Endpoint-Based Graphs</strong>: Data from <a href="https://la3d.github.io/cogitarelink/sparql_tools.html#sparql_query"><code>sparql_query</code></a> stored with endpoint-derived graph ID</li>
+<li><strong>URI-Based Graphs</strong>: Data from <a href="https://la3d.github.io/cogitarelink/sparql_tools.html#ld_fetch"><code>ld_fetch</code></a> stored with source URI as graph ID</li>
+<li><strong>Custom Graph IDs</strong>: User-specified graph_id parameter for manual organization</li>
+<li><strong>Provenance Graphs</strong>: Separate graphs for provenance metadata with “_prov” suffix</li>
+</ol>
+<p>This organization allows for query context restriction and source tracking.</p>
+</section>
+<section id="provenance-tracking" class="level3">
+<h3 class="anchored" data-anchor-id="provenance-tracking">Provenance Tracking</h3>
+<p>All ingested triples are enriched with W3C PROV-O based provenance:</p>
+<pre><code>&lt;graph_id&gt; &lt;http://www.w3.org/ns/prov#wasGeneratedBy&gt; _:query_20230516T123045 .
+_:query_20230516T123045 &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#type&gt; &lt;http://www.w3.org/ns/prov#Activity&gt; .
+_:query_20230516T123045 &lt;http://www.w3.org/ns/prov#used&gt; &lt;https://query.wikidata.org/sparql&gt; .
+_:query_20230516T123045 &lt;http://www.w3.org/ns/prov#startedAtTime&gt; "2023-05-16T12:30:45"^^&lt;http://www.w3.org/2001/XMLSchema#dateTime&gt; .
+_:query_20230516T123045 &lt;http://www.w3.org/ns/prov#value&gt; "SELECT..."^^&lt;http://www.w3.org/2001/XMLSchema#string&gt; .</code></pre>
+<p>This provenance information enables agents to: - Trace the origin of every fact in memory - Understand when and how data was acquired - Assess the reliability and freshness of information - Recreate queries that generated specific knowledge</p>
+</section>
+<section id="integration-with-core-components" class="level3">
+<h3 class="anchored" data-anchor-id="integration-with-core-components">Integration with Core Components</h3>
+<p>The SPARQL tools interact with several core CogitareLink components:</p>
+<ol type="1">
+<li><strong>GraphManager</strong>: For storing and retrieving RDF triples</li>
+<li><strong>OBQC</strong>: For validating queries against ontologies</li>
+<li><strong>LODRetriever</strong>: For fetching Linked Data resources (used by ld_fetch)</li>
+<li><strong>Prov</strong>: For wrapping imported data with provenance metadata</li>
+</ol>
+<p>This integration ensures that all data acquired through SPARQL tools becomes a fully traceable, queryable part of the agent’s semantic memory.</p>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools/sparql.py#L387" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="sparql_json_to_jsonld" class="level3">
+<h3 class="anchored" data-anchor-id="sparql_json_to_jsonld">sparql_json_to_jsonld</h3>
+<blockquote class="blockquote">
+<pre><code> sparql_json_to_jsonld (sparql_json:str, base_uri:Optional[str]=None)</code></pre>
+</blockquote>
+<p>*Convert SPARQL SELECT/ASK JSON results into a JSON-LD document.</p>
+<p>Args: sparql_json: JSON string from a SELECT/ASK query base_uri: Optional base URI for the result document</p>
+<p>Returns: A JSON-LD string representing the result set.*</p>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools/sparql.py#L503" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="sparql_discover" class="level3">
+<h3 class="anchored" data-anchor-id="sparql_discover">sparql_discover</h3>
+<blockquote class="blockquote">
+<pre><code> sparql_discover (endpoint_url:str, timeout:int=30)</code></pre>
+</blockquote>
+<p><em>Discover a small sample of predicates via a lightweight SPARQL introspection query.</em></p>
+</section>
+</section>
+<section id="agent-usage-guidelines" class="level2">
+<h2 class="anchored" data-anchor-id="agent-usage-guidelines">Agent Usage Guidelines</h2>
+<p>The following guidelines help agents effectively use the SPARQL tools for semantic exploration and knowledge integration:</p>
+<section id="query-construction-best-practices" class="level3">
+<h3 class="anchored" data-anchor-id="query-construction-best-practices">Query Construction Best Practices</h3>
+<ol type="1">
+<li><p><strong>Always Include PREFIX Declarations</strong></p>
+<pre class="sparql"><code>PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
+PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
+PREFIX xsd: &lt;http://www.w3.org/2001/XMLSchema#&gt;
+PREFIX wdt: &lt;http://www.wikidata.org/prop/direct/&gt;
+PREFIX wd: &lt;http://www.wikidata.org/entity/&gt;</code></pre></li>
+<li><p><strong>Use OPTIONAL for Potentially Missing Properties</strong></p>
+<pre class="sparql"><code>SELECT ?entity ?label ?desc WHERE {
+  ?entity rdf:type wd:Q5 .
+  OPTIONAL { ?entity rdfs:label ?label . FILTER(LANG(?label) = "en") }
+  OPTIONAL { ?entity schema:description ?desc . FILTER(LANG(?desc) = "en") }
+}</code></pre></li>
+<li><p><strong>Filter Language for Human-Readable Labels</strong></p>
+<pre class="sparql"><code>SELECT ?label WHERE {
+  wd:Q42 rdfs:label ?label .
+  FILTER(LANG(?label) = "en")
+}</code></pre></li>
+<li><p><strong>Always Include LIMIT for Safety</strong></p>
+<pre class="sparql"><code>SELECT * WHERE {
+  ?s ?p ?o .
+} LIMIT 100</code></pre></li>
+</ol>
+</section>
+<section id="error-recovery-strategies" class="level3">
+<h3 class="anchored" data-anchor-id="error-recovery-strategies">Error Recovery Strategies</h3>
+<ol type="1">
+<li><strong>Syntax Error Recovery</strong>
+<ul>
+<li>Check query for unbalanced braces and quotes</li>
+<li>Verify PREFIX declarations match actual usage</li>
+<li>Use validate_query_against_ontology for detailed diagnostics</li>
+</ul></li>
+<li><strong>Timeout Recovery</strong>
+<ul>
+<li>Reduce query complexity or add more restrictive filters</li>
+<li>Break into multiple targeted queries instead of one broad query</li>
+<li>Use CONSTRUCT for bulk data retrieval instead of repeated SELECTs</li>
+</ul></li>
+<li><strong>Content Negotiation Failures</strong>
+<ul>
+<li>Try alternative formats (turtle instead of JSON-LD)</li>
+<li>Use ld_fetch which automatically attempts multiple formats</li>
+<li>For endpoints that don’t support content negotiation, use explicit format parameters</li>
+</ul></li>
+</ol>
+</section>
+<section id="endpoint-compatibility" class="level3">
+<h3 class="anchored" data-anchor-id="endpoint-compatibility">Endpoint Compatibility</h3>
+<p>The SPARQL tools work with various endpoint types:</p>
+<ol type="1">
+<li><strong>Standard SPARQL 1.1 Endpoints</strong>
+<ul>
+<li>Wikidata: https://query.wikidata.org/sparql</li>
+<li>DBpedia: https://dbpedia.org/sparql</li>
+<li>Uniprot: https://sparql.uniprot.org/sparql</li>
+</ul></li>
+<li><strong>High-Performance Endpoints</strong>
+<ul>
+<li>QLever: https://qlever.cs.uni-freiburg.de/api/wikidata</li>
+</ul></li>
+<li><strong>Custom/Local Endpoints</strong>
+<ul>
+<li>Apache Jena Fuseki</li>
+<li>Virtuoso</li>
+<li>GraphDB</li>
+</ul></li>
+</ol>
+<p>Each endpoint may have specific limitations (query complexity, result size, timeout) that require adapting your query strategy.</p>
+</section>
+<section id="memory-management" class="level3">
+<h3 class="anchored" data-anchor-id="memory-management">Memory Management</h3>
+<ol type="1">
+<li><strong>Graph Organization</strong>
+<ul>
+<li>Use meaningful graph_id values based on query content</li>
+<li>Group related queries in the same graph</li>
+<li>Use separate graphs for different domains/datasets</li>
+</ul></li>
+<li><strong>Provenance Recording</strong>
+<ul>
+<li>Always set store_result=True for important discoveries</li>
+<li>Include query context in your graph_id naming scheme</li>
+</ul></li>
+<li><strong>Cache Strategies</strong>
+<ul>
+<li>Avoid repeatedly querying the same data</li>
+<li>Use the datetime in your metadata to track information freshness</li>
+</ul></li>
+</ol>
+</section>
+<section id="practical-examples" class="level3">
+<h3 class="anchored" data-anchor-id="practical-examples">Practical Examples</h3>
+<p><strong>Example 1: Entity Discovery and Detailed Retrieval</strong></p>
+<div class="sourceCode" id="cb33"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="co"># First, find a specific entity</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>entity_query <span class="op">=</span> <span class="st">"""</span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a><span class="st">PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;</span></span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a><span class="st">SELECT ?entity WHERE {</span></span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a><span class="st">  ?entity rdfs:label "Douglas Adams"@en .</span></span>
+<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a><span class="st">}</span></span>
+<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a><span class="st">LIMIT 5</span></span>
+<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span></span>
+<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a>entities <span class="op">=</span> sparql_query(<span class="st">"https://query.wikidata.org/sparql"</span>, entity_query)</span>
+<span id="cb33-10"><a href="#cb33-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-11"><a href="#cb33-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Then, describe the entity</span></span>
+<span id="cb33-12"><a href="#cb33-12" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> entities.get(<span class="st">"results"</span>):</span>
+<span id="cb33-13"><a href="#cb33-13" aria-hidden="true" tabindex="-1"></a>    entity_uri <span class="op">=</span> entities[<span class="st">"results"</span>][<span class="dv">0</span>][<span class="st">"entity"</span>][<span class="st">"value"</span>]</span>
+<span id="cb33-14"><a href="#cb33-14" aria-hidden="true" tabindex="-1"></a>    description <span class="op">=</span> describe_resource(</span>
+<span id="cb33-15"><a href="#cb33-15" aria-hidden="true" tabindex="-1"></a>        <span class="st">"https://query.wikidata.org/sparql"</span>, </span>
+<span id="cb33-16"><a href="#cb33-16" aria-hidden="true" tabindex="-1"></a>        entity_uri,</span>
+<span id="cb33-17"><a href="#cb33-17" aria-hidden="true" tabindex="-1"></a>        store_result<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb33-18"><a href="#cb33-18" aria-hidden="true" tabindex="-1"></a>        graph_id<span class="op">=</span><span class="st">"douglas_adams_data"</span></span>
+<span id="cb33-19"><a href="#cb33-19" aria-hidden="true" tabindex="-1"></a>    )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p><strong>Example 2: Progressive Refinement with OBQC</strong></p>
+<div class="sourceCode" id="cb34"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Initial query with potential issues</span></span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>draft_query <span class="op">=</span> <span class="st">"""</span></span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a><span class="st">SELECT ?book ?author WHERE {</span></span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a><span class="st">  ?book a schema:Book .</span></span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a><span class="st">  ?book schema:author ?author .</span></span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a><span class="st">}</span></span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span></span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Validate against domain ontology</span></span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a>validation <span class="op">=</span> validate_query_against_ontology(draft_query, ontology_ttl)</span>
+<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Apply refinements</span></span>
+<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="kw">not</span> validation.get(<span class="st">"valid"</span>, <span class="va">False</span>):</span>
+<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a>    refined <span class="op">=</span> refine_query_with_ontology(draft_query, ontology_ttl)</span>
+<span id="cb34-15"><a href="#cb34-15" aria-hidden="true" tabindex="-1"></a>    final_query <span class="op">=</span> refined[<span class="st">"refined_query"</span>]</span>
+<span id="cb34-16"><a href="#cb34-16" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb34-17"><a href="#cb34-17" aria-hidden="true" tabindex="-1"></a>    final_query <span class="op">=</span> draft_query</span>
+<span id="cb34-18"><a href="#cb34-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-19"><a href="#cb34-19" aria-hidden="true" tabindex="-1"></a><span class="co"># Execute the refined query</span></span>
+<span id="cb34-20"><a href="#cb34-20" aria-hidden="true" tabindex="-1"></a>results <span class="op">=</span> sparql_query(endpoint_url, final_query)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>By following these guidelines, agents can effectively use the SPARQL tools to navigate the semantic web, build comprehensive knowledge representations, and integrate external data into CogitareLink’s semantic memory system.</p>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools/sparql.py#L700" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="check_query_patterns" class="level3">
+<h3 class="anchored" data-anchor-id="check_query_patterns">check_query_patterns</h3>
+<blockquote class="blockquote">
+<pre><code> check_query_patterns (query:str)</code></pre>
+</blockquote>
+<p><em>Basic syntax and safety checks for a SPARQL query. Uses RDFlib to validate syntax, and warns if SELECT/CONSTRUCT queries lack a LIMIT.</em></p>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools/sparql.py#L746" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="generate_query_fixes" class="level3">
+<h3 class="anchored" data-anchor-id="generate_query_fixes">generate_query_fixes</h3>
+<blockquote class="blockquote">
+<pre><code> generate_query_fixes (query:str, validation_result:Dict[str,Any])</code></pre>
+</blockquote>
+<p>*Generate suggested fixes for a SPARQL query based on validation results.</p>
+<p>Args: query: Original SPARQL query string validation_result: Results from validate_query_against_ontology or check_query_patterns</p>
+<p>Returns: A dict with fix suggestions and explanations.*</p>
+<hr>
+<p><a href="https://github.com/la3d/cogitarelink/blob/main/cogitarelink/tools/sparql.py#L905" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="refine_query_with_ontology" class="level3">
+<h3 class="anchored" data-anchor-id="refine_query_with_ontology">refine_query_with_ontology</h3>
+<blockquote class="blockquote">
+<pre><code> refine_query_with_ontology (query:str, ontology_ttl:Optional[str]=None,
+                             ontology_path:Optional[str]=None,
+                             max_iterations:int=3)</code></pre>
+</blockquote>
+<p>*Iteratively refine a SPARQL query using ontology validation and pattern fixes.</p>
+<p>Args: query: SPARQL query string to refine ontology_ttl: Ontology in Turtle format as a string ontology_path: Path to an ontology file on disk max_iterations: Maximum number of refinement iterations</p>
+<p>Returns: A dict with the refinement process and results.*</p>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+        const codeEl = trigger.previousElementSibling.cloneNode(true);
+        for (const childEl of codeEl.children) {
+          if (isCodeAnnotation(childEl)) {
+            childEl.remove();
+          }
+        }
+        return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/la3d\.github\.io\/cogitarelink\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/la3d/cogitarelink/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>
