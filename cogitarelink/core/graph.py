@@ -21,7 +21,7 @@ __all__ = ['log', 'GraphBackend', 'InMemoryGraph', 'GraphManager']
 
 # %% ../../07_graph.ipynb 5
 class GraphBackend:
-    "Backend protocol – concrete classes must implement these methods."
+    "Backend protocol â€“ concrete classes must implement these methods."
 
     def add_nquads(self, nquads: str, graph_id: str | None = None) -> None: ...
     def triples(self, subj=None, pred=None, obj=None) -> Iterable[Tuple]: ...
@@ -102,9 +102,9 @@ class GraphManager:
     Parameters
     ----------
     use_rdflib : bool | 'auto'
-        * 'auto'  → choose rdflib when import succeeded.
-        * True    → require rdflib else RuntimeError.
-        * False   → force in-memory backend.
+        * 'auto'  â†’ choose rdflib when import succeeded.
+        * True    â†’ require rdflib else RuntimeError.
+        * False   â†’ force in-memory backend.
     """
 
     def __init__(self, use_rdflib: bool | str = "auto"):

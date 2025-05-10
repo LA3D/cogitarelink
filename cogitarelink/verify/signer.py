@@ -18,7 +18,7 @@ try:
     _HAS_NACL = True
 except ModuleNotFoundError:
     _HAS_NACL = False
-    log.warning("PyNaCl not installed → signer disabled")
+    log.warning("PyNaCl not installed â†’ signer disabled")
 
 # %% ../../90_signer.ipynb 5
 def _b64(b: bytes) -> str: return base64.b64encode(b).decode()

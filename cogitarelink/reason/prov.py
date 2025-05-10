@@ -16,7 +16,7 @@ def wrap_patch_with_prov(patch: Graph) -> Graph:
     """
     Return *new* graph = patch + provenance metadata.
     """
-    g = patch  # operate in‑place (patch is usually fresh)
+    g = patch  # operate inâ€‘place (patch is usually fresh)
 
     act = BNode()                         # one activity per call
     now = datetime.now(timezone.utc).isoformat()

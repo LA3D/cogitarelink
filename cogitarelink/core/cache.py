@@ -23,7 +23,7 @@ class CacheStats:
 
 # %% ../../01_cache.ipynb 5
 class BaseCache:
-    """Interface backbone—override storage primitives to change backend."""
+    """Interface backboneâ€”override storage primitives to change backend."""
     def __init__(self,maxsize:int=1024,ttl:float|None=None):
         self.maxsize,self.ttl = maxsize,ttl
         self.stats = CacheStats()

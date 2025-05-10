@@ -32,7 +32,7 @@ class Composer:
         
         Returns
         -------
-        dict – JSON-LD object ready to drop into a document:
+        dict â€“ JSON-LD object ready to drop into a document:
                `{\"@context\": ...}`
         """
         if not prefixes:

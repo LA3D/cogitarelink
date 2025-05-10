@@ -46,7 +46,7 @@ class ContextBlock(BaseModel):
     "Exactly **one** of `url`, `inline`, `derives_from` must be provided."
     url:          AnyUrl | None = None        # remote .jsonld
     inline:       Dict[str, Any] | None = None
-    derives_from: AnyUrl | None = None        # .ttl, .rdf, …
+    derives_from: AnyUrl | None = None        # .ttl, .rdf, â€¦
 
     sha256: str | None = None                # filled on first fetch
 
@@ -116,7 +116,7 @@ class _Registry:
 
         self._v: Dict[str, VocabEntry] = {k: VocabEntry(**v) for k, v in raw.items()}
 
-        # build alias map → prefix
+        # build alias map â†’ prefix
         self._alias: Dict[str, str] = {}
         for p, e in self._v.items():
             for url in e.uris.values():

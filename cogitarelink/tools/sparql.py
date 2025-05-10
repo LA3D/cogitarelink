@@ -25,13 +25,72 @@ from ..core.debug import get_logger
 from ..core.graph import GraphManager
 
 # %% auto 0
-__all__ = ['log', 'sparql_query', 'ld_fetch', 'sparql_json_to_jsonld', 'validate_query_against_ontology', 'check_query_patterns',
-           'generate_query_fixes', 'refine_query_with_ontology']
+__all__ = ['log', 'parse_sparql_query', 'build_graph_from_query', 'sparql_parser_tools', 'sparql_validator_tools',
+           'sparql_execution_tools', 'SPARQLToolAgent', 'sparql_query', 'ld_fetch', 'sparql_json_to_jsonld',
+           'sparql_discover', 'check_query_patterns', 'generate_query_fixes', 'refine_query_with_ontology']
 
 # %% ../../63_sparql_tools.ipynb 3
 log = get_logger("sparql")
 
 # %% ../../63_sparql_tools.ipynb 4
+from ..reason.obqc import _parse_sparql_query, _bgp_to_graph
+import json
+from rdflib import Graph
+import cogitarelink.tools.sparql as _sp
+from .sparql_tools import validate_query_against_ontology
+
+def parse_sparql_query(q:str)->dict:
+    return _parse_sparql_query(q)
+
+def build_graph_from_query(q:str)->dict:
+    g = _bgp_to_graph(q)
+    jsonld = json.loads(g.serialize(format='json-ld'))
+    return {'success':True, 'jsonld':jsonld, 'triples_count':len(g)}
+
+def sparql_parser_tools():
+    return {
+        'parse_sparql_query': parse_sparql_query,
+        'build_graph_from_query': build_graph_from_query
+    }
+
+def sparql_validator_tools():
+    return {
+        'validate_query_against_ontology': validate_query_against_ontology,
+        'check_query_patterns': _sp.check_query_patterns,
+        'generate_query_fixes': _sp.generate_query_fixes,
+        'refine_query_with_ontology': _sp.refine_query_with_ontology
+    }
+
+def sparql_execution_tools():
+    def execute_local_query(q:str, ttl:str)->dict:
+        g = Graph().parse(data=ttl, format='turtle')
+        res = g.query(q)
+        return {'success':True, 'query_type':'SELECT',
+                'results':[ {str(v):str(row[v]) for v in row.labels} for row in res ]}
+    return {'execute_local_query': execute_local_query}
+
+class SPARQLToolAgent:
+    def __init__(self):
+        self.parsers = sparql_parser_tools()
+        self.validators = sparql_validator_tools()
+        self.execs = sparql_execution_tools()
+    def end_to_end_query(self, query, data_graph,
+                        ontology_ttl=None,
+                        validate_first=False,
+                        auto_refine=False):
+        workflow, q = [], query
+        if validate_first:
+            v = self.validators['validate_query_against_ontology'](q, ontology_ttl)
+            workflow.append({'step':'validation','result':v})
+            if auto_refine:
+                r = self.validators['refine_query_with_ontology'](q, ontology_ttl)
+                q = r.get('refined_query',q)
+                workflow.append({'step':'refinement','result':r})
+        exec_res = self.execs['execute_local_query'](q, data_graph)
+        workflow.append({'step':'execution','result':exec_res})
+        return {'workflow':workflow}
+
+# %% ../../63_sparql_tools.ipynb 5
 def sparql_query(
     endpoint_url: str,
     query: str,
@@ -56,10 +115,131 @@ def sparql_query(
     Returns:
         A dict containing raw results or ingestion metadata.
     """
-    raise NotImplementedError
+    if not _HAS_RDFLIB:
+        raise ImportError("RDFLib and SPARQLWrapper are required for SPARQL querying")
+    
+    # Default graph_id if not provided and storage is requested
+    if store_result and graph_id is None:
+        graph_id = f"sparql_{endpoint_url.replace('://', '_').replace('/', '_')}"
+    
+    # Set up SPARQLWrapper with endpoint and timeout
+    sparql = SPARQLWrapper(endpoint_url)
+    sparql.setTimeout(timeout)
+    
+    # Set the query
+    sparql.setQuery(query)
+    
+    # Set result format based on query type and requested format
+    if query_type.upper() in ("SELECT", "ASK"):
+        if result_format.lower() == "json":
+            sparql.setReturnFormat(JSON)
+        elif result_format.lower() == "xml":
+            sparql.setReturnFormat(XML)
+        elif result_format.lower() == "csv":
+            sparql.setReturnFormat(CSV)
+        elif result_format.lower() == "tsv":
+            sparql.setReturnFormat(TSV)
+        else:
+            log.warning(f"Unsupported format {result_format} for {query_type}, using JSON")
+            sparql.setReturnFormat(JSON)
+            result_format = "json"
+    else:  # CONSTRUCT or DESCRIBE
+        if result_format.lower() == "json-ld":
+            sparql.addCustomParameter("format", "application/ld+json")
+        elif result_format.lower() == "turtle":
+            sparql.addCustomParameter("format", "text/turtle")
+        elif result_format.lower() == "n-triples":
+            sparql.addCustomParameter("format", "application/n-triples")
+        elif result_format.lower() == "xml":
+            sparql.addCustomParameter("format", "application/rdf+xml")
+    
+    try:
+        # Execute the query
+        results = sparql.query()
+        
+        # Process results based on query type
+        if query_type.upper() in ("SELECT", "ASK"):
+            if result_format.lower() == "json":
+                data = results.convert()
+                
+                # For ASK queries, extract the boolean result
+                if query_type.upper() == "ASK":
+                    result = {
+                        "success": True,
+                        "query_type": "ASK",
+                        "result": data.get("boolean", False),
+                        "format": "json"
+                    }
+                else:  # SELECT
+                    result = {
+                        "success": True,
+                        "query_type": "SELECT",
+                        "results": data.get("results", {}).get("bindings", []),
+                        "format": "json",
+                        "vars": data.get("head", {}).get("vars", [])
+                    }
+            else:
+                # Raw string result for other formats
+                data = results.response.read().decode('utf-8')
+                result = {
+                    "success": True,
+                    "query_type": query_type,
+                    "data": data,
+                    "format": result_format
+                }
+        else:  # CONSTRUCT or DESCRIBE
+            # Get the raw RDF content
+            content = results.response.read().decode('utf-8')
+            
+            result = {
+                "success": True,
+                "query_type": query_type,
+                "format": result_format,
+                "data_size": len(content)
+            }
+            
+            # Store result if requested
+            if store_result:
+                # Parse the RDF content
+                g = Graph()
+                
+                if result_format.lower() == "json-ld":
+                    g.parse(data=content, format="json-ld")
+                elif result_format.lower() == "turtle":
+                    g.parse(data=content, format="turtle")
+                elif result_format.lower() == "n-triples":
+                    g.parse(data=content, format="nt")
+                elif result_format.lower() == "xml":
+                    g.parse(data=content, format="xml")
+                
+                # Get triples count
+                triple_count = len(g)
+                
+                # Store in GraphManager (if available)
+                gm = GraphManager(use_rdflib=True)
+                
+                # Convert to N-Quads for ingestion
+                nquads = g.serialize(format="nquads")
+                gm.ingest_nquads(nquads, graph_id=graph_id)
+                
+                result["stored"] = True
+                result["triple_count"] = triple_count
+                result["graph_id"] = graph_id
+            else:
+                result["data"] = content
+                
+        return result
+        
+    except Exception as e:
+        log.error(f"SPARQL query error: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "query_type": query_type,
+            "endpoint": endpoint_url
+        }
 
-
-# %% ../../63_sparql_tools.ipynb 5
+# %% ../../63_sparql_tools.ipynb 6
 def ld_fetch(
     uri: str,
     format: str = "json-ld",
@@ -80,9 +260,137 @@ def ld_fetch(
     Returns:
         A dict with fetch metadata and ingestion counts.
     """
-    raise NotImplementedError
+    if not _HAS_RDFLIB:
+        raise ImportError("RDFLib is required for processing Linked Data")
+    
+    # Default to using URI as graph_id if not provided and storage is requested
+    if store_result and graph_id is None:
+        graph_id = uri
+    
+    # Map format to Accept header value
+    format_to_accept = {
+        "json-ld": "application/ld+json",
+        "turtle": "text/turtle",
+        "xml": "application/rdf+xml",
+        "n-triples": "application/n-triples"
+    }
+    
+    # Prepare headers with content negotiation
+    headers = {
+        "Accept": format_to_accept.get(format.lower(), "application/ld+json"),
+        "User-Agent": "cogitarelink-ld-fetch/0.1"
+    }
+    
+    try:
+        # Use httpx for the request
+        response = httpx.get(uri, headers=headers, timeout=timeout, follow_redirects=True)
+        response.raise_for_status()
+        
+        content = response.text
+        content_type = response.headers.get("content-type", "").split(";")[0].strip()
+        
+        # Base result structure
+        result = {
+            "success": True,
+            "uri": uri,
+            "format": format,
+            "content_type": content_type,
+            "data_size": len(content),
+            "status_code": response.status_code
+        }
+        
+        # Store the result if requested
+        if store_result:
+            # Parse based on content type or requested format
+            g = Graph()
+            
+            # Try to determine actual format based on content type
+            parse_format = None
+            if "json" in content_type:
+                parse_format = "json-ld"
+            elif "turtle" in content_type:
+                parse_format = "turtle"
+            elif "rdf+xml" in content_type:
+                parse_format = "xml"
+            elif "n-triples" in content_type:
+                parse_format = "nt"
+            else:
+                # Fall back to requested format
+                parse_format = {
+                    "json-ld": "json-ld", 
+                    "turtle": "turtle", 
+                    "xml": "xml", 
+                    "n-triples": "nt"
+                }.get(format.lower(), "json-ld")
+            
+            try:
+                # Parse the content
+                g.parse(data=content, format=parse_format)
+                
+                # Get triples count
+                triple_count = len(g)
+                
+                # Store in GraphManager
+                gm = GraphManager(use_rdflib=True)
+                
+                # Convert to N-Quads for ingestion
+                nquads = g.serialize(format="nquads")
+                gm.ingest_nquads(nquads, graph_id=graph_id)
+                
+                result["stored"] = True
+                result["triple_count"] = triple_count
+                result["graph_id"] = graph_id
+                
+            except Exception as parse_error:
+                # If parsing fails, try alternative formats
+                log.warning(f"Failed to parse as {parse_format}, trying alternatives: {str(parse_error)}")
+                for alt_format in ["json-ld", "turtle", "xml", "nt"]:
+                    if alt_format == parse_format:
+                        continue
+                    
+                    try:
+                        g = Graph()
+                        g.parse(data=content, format=alt_format)
+                        
+                        # Get triples count
+                        triple_count = len(g)
+                        
+                        # Store in GraphManager
+                        gm = GraphManager(use_rdflib=True)
+                        
+                        # Convert to N-Quads for ingestion
+                        nquads = g.serialize(format="nquads")
+                        gm.ingest_nquads(nquads, graph_id=graph_id)
+                        
+                        result["stored"] = True
+                        result["triple_count"] = triple_count
+                        result["graph_id"] = graph_id
+                        result["actual_format"] = alt_format
+                        
+                        break
+                    except Exception:
+                        continue
+                
+                if "stored" not in result:
+                    result["success"] = False
+                    result["error"] = f"Failed to parse content in any supported format: {str(parse_error)}"
+                    # Include the raw content if parsing failed
+                    result["data"] = content
+        else:
+            # Include the raw content if not storing
+            result["data"] = content
+            
+        return result
+        
+    except Exception as e:
+        log.error(f"LD fetch error: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "uri": uri
+        }
 
-# %% ../../63_sparql_tools.ipynb 6
+# %% ../../63_sparql_tools.ipynb 7
 def sparql_json_to_jsonld(
     sparql_json: str,
     base_uri: Optional[str] = None,
@@ -97,28 +405,388 @@ def sparql_json_to_jsonld(
     Returns:
         A JSON-LD string representing the result set.
     """
-    raise NotImplementedError
-
-# %% ../../63_sparql_tools.ipynb 7
-def validate_query_against_ontology(
-    query: str,
-    ontology_ttl: Optional[str] = None,
-    ontology_path: Optional[str] = None,
-) -> Dict[str, Any]:
-    """
-    Validate a SPARQL query against an ontology using OBQC rules.
-
-    Args:
-        query: SPARQL query string
-        ontology_ttl: Ontology in Turtle format as a string
-        ontology_path: Path to an ontology file on disk
-
-    Returns:
-        A dict with validation results, issues, and suggestions.
-    """
-    return obqc_check_query(query, ontology_ttl=ontology_ttl, ontology_path=ontology_path)
+    if not _HAS_RDFLIB:
+        raise ImportError("RDFLib is required for JSON-LD processing")
+    
+    import json
+    from datetime import datetime
+    import hashlib
+    
+    # Parse the SPARQL JSON
+    try:
+        if isinstance(sparql_json, str):
+            data = json.loads(sparql_json)
+        else:
+            # Assume it's already a dict
+            data = sparql_json
+    except json.JSONDecodeError:
+        raise ValueError("Invalid JSON input")
+    
+    # Generate a default base URI if not provided
+    if not base_uri:
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        base_uri = f"urn:sparql:result:{timestamp}"
+    
+    # Prepare JSON-LD context with common prefixes
+    context = {
+        "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+        "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+        "xsd": "http://www.w3.org/2001/XMLSchema#",
+        "schema": "http://schema.org/",
+        "sparql": "http://www.w3.org/2005/sparql-results#"
+    }
+    
+    # Handle ASK query results
+    if "boolean" in data:
+        jsonld = {
+            "@context": context,
+            "@id": base_uri,
+            "@type": "sparql:AskResult",
+            "sparql:boolean": data["boolean"],
+            "schema:timestamp": datetime.now().isoformat()
+        }
+        return json.dumps(jsonld, indent=2)
+    
+    # Handle SELECT query results
+    bindings = data.get("results", {}).get("bindings", [])
+    vars_list = data.get("head", {}).get("vars", [])
+    
+    # Build the result graph as JSON-LD
+    graph = []
+    
+    # Process each binding (result row)
+    for i, binding in enumerate(bindings):
+        # Create a unique ID for this result row
+        row_hash = hashlib.md5(json.dumps(binding, sort_keys=True).encode()).hexdigest()
+        result_id = f"{base_uri}/result/{row_hash}"
+        
+        # Create the result row object
+        result_obj = {
+            "@id": result_id,
+            "@type": "sparql:ResultRow",
+            "schema:position": i + 1
+        }
+        
+        # Map each variable binding
+        for var_name, value in binding.items():
+            value_type = value.get("type", "literal")
+            value_content = value.get("value", "")
+            
+            if value_type == "uri":
+                # URI reference
+                result_obj[var_name] = {"@id": value_content}
+            elif value_type == "literal":
+                # Literal with potential language or datatype
+                if "xml:lang" in value:
+                    result_obj[var_name] = {
+                        "@value": value_content,
+                        "@language": value.get("xml:lang")
+                    }
+                elif "datatype" in value:
+                    result_obj[var_name] = {
+                        "@value": value_content,
+                        "@type": value.get("datatype")
+                    }
+                else:
+                    result_obj[var_name] = value_content
+            elif value_type == "bnode":
+                # Blank node
+                result_obj[var_name] = {"@id": "_:" + value_content}
+        
+        graph.append(result_obj)
+    
+    # Create the final JSON-LD document
+    jsonld = {
+        "@context": context,
+        "@id": base_uri,
+        "@type": "sparql:ResultSet",
+        "sparql:resultVariable": vars_list,
+        "schema:totalResults": len(bindings),
+        "schema:timestamp": datetime.now().isoformat(),
+        "@graph": graph
+    }
+    
+    return json.dumps(jsonld, indent=2)
 
 # %% ../../63_sparql_tools.ipynb 8
+def sparql_discover(
+    endpoint_url: str,
+    method: str = "all",
+    timeout: int = 30,
+) -> Dict[str, Any]:
+    """
+    Discover SPARQL endpoint capabilities via VoID, Service Description, and introspection.
+
+    Args:
+        endpoint_url: URL of the SPARQL endpoint
+        method: One of 'void', 'service-description', 'introspection', or 'all'
+        timeout: HTTP request timeout in seconds
+
+    Returns:
+        A dict with endpoint metadata, prefixes, and sample datasets.
+    """
+    if not _HAS_RDFLIB:
+        raise ImportError("RDFLib is required for SPARQL endpoint discovery")
+    
+    result = {
+        "endpoint": endpoint_url,
+        "success": False,
+        "method": method,
+        "prefixes": {}
+    }
+    
+    # Try discovery methods based on the requested method
+    if method in ('void', 'all'):
+        void_result = _discover_void(endpoint_url, timeout)
+        if void_result:
+            result.update(void_result)
+            result["success"] = True
+    
+    if method in ('service-description', 'all'):
+        service_result = _discover_service_description(endpoint_url, timeout)
+        if service_result:
+            result.update(service_result)
+            result["success"] = True
+    
+    if method in ('introspection', 'all'):
+        introspection_result = _discover_introspection(endpoint_url, timeout)
+        if introspection_result:
+            result.update(introspection_result)
+            result["success"] = True
+    
+    # Extract common prefixes
+    if 'sample_predicates' in result:
+        result['prefixes'].update(_extract_prefixes_from_uris(result['sample_predicates']))
+    
+    return result
+
+def _discover_void(endpoint_url: str, timeout: int) -> Optional[Dict[str, Any]]:
+    """Discover endpoint using VoID description."""
+    try:
+        from urllib.parse import urlparse
+        import httpx
+        
+        # Try to find VoID at .well-known/void
+        url_parts = urlparse(endpoint_url)
+        base_url = f"{url_parts.scheme}://{url_parts.netloc}"
+        void_url = f"{base_url}/.well-known/void"
+        
+        # Attempt to fetch VoID description
+        response = httpx.get(void_url, timeout=timeout, follow_redirects=True)
+        if response.status_code != 200:
+            return None
+        
+        # Parse VoID description
+        g = Graph()
+        g.parse(data=response.text, format="turtle")
+        
+        datasets = []
+        
+        # VoID namespace
+        VOID = Namespace("http://rdfs.org/ns/void#")
+        
+        # Extract dataset information
+        for ds in g.subjects(RDF.type, VOID.Dataset):
+            dataset_info = {'uri': str(ds)}
+            
+            # Extract SPARQL endpoint
+            for endpoint in g.objects(ds, VOID.sparqlEndpoint):
+                dataset_info['sparql_endpoint'] = str(endpoint)
+            
+            # Extract triples count
+            for triples in g.objects(ds, VOID.triples):
+                dataset_info['triples'] = int(triples)
+            
+            # Extract data dumps
+            data_dumps = []
+            for dump in g.objects(ds, VOID.dataDump):
+                data_dumps.append(str(dump))
+            
+            if data_dumps:
+                dataset_info['data_dumps'] = data_dumps
+                
+            datasets.append(dataset_info)
+        
+        return {
+            "void_url": void_url,
+            "datasets": datasets
+        }
+    except Exception as e:
+        log.warning(f"VoID discovery failed: {str(e)}")
+        return None
+
+def _discover_service_description(endpoint_url: str, timeout: int) -> Optional[Dict[str, Any]]:
+    """Discover endpoint using SPARQL Service Description."""
+    try:
+        import httpx
+        
+        # Construct SPARQL query for service description
+        query = f"DESCRIBE <{endpoint_url}>"
+        
+        # Set appropriate headers for Turtle format
+        headers = {
+            "Accept": "text/turtle",
+            "User-Agent": "cogitarelink-sparql-discover/0.1"
+        }
+        
+        # Request parameters
+        params = {"query": query}
+        
+        # Make the request
+        response = httpx.get(
+            endpoint_url,
+            params=params,
+            headers=headers,
+            timeout=timeout,
+            follow_redirects=True
+        )
+        
+        if response.status_code != 200:
+            return None
+        
+        # Parse service description
+        g = Graph()
+        g.parse(data=response.text, format="turtle")
+        
+        # Service description namespace
+        SD = Namespace("http://www.w3.org/ns/sparql-service-description#")
+        
+        # Extract default and named graphs
+        default_graphs = []
+        for dg in g.objects(None, SD.defaultGraph):
+            default_graphs.append(str(dg))
+        
+        named_graphs = []
+        for ng in g.objects(None, SD.namedGraph):
+            # Get the actual graph name
+            for name in g.objects(ng, SD.name):
+                named_graphs.append(str(name))
+        
+        # Extract supported features
+        features = []
+        for feature in g.objects(None, SD.feature):
+            features.append(str(feature))
+        
+        return {
+            "default_graphs": default_graphs,
+            "named_graphs": named_graphs,
+            "supported_features": features
+        }
+    except Exception as e:
+        log.warning(f"Service description discovery failed: {str(e)}")
+        return None
+
+def _discover_introspection(endpoint_url: str, timeout: int) -> Optional[Dict[str, Any]]:
+    """Discover endpoint using lightweight introspection queries."""
+    try:
+        # Query for sample predicates
+        predicate_query = """
+        SELECT DISTINCT ?p WHERE { 
+            ?s ?p ?o 
+        } LIMIT 20
+        """
+        
+        predicate_result = sparql_query(
+            endpoint_url=endpoint_url,
+            query=predicate_query,
+            query_type="SELECT",
+            result_format="json",
+            timeout=timeout
+        )
+        
+        if not predicate_result.get("success", False):
+            return None
+        
+        # Extract predicates
+        predicates = []
+        for binding in predicate_result.get("results", []):
+            if "p" in binding and "value" in binding["p"]:
+                predicates.append(binding["p"]["value"])
+        
+        # Query for sample classes
+        class_query = """
+        SELECT DISTINCT ?type WHERE {
+            ?s a ?type .
+        } LIMIT 20
+        """
+        
+        class_result = sparql_query(
+            endpoint_url=endpoint_url,
+            query=class_query,
+            query_type="SELECT",
+            result_format="json",
+            timeout=timeout
+        )
+        
+        # Extract classes
+        classes = []
+        if class_result.get("success", False):
+            for binding in class_result.get("results", []):
+                if "type" in binding and "value" in binding["type"]:
+                    classes.append(binding["type"]["value"])
+        
+        return {
+            "sample_predicates": predicates,
+            "sample_classes": classes
+        }
+    except Exception as e:
+        log.warning(f"Introspection discovery failed: {str(e)}")
+        return None
+
+def _extract_prefixes_from_uris(uris: List[str]) -> Dict[str, str]:
+    """Extract common namespace prefixes from URIs."""
+    from urllib.parse import urlparse
+    
+    # Common prefixes to look for
+    known_prefixes = {
+        "http://www.w3.org/1999/02/22-rdf-syntax-ns#": "rdf",
+        "http://www.w3.org/2000/01/rdf-schema#": "rdfs",
+        "http://www.w3.org/2001/XMLSchema#": "xsd",
+        "http://www.w3.org/2004/02/skos/core#": "skos",
+        "http://www.w3.org/ns/prov#": "prov",
+        "http://schema.org/": "schema",
+        "http://purl.org/dc/terms/": "dcterms",
+        "http://purl.org/dc/elements/1.1/": "dc",
+        "http://xmlns.com/foaf/0.1/": "foaf",
+        "http://www.wikidata.org/entity/": "wd",
+        "http://www.wikidata.org/prop/direct/": "wdt",
+        "http://www.wikidata.org/prop/": "p",
+        "http://www.wikidata.org/prop/statement/": "ps",
+        "http://www.wikidata.org/prop/qualifier/": "pq"
+    }
+    
+    prefixes = {}
+    
+    # Check each URI against known prefixes
+    for uri in uris:
+        for namespace, prefix in known_prefixes.items():
+            if uri.startswith(namespace):
+                prefixes[prefix] = namespace
+    
+    # Try to derive other prefixes from URI patterns
+    namespace_counts = {}
+    for uri in uris:
+        if '#' in uri:
+            namespace = uri.split('#')[0] + '#'
+            namespace_counts[namespace] = namespace_counts.get(namespace, 0) + 1
+        else:
+            # Take up to the last path segment
+            parts = uri.split('/')
+            if len(parts) > 3:  # More than just http://domain
+                namespace = '/'.join(parts[:-1]) + '/'
+                namespace_counts[namespace] = namespace_counts.get(namespace, 0) + 1
+    
+    # Add common namespaces that appear multiple times
+    for namespace, count in namespace_counts.items():
+        if count >= 3 and namespace not in known_prefixes.values():
+            # Generate a prefix from the domain name
+            domain = urlparse(namespace).netloc.split('.')[-2]
+            if domain and domain not in prefixes:
+                prefixes[domain] = namespace
+    
+    return prefixes
+
+# %% ../../63_sparql_tools.ipynb 9
 def check_query_patterns(
     query: str,
 ) -> Dict[str, Any]:
@@ -131,9 +799,255 @@ def check_query_patterns(
     Returns:
         A dict with detected pattern issues.
     """
-    raise NotImplementedError
+    if not _HAS_RDFLIB:
+        raise ImportError("RDFLib is required for SPARQL query analysis")
+    
+    # Parse the query to extract its components
+    try:
+        from rdflib.plugins.sparql.parser import parseQuery
+        from rdflib.plugins.sparql.algebra import translateQuery
+        
+        parsed_query = parseQuery(query)
+        algebra = translateQuery(parsed_query)
+        
+        # Extract query type
+        query_type = algebra.name  # e.g., "SelectQuery", "AskQuery", etc.
+        
+        # Initialize results structure
+        result = {
+            "success": True,
+            "query_type": query_type,
+            "warnings": [],
+            "suggestions": []
+        }
+        
+        # Check for common patterns/issues
+        variables = set()
+        bound_variables = set()
+        triple_patterns = []
+        
+        # Extract variables and triple patterns
+        if hasattr(algebra, 'PV'):
+            variables = set(str(v) for v in algebra.PV)
+        
+        # Extract triple patterns and record bound variables
+        _extract_patterns_and_bindings(algebra, triple_patterns, bound_variables)
+        
+        # Check 1: Unbound variables
+        unbound_vars = variables - bound_variables
+        if unbound_vars:
+            result["warnings"].append({
+                "type": "unbound_variables",
+                "message": f"Variables {', '.join(unbound_vars)} are used in projection but not bound in any triple pattern",
+                "severity": "high"
+            })
+            result["suggestions"].append(
+                f"Add triple patterns that bind {', '.join(unbound_vars)}."
+            )
+        
+        # Check 2: Cartesian products
+        if len(triple_patterns) > 1:
+            groups = _find_connected_groups(triple_patterns, variables)
+            if len(groups) > 1:
+                result["warnings"].append({
+                    "type": "cartesian_product",
+                    "message": f"Query contains a Cartesian product with {len(groups)} disjoint groups",
+                    "severity": "high"
+                })
+                result["suggestions"].append(
+                    "Add joins between the disjoint groups to prevent Cartesian products."
+                )
+        
+        # Check 3: Missing LIMIT in SELECT/CONSTRUCT queries
+        if query_type in ["SelectQuery", "ConstructQuery"] and "LIMIT" not in query.upper():
+            result["warnings"].append({
+                "type": "missing_limit",
+                "message": "Query does not include a LIMIT clause, which could return too many results",
+                "severity": "medium"
+            })
+            result["suggestions"].append(
+                "Add a LIMIT clause to avoid potentially large result sets."
+            )
+        
+        # Check 4: Missing filters for literals
+        has_literals = any("\"" in tp or "'" in tp for tp in triple_patterns)
+        has_filters = "FILTER" in query.upper()
+        if has_literals and not has_filters:
+            result["warnings"].append({
+                "type": "literal_without_filter",
+                "message": "Query contains literals but no FILTER clause, consider using filters for more flexible matching",
+                "severity": "low"
+            })
+            result["suggestions"].append(
+                "Consider using FILTER with regex() or str() functions for flexible literal matching."
+            )
+        
+        return result
+    
+    except Exception as e:
+        # Fall back to regex-based analysis for simpler checks
+        return _regex_check_patterns(query)
 
-# %% ../../63_sparql_tools.ipynb 9
+def _extract_patterns_and_bindings(algebra, triple_patterns, bound_variables):
+    """
+    Recursively extract triple patterns and bound variables from SPARQL algebra.
+    
+    Args:
+        algebra: SPARQL algebra node
+        triple_patterns: List to collect triple patterns
+        bound_variables: Set to collect bound variables
+    """
+    # Basic Graph Pattern
+    if hasattr(algebra, 'triples') and algebra.__class__.__name__ == 'BGP':
+        for s, p, o in algebra.triples:
+            triple_str = f"{s} {p} {o}"
+            triple_patterns.append(triple_str)
+            
+            # Record bound variables
+            for term in (s, p, o):
+                if str(term).startswith('?'):
+                    bound_variables.add(str(term))
+    
+    # Explore nested patterns
+    if hasattr(algebra, 'p'):
+        _extract_patterns_and_bindings(algebra.p, triple_patterns, bound_variables)
+    
+    # Binary operations (like Join, LeftJoin, Union)
+    if hasattr(algebra, 'p1') and hasattr(algebra, 'p2'):
+        _extract_patterns_and_bindings(algebra.p1, triple_patterns, bound_variables)
+        _extract_patterns_and_bindings(algebra.p2, triple_patterns, bound_variables)
+    
+    # Group patterns
+    if hasattr(algebra, 'p') and isinstance(algebra.p, list):
+        for pattern in algebra.p:
+            _extract_patterns_and_bindings(pattern, triple_patterns, bound_variables)
+
+def _find_connected_groups(triple_patterns, variables):
+    """
+    Find connected groups of triple patterns to detect Cartesian products.
+    
+    Args:
+        triple_patterns: List of triple pattern strings
+        variables: Set of all variables
+    
+    Returns:
+        List of sets of connected triple patterns
+    """
+    # Extract variables from each triple pattern
+    pattern_vars = []
+    for pattern in triple_patterns:
+        vars_in_pattern = set()
+        for term in pattern.split():
+            if term.startswith('?'):
+                vars_in_pattern.add(term)
+        pattern_vars.append(vars_in_pattern)
+    
+    # Group connected patterns
+    groups = []
+    remaining = set(range(len(triple_patterns)))
+    
+    while remaining:
+        # Start a new group with the first remaining pattern
+        group_indices = {next(iter(remaining))}
+        group_vars = set().union(*[pattern_vars[i] for i in group_indices])
+        
+        # Expand the group
+        changed = True
+        while changed:
+            changed = False
+            for i in list(remaining - group_indices):
+                if pattern_vars[i] & group_vars:
+                    group_indices.add(i)
+                    group_vars.update(pattern_vars[i])
+                    changed = True
+        
+        # Add the group and remove its indices from remaining
+        groups.append(group_indices)
+        remaining -= group_indices
+    
+    return groups
+
+def _regex_check_patterns(query: str) -> Dict[str, Any]:
+    """
+    Fallback regex-based pattern checking for SPARQL queries.
+    
+    Args:
+        query: SPARQL query string
+    
+    Returns:
+        Dict with warnings and suggestions
+    """
+    import re
+    
+    result = {
+        "success": True,
+        "warnings": [],
+        "suggestions": []
+    }
+    
+    # Determine query type
+    if re.search(r'\bSELECT\b', query, re.IGNORECASE):
+        result["query_type"] = "SELECT"
+    elif re.search(r'\bASK\b', query, re.IGNORECASE):
+        result["query_type"] = "ASK"
+    elif re.search(r'\bCONSTRUCT\b', query, re.IGNORECASE):
+        result["query_type"] = "CONSTRUCT"
+    elif re.search(r'\bDESCRIBE\b', query, re.IGNORECASE):
+        result["query_type"] = "DESCRIBE"
+    else:
+        result["query_type"] = "UNKNOWN"
+    
+    # Check for missing LIMIT
+    if result["query_type"] in ["SELECT", "CONSTRUCT"] and not re.search(r'\bLIMIT\b', query, re.IGNORECASE):
+        result["warnings"].append({
+            "type": "missing_limit",
+            "message": "Query does not include a LIMIT clause, which could return too many results",
+            "severity": "medium"
+        })
+        result["suggestions"].append(
+            "Add a LIMIT clause to avoid potentially large result sets."
+        )
+    
+    # Check for variables used in SELECT but not in WHERE
+    if result["query_type"] == "SELECT":
+        # Extract SELECT variables
+        select_vars_match = re.search(r'\bSELECT\b(?:\s+DISTINCT\b)?(.+?)\bWHERE\b', query, re.IGNORECASE | re.DOTALL)
+        if select_vars_match:
+            select_clause = select_vars_match.group(1)
+            select_vars = re.findall(r'\?(\w+)', select_clause)
+            
+            # Find WHERE clause
+            where_match = re.search(r'\bWHERE\s*\{(.+?)\}', query, re.IGNORECASE | re.DOTALL)
+            if where_match:
+                where_clause = where_match.group(1)
+                where_vars = set(re.findall(r'\?(\w+)', where_clause))
+                
+                # Find unbound variables
+                unbound = [f"?{v}" for v in select_vars if v not in where_vars]
+                if unbound:
+                    result["warnings"].append({
+                        "type": "unbound_variables",
+                        "message": f"Variables {', '.join(unbound)} are used in SELECT but not bound in WHERE clause",
+                        "severity": "high"
+                    })
+                    result["suggestions"].append(
+                        f"Add triple patterns that bind {', '.join(unbound)}."
+                    )
+    
+    # Check for literals without FILTERs
+    if re.search(r'[\'"]\w+[\'"]', query) and not re.search(r'\bFILTER\b', query, re.IGNORECASE):
+        result["warnings"].append({
+            "type": "literal_without_filter",
+            "message": "Query contains literals but no FILTER clause, consider using filters for more flexible matching",
+            "severity": "low"
+        })
+        result["suggestions"].append(
+            "Consider using FILTER with regex() or str() functions for flexible literal matching."
+        )
+    
+    return result
+
+# %% ../../63_sparql_tools.ipynb 10
 def generate_query_fixes(
     query: str,
     validation_result: Dict[str, Any],
@@ -143,19 +1057,162 @@ def generate_query_fixes(
 
     Args:
         query: Original SPARQL query string
-        validation_result: Results from validate_query_against_ontology
+        validation_result: Results from validate_query_against_ontology or check_query_patterns
 
     Returns:
-        A corrected SPARQL query string suggestion.
+        A dict with fix suggestions and explanations.
     """
-    raise NotImplementedError
+    if not _HAS_RDFLIB:
+        raise ImportError("RDFLib is required for SPARQL query analysis")
+    
+    result = {
+        "success": True,
+        "needs_fixes": False,
+        "original_query": query,
+        "fixed_query": query,
+        "fix_explanations": [],
+        "guidance": []
+    }
+    
+    # Check if validation result indicates issues to fix
+    has_issues = False
+    
+    # Check for issues from check_query_patterns
+    if "warnings" in validation_result and validation_result.get("warnings"):
+        has_issues = True
+        result["needs_fixes"] = True
+        
+        # Work with a mutable copy of the query
+        fixed_query = query
+        
+        # Apply fixes based on warning types
+        for warning in validation_result["warnings"]:
+            warning_type = warning.get("type", "")
+            message = warning.get("message", "")
+            
+            if warning_type == "missing_limit":
+                # Add a LIMIT clause if missing
+                if not re.search(r'\bLIMIT\b\s+\d+', fixed_query, re.IGNORECASE):
+                    # Find where to insert the LIMIT
+                    if re.search(r'\bORDER\s+BY\b', fixed_query, re.IGNORECASE):
+                        # Insert after ORDER BY clause
+                        fixed_query = re.sub(
+                            r'(\bORDER\s+BY\b.+?)(\s*})$', 
+                            r'\1 LIMIT 100\2', 
+                            fixed_query, 
+                            flags=re.IGNORECASE | re.DOTALL
+                        )
+                    else:
+                        # Insert before the final closing brace
+                        fixed_query = re.sub(
+                            r'(\s*})$', 
+                            r' LIMIT 100\1', 
+                            fixed_query, 
+                            flags=re.DOTALL
+                        )
+                    
+                    result["fix_explanations"].append("Added LIMIT 100 clause to prevent large result sets.")
+                    result["guidance"].append("Adjust the LIMIT value based on how many results you need.")
+            
+            elif warning_type == "unbound_variables":
+                # Specific handling requires more context about the query structure
+                # Just provide guidance for now
+                result["fix_explanations"].append(f"Unbound variables detected: {message}")
+                result["guidance"].append("Add triple patterns in the WHERE clause to bind all variables used in the SELECT clause.")
+            
+            elif warning_type == "cartesian_product":
+                # Guidance only, as fixing requires domain knowledge
+                result["fix_explanations"].append("Cartesian product detected in query.")
+                result["guidance"].append("Add join conditions between disconnected parts of your query to avoid performance issues.")
+            
+            elif warning_type == "literal_without_filter":
+                # Suggest using FILTER with regex for literals
+                literals = re.findall(r'([\'"]\w+[\'"])', fixed_query)
+                if literals:
+                    example_literal = literals[0].strip('\'"')
+                    result["fix_explanations"].append("Fixed literals to use FILTER with case-insensitive matching.")
+                    result["guidance"].append(
+                        f"Consider using patterns like: FILTER(REGEX(str(?var), \"{example_literal}\", \"i\"))"
+                    )
+        
+        # Update the fixed query if changes were made
+        if fixed_query != query:
+            result["fixed_query"] = fixed_query
+    
+    # Check for issues from validate_query_against_ontology
+    if "violations" in validation_result and validation_result.get("violations"):
+        has_issues = True
+        result["needs_fixes"] = True
+        
+        # Process ontology validation issues
+        violations = validation_result.get("violations", [])
+        for violation in violations:
+            # Extract meaningful parts of the violation
+            domain_issue = re.search(r'domain.*?\b(\w+:\w+)\b', violation, re.IGNORECASE)
+            range_issue = re.search(r'range.*?\b(\w+:\w+)\b', violation, re.IGNORECASE)
+            undefined_issue = re.search(r'Property\s+(\S+)\s+is not defined', violation, re.IGNORECASE)
+            
+            if domain_issue:
+                # Domain violation - suggest adding type
+                property_term = domain_issue.group(1)
+                result["fix_explanations"].append(f"Domain violation for {property_term}")
+                result["guidance"].append(f"Add the correct type to subjects using {property_term}.")
+            
+            elif range_issue:
+                # Range violation - suggest adding type
+                property_term = range_issue.group(1)
+                result["fix_explanations"].append(f"Range violation for {property_term}")
+                result["guidance"].append(f"Ensure objects of {property_term} have the correct type.")
+            
+            elif undefined_issue:
+                # Undefined property - suggest alternatives
+                property_term = undefined_issue.group(1)
+                result["fix_explanations"].append(f"Undefined property: {property_term}")
+                result["guidance"].append("Check for typos or use a defined property from the ontology.")
+            
+            else:
+                # Generic violation
+                result["fix_explanations"].append(f"Ontology violation: {violation}")
+                result["guidance"].append("Review the ontology to understand valid property usage patterns.")
+    
+    # If no issues found, note this in the result
+    if not has_issues:
+        result["needs_fixes"] = False
+        result["guidance"].append("No significant issues detected. The query appears to be well-formed.")
+    
+    return result
 
-# %% ../../63_sparql_tools.ipynb 10
+def _fix_limit_clause(query: str) -> str:
+    """Add a LIMIT clause to a SPARQL query if missing."""
+    import re
+    
+    # Check if LIMIT already exists
+    if re.search(r'\bLIMIT\b\s+\d+', query, re.IGNORECASE):
+        return query
+    
+    # Find insertion point (after ORDER BY if present, otherwise before final closing brace)
+    if re.search(r'\bORDER\s+BY\b', query, re.IGNORECASE):
+        return re.sub(
+            r'(\bORDER\s+BY\b.+?)(\s*})$', 
+            r'\1 LIMIT 100\2', 
+            query, 
+            flags=re.IGNORECASE | re.DOTALL
+        )
+    else:
+        return re.sub(
+            r'(\s*})$', 
+            r' LIMIT 100\1', 
+            query, 
+            flags=re.DOTALL
+        )
+
+# %% ../../63_sparql_tools.ipynb 11
 def refine_query_with_ontology(
     query: str,
     ontology_ttl: Optional[str] = None,
     ontology_path: Optional[str] = None,
-) -> str:
+    max_iterations: int = 3
+) -> Dict[str, Any]:
     """
     Iteratively refine a SPARQL query using ontology validation and pattern fixes.
 
@@ -163,8 +1220,92 @@ def refine_query_with_ontology(
         query: SPARQL query string to refine
         ontology_ttl: Ontology in Turtle format as a string
         ontology_path: Path to an ontology file on disk
+        max_iterations: Maximum number of refinement iterations
 
     Returns:
-        A refined SPARQL query string.
+        A dict with the refinement process and results.
     """
-    raise NotImplementedError
+    if not _HAS_RDFLIB:
+        raise ImportError("RDFLib is required for SPARQL query refinement")
+        
+    # Initialize the result structure
+    result = {
+        "success": True,
+        "original_query": query,
+        "refined_query": query,
+        "iterations": [],
+        "is_valid": False,
+        "refinement_complete": False
+    }
+    
+    current_query = query
+    iterations = 0
+    
+    # First, check for syntactic issues with query patterns
+    pattern_check = check_query_patterns(current_query)
+    
+    if pattern_check.get("warnings", []):
+        # Apply syntactic fixes first
+        pattern_fixes = generate_query_fixes(current_query, pattern_check)
+        
+        if pattern_fixes.get("needs_fixes", False):
+            current_query = pattern_fixes.get("fixed_query", current_query)
+            
+            # Record this iteration
+            result["iterations"].append({
+                "type": "pattern_check",
+                "issues_found": len(pattern_check.get("warnings", [])),
+                "fixed_query": current_query,
+                "explanations": pattern_fixes.get("fix_explanations", []),
+                "guidance": pattern_fixes.get("guidance", [])
+            })
+            
+            iterations += 1
+    
+    # Now iterate through ontology-based validation and fixes
+    while iterations < max_iterations:
+        # Validate against ontology
+        validation = validate_query_against_ontology(
+            current_query, 
+            ontology_ttl=ontology_ttl,
+            ontology_path=ontology_path
+        )
+        
+        # Check if validation succeeded
+        if not validation.get("valid", False) and validation.get("violations", []):
+            # Generate fixes based on validation results
+            fixes = generate_query_fixes(current_query, validation)
+            
+            if fixes.get("needs_fixes", False):
+                # Apply the fixes
+                current_query = fixes.get("fixed_query", current_query)
+                
+                # Record this iteration
+                result["iterations"].append({
+                    "type": "ontology_validation",
+                    "issues_found": len(validation.get("violations", [])),
+                    "fixed_query": current_query,
+                    "explanations": fixes.get("fix_explanations", []),
+                    "guidance": fixes.get("guidance", [])
+                })
+                
+                iterations += 1
+            else:
+                # No more fixes needed or possible
+                break
+        else:
+            # Query is valid according to ontology
+            result["is_valid"] = True
+            result["refinement_complete"] = True
+            break
+    
+    # Update the result with final query and status
+    result["refined_query"] = current_query
+    result["iterations_count"] = iterations
+    
+    # If we hit max iterations without completing, note this
+    if iterations >= max_iterations and not result["is_valid"]:
+        result["refinement_complete"] = False
+        result["message"] = f"Reached maximum iterations ({max_iterations}) without fully resolving all issues."
+    
+    return result

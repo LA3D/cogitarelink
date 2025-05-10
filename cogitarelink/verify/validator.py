@@ -19,7 +19,7 @@ try:
     _HAS_SHACL = True
 except ModuleNotFoundError:
     _HAS_SHACL = False
-    log.warning("pySHACL not installed → validator disabled")
+    log.warning("pySHACL not installed â†’ validator disabled")
 
 # %% ../../91_validator.ipynb 5
 def validate_entity(target: Union[Entity, str],
