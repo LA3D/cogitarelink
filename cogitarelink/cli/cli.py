@@ -218,8 +218,3 @@ def cli_main():
     # Default behavior - show help
     parser.print_help()
     return 0
-
-# %% ../../09_cli.ipynb 21
-# Entry point if script is run directly
-if __name__ == "__main__":
-    sys.exit(cli_main())

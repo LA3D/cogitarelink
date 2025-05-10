@@ -14,6 +14,7 @@ from pyshacl import validate
 import uuid
 from ..core.graph import GraphManager
 from ..reason.prov import wrap_patch_with_prov
+from ..core.debug import get_logger
 from cogitarelink.core.temporal import (
     TimeInstant, TimeInterval, Event, InstantReification, 
     IntervalReification, LifespanReification, Namespaces,

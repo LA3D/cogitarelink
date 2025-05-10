@@ -11,6 +11,7 @@ from rdflib.namespace import RDF, RDFS, OWL, XSD, TIME
 from pyshacl import validate
 from enum import Enum
 from .graph import GraphManager
+from .debug import get_logger
 from ..reason.prov import wrap_patch_with_prov
 
 # %% auto 0

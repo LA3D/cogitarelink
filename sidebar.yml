@@ -2,9 +2,27 @@ website:
   sidebar:
     contents:
       - index.ipynb
-      - 01_vocabularytools.ipynb
-      - 02_retriever.ipynb
-      - 03_memory.ipynb
-      - 04_memorytools.ipynb
-      - 08_utils.ipynb
-      - 99_memory_dep.ipynb
+      - 00_debug.ipynb
+      - 01_cache.ipynb
+      - 02_registry.ipynb
+      - 03_collision.ipynb
+      - 04_composer.ipynb
+      - 05_context.ipynb
+      - 06_entity.ipynb
+      - 07_graph.ipynb
+      - 08_processor.ipynb
+      - 09_cli.ipynb
+      - 09a_vocab_tools.ipynb
+      - 10_agent_cli.ipynb
+      - 60_afford.ipynb
+      - 61_sandbox.ipynb
+      - 62_obqc.ipynb
+      - 63_sparql_tools.ipynb
+      - 70_tool_reason.ipynb
+      - 71_micro_tests.ipynb
+      - 72_temporal_reasoning_tests.ipynb
+      - 73_temporal_llm_integration.ipynb
+      - 90_signer.ipynb
+      - 91_validator.ipynb
+      - 92_prov.ipynb
+      - 99_utils.ipynb

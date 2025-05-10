@@ -11,9 +11,12 @@ from typing import Dict, List, Any, Callable, Optional, Union
 from pathlib import Path
 from .cli import Agent
 from ..core.debug import *
+from ..core.debug import get_logger
+
+log = get_logger("cli.agent_cli")
 
 # %% auto 0
-__all__ = ['AgentCLI', 'agent_cli_main']
+__all__ = ['log', 'AgentCLI', 'agent_cli_main']
 
 # %% ../../10_agent_cli.ipynb 3
 __all__ = ['AgentCLI', 'agent_cli_main']
@@ -506,7 +509,4 @@ def agent_cli_main():
     print("\n" + json.dumps(help_guidance, indent=2))
     return 0
 
-# %% ../../10_agent_cli.ipynb 11
-# Entry point if script is run directly
-if __name__ == "__main__":
-    sys.exit(agent_cli_main())
+
