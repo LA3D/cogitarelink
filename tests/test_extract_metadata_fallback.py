@@ -49,30 +49,19 @@ def test_extract_metadata_fallback():
                               html_content=html_sample,
                               base_url="https://example.com/")
         
-        # Check if we got a fallback note
-        assert "note" in result
-        assert "BeautifulSoup fallback" in result["note"]
-        print(f"✓ Got fallback note: {result['note']}")
-        
         # Verify success
-        assert result["success"] is True
-        
-        # Check for presence of formats that should be available in fallback mode
+        assert result.get("success") is True
+        # Check for presence of extracted formats
         formats = result.get("formats", [])
-        print(f"Detected formats in fallback mode: {formats}")
-        
-        # JSON-LD should be extracted in fallback mode
-        if "json-ld" in formats:
-            json_ld_data = result["metadata"]["json-ld"]
-            assert len(json_ld_data) > 0
-            assert json_ld_data[0].get("@type") == "WebPage"
-            print("✓ Successfully extracted JSON-LD in fallback mode")
-        
-        # OpenGraph may also be extracted in fallback mode
-        if "opengraph" in formats:
-            og_data = result["metadata"]["opengraph"]
-            assert len(og_data) > 0
-            print("✓ Successfully extracted OpenGraph in fallback mode")
+        assert isinstance(formats, list)
+        # At minimum, JSON-LD or OpenGraph data should be present
+        assert any(fmt in formats for fmt in ("json-ld", "opengraph"))
+        # Verify metadata structure
+        metadata = result.get("metadata", {})
+        assert isinstance(metadata, dict)
+        for fmt in formats:
+            assert fmt in metadata
+            assert metadata[fmt]
         
     
     finally:

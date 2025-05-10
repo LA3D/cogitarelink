@@ -1,272 +1,98 @@
 import pytest
-from rdflib import Graph, URIRef, Literal
-from cogitarelink.tools.sparql import sparql_parser_tools, sparql_validator_tools
-from cogitarelink.tools.sparql import SPARQLToolAgent
+import json
+from cogitarelink.tools.sparql import sparql_query, sparql_discover, ld_fetch, sparql_json_to_jsonld
 
-# Test ontology in Turtle format
-test_ontology = """
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix owl: <http://www.w3.org/2002/07/owl#> .
-@prefix schema: <https://schema.org/> .
-@prefix ex: <http://example.org/> .
 
-# Classes
-ex:Person a rdfs:Class .
-ex:Book a rdfs:Class .
-ex:Organization a rdfs:Class .
-
-# Properties
-ex:name a rdf:Property ;
-    rdfs:domain ex:Person ;
-    rdfs:range rdfs:Literal .
-
-ex:author a rdf:Property ;
-    rdfs:domain ex:Book ;
-    rdfs:range ex:Person .
-
-ex:publisher a rdf:Property ;
-    rdfs:domain ex:Book ;
-    rdfs:range ex:Organization .
-
-ex:worksFor a rdf:Property ;
-    rdfs:domain ex:Person ;
-    rdfs:range ex:Organization .
-
-# Property with multiple domains
-ex:title a rdf:Property ;
-    schema:domainIncludes ex:Book ;
-    schema:domainIncludes ex:Organization ;
-    rdfs:range rdfs:Literal .
-"""
-
-# Test data for local query execution
-test_data = """
-@prefix ex: <http://example.org/> .
-
-ex:john a ex:Person ;
-    ex:name "John Smith" ;
-    ex:worksFor ex:CompanyA .
-
-ex:mary a ex:Person ;
-    ex:name "Mary Jones" ;
-    ex:worksFor ex:CompanyB .
-
-ex:book1 a ex:Book ;
-    ex:title "SPARQL for Beginners" ;
-    ex:author ex:john .
-
-ex:CompanyA a ex:Organization ;
-    ex:title "Company A" .
-
-ex:CompanyB a ex:Organization ;
-    ex:title "Company B" .
-"""
-
-def test_parse_sparql_query():
-    """Test that the SPARQL query parser correctly extracts components."""
-    parser_tools = sparql_parser_tools()
-    
-    # Test a simple query
-    query = """
-    PREFIX ex: <http://example.org/>
-    SELECT ?person ?name
-    WHERE {
-        ?person a ex:Person .
-        ?person ex:name ?name .
+def test_sparql_json_to_jsonld_minimal():
+    sample = {
+        "head": {"vars": ["s"]},
+        "results": {"bindings": [
+            {"s": {"type": "uri", "value": "http://example.org/foo"}}
+        ]}
     }
-    """
-    
-    result = parser_tools["parse_sparql_query"](query)
-    
-    # Check basic structure
-    assert result["success"] == True
-    assert result["query_type"] in ["SelectQuery", "Select"]
-    assert "?person" in result["variables"]
-    assert "?name" in result["variables"]
-    
-    # Check prefix extraction
-    assert "ex" in result["prefixes"]
-    assert result["prefixes"]["ex"] == "http://example.org/"
-    
-    # Check BGP extraction
-    assert len(result["bgps"]) >= 2  # At least two triple patterns
-    
-    # Find the name pattern
-    name_pattern = None
-    for triple in result["bgps"]:
-        if triple["predicate"] == "ex:name":
-            name_pattern = triple
-            break
-    
-    assert name_pattern is not None
-    assert name_pattern["subject"].startswith("?")
-    assert name_pattern["object"].startswith("?")
+    out = sparql_json_to_jsonld(sample, base_uri="urn:test")
+    doc = json.loads(out)
+    assert isinstance(doc, dict)
+    assert "@graph" in doc
+    graph = doc["@graph"]
+    assert isinstance(graph, list) and len(graph) == 1
+    row = graph[0]
+    # Check that variable 's' became @id
+    assert "s" in row
+    assert isinstance(row["s"], dict)
+    assert row["s"].get("@id") == "http://example.org/foo"
 
-def test_build_graph_from_query():
-    """Test that a SPARQL query is correctly converted to an RDF graph."""
-    parser_tools = sparql_parser_tools()
-    
-    query = """
-    PREFIX ex: <http://example.org/>
-    SELECT ?book ?author
-    WHERE {
-        ?book a ex:Book .
-        ?book ex:author ?author .
-        ?author a ex:Person .
-    }
-    """
-    
-    result = parser_tools["build_graph_from_query"](query)
-    
-    # Check success
-    assert result["success"] == True
-    
-    # Check that we got a JSON-LD graph
-    assert "jsonld" in result
-    assert isinstance(result["jsonld"], dict)
-    
-    # Check that we have the right number of triples
-    assert result["triples_count"] >= 5  # 3 from the query + 2 for variable types
 
-def test_validate_query_against_ontology():
-    """Test that SPARQL query validation correctly identifies issues."""
-    validator_tools = sparql_validator_tools()
-    
-    # Test a valid query
-    valid_query = """
-    PREFIX ex: <http://example.org/>
-    SELECT ?person ?name
-    WHERE {
-        ?person a ex:Person .
-        ?person ex:name ?name .
-    }
-    """
-    
-    valid_result = validator_tools["validate_query_against_ontology"](valid_query, test_ontology)
-    assert valid_result["valid"] == True
-    assert valid_result["violations_count"] == 0
-    
-    # Test a domain violation
-    invalid_query = """
-    PREFIX ex: <http://example.org/>
-    SELECT ?book ?name
-    WHERE {
-        ?book a ex:Book .
-        ?book ex:name ?name .  # ex:name is only for ex:Person
-    }
-    """
-    
-    invalid_result = validator_tools["validate_query_against_ontology"](invalid_query, test_ontology)
-    assert invalid_result["valid"] == False
-    assert invalid_result["violations_count"] > 0
-    assert any("domain" in v.lower() for v in invalid_result["violations"])
+@pytest.mark.parametrize("endpoint,uri,expected_type", [
+    ("https://dbpedia.org/sparql",
+     "<http://dbpedia.org/resource/Douglas_Adams>",
+     "DBpedia"),
+    ("https://query.wikidata.org/sparql",
+     "<http://www.wikidata.org/entity/Q42>",
+     "Wikidata"),
+])
+def test_ask_and_select_queries(endpoint, uri, expected_type):
+    # Test ASK
+    ask_q = f"ASK {{ {uri} ?p ?o }}"
+    try:
+        res = sparql_query(endpoint, ask_q, query_type="ASK")
+    except Exception as e:
+        pytest.skip(f"ASK query to {endpoint} failed: {e}")
+    assert res.get("success") is True
+    assert isinstance(res.get("result"), bool)
 
-def test_generate_query_fixes():
-    """Test that the system can generate fixes for invalid queries."""
-    validator_tools = sparql_validator_tools()
-    
-    # First validate a query with issues
-    query = """
-    PREFIX ex: <http://example.org/>
-    SELECT ?book ?name
-    WHERE {
-        ?book a ex:Book .
-        ?book ex:name ?name .  # ex:name is only for ex:Person
-    }
-    """
-    
-    validation = validator_tools["validate_query_against_ontology"](query, test_ontology)
-    
-    # Now generate fixes
-    fixes = validator_tools["generate_query_fixes"](query, validation)
-    
-    # Check that we got a response
-    assert fixes["success"] == True
-    assert fixes["needs_fixes"] == True
-    
-    # Check that we got some guidance
-    assert len(fixes["fix_explanations"]) > 0
-    assert len(fixes["guidance"]) > 0
+    # Test SELECT
+    select_q = f"SELECT ?p WHERE {{ {uri} ?p ?o }} LIMIT 1"
+    try:
+        res2 = sparql_query(endpoint, select_q, query_type="SELECT")
+    except Exception as e:
+        pytest.skip(f"SELECT query to {endpoint} failed: {e}")
+    assert res2.get("success") is True
+    results = res2.get("results")
+    assert isinstance(results, list)
+    # may be empty if no triples, but should be a list
 
-def test_check_query_patterns():
-    """Test that common SPARQL pattern issues are detected."""
-    validator_tools = sparql_validator_tools()
-    
-    # Test a query with potential cartesian product
-    query = """
-    PREFIX ex: <http://example.org/>
-    SELECT ?person ?title
-    WHERE {
-        ?person a ex:Person .
-        ?book ex:title ?title .  # ?book only appears once, not connected to ?person
-    }
-    """
-    
-    result = validator_tools["check_query_patterns"](query)
-    
-    # Check that we identified some warnings
-    assert result["success"] == True
-    assert len(result["warnings"]) > 0 or len(result["issues"]) > 0
 
-def test_execute_local_query():
-    """Test executing a SPARQL query against a local graph."""
-    from cogitarelink.tools.sparql import sparql_execution_tools
-    execution_tools = sparql_execution_tools()
-    
-    # Test a simple SELECT query
-    query = """
-    PREFIX ex: <http://example.org/>
-    SELECT ?person ?name
-    WHERE {
-        ?person a ex:Person .
-        ?person ex:name ?name .
-    }
-    """
-    
-    result = execution_tools["execute_local_query"](query, test_data)
-    
-    # Check success and results
-    assert result["success"] == True
-    assert result["query_type"] == "SELECT"
-    assert len(result["results"]) == 2  # We have two persons in our test data
-    
-    # Check that we got both John and Mary
-    names = [row["name"] for row in result["results"]]
-    assert any("John" in name for name in names)
-    assert any("Mary" in name for name in names)
-
-def test_sparql_tool_agent():
-    """Test the complete SPARQL tool agent workflow."""
-    agent = SPARQLToolAgent()
-    
-    # Test the refinement workflow (assumes mock validation - we won't test real refinement here)
-    query = """
-    PREFIX ex: <http://example.org/>
-    SELECT ?book ?name
-    WHERE {
-        ?book a ex:Book .
-        ?book ex:name ?name .  # ex:name is only for ex:Person
-    }
-    """
-    
-    # Execute a local query
-    result = agent.end_to_end_query(
-        query=query, 
-        data_graph=test_data,
-        ontology_ttl=test_ontology,
-        validate_first=True,
-        auto_refine=True
+def test_construct_no_store():
+    endpoint = "https://dbpedia.org/sparql"
+    uri = "<http://dbpedia.org/resource/Douglas_Adams>"
+    q = (
+        f"CONSTRUCT {{ {uri} a ?type }} "
+        f"WHERE {{ {uri} a ?type }} LIMIT 1"
     )
-    
-    # Check that we completed the workflow
-    assert "workflow" in result
-    assert len(result["workflow"]) >= 2  # At least validation and execution steps
-    
-    # Check that validation step was included
-    validation_step = next((step for step in result["workflow"] if step["step"] == "validation"), None)
-    assert validation_step is not None
-    
-    # Check that execution step was included
-    execution_step = next((step for step in result["workflow"] if step["step"] == "execution"), None)
-    assert execution_step is not None
+    try:
+        res = sparql_query(endpoint, q, query_type="CONSTRUCT", result_format="turtle", store_result=False)
+    except Exception as e:
+        pytest.skip(f"CONSTRUCT query to {endpoint} failed: {e}")
+    assert res.get("success") is True
+    data = res.get("data")
+    assert isinstance(data, str)
+    # should contain the URI
+    assert "Douglas_Adams" in data
+
+
+def test_ld_fetch_wikidata_jsonld():
+    uri = "https://www.wikidata.org/wiki/Special:EntityData/Q42.jsonld"
+    try:
+        res = ld_fetch(uri, result_format="json-ld", store_result=False)
+    except Exception as e:
+        pytest.skip(f"ld_fetch to {uri} failed: {e}")
+    assert res.get("success") is True
+    data = res.get("data")
+    assert isinstance(data, str)
+    # Should be valid JSON
+    doc = json.loads(data)
+    assert isinstance(doc, (dict, list))
+
+
+def test_sparql_discover_introspection():
+    endpoint = "https://qlever.cs.uni-freiburg.de/api/wikidata"
+    try:
+        res = sparql_discover(endpoint)
+    except Exception as e:
+        pytest.skip(f"sparql_discover to {endpoint} failed: {e}")
+    assert res.get("endpoint") == endpoint
+    preds = res.get("predicates")
+    assert isinstance(preds, list)
+    # Should discover at least one predicate
+    assert len(preds) >= 1

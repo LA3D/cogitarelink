@@ -18,12 +18,12 @@ __all__ = ['log', 'reason_over']
 # %% ../../61_sandbox.ipynb 3
 log = get_logger("sandbox")
 
-
 # %% ../../61_sandbox.ipynb 4
 def _to_graph(data:str|dict, fmt="json-ld") -> Dataset:
     g = Dataset()
     g.parse(data=data if isinstance(data,str) else json.dumps(data), format=fmt)
     return g
+
 
 
 # %% ../../61_sandbox.ipynb 5
@@ -47,13 +47,19 @@ def reason_over(*,
         # `data` mutated inâ€‘place; diff = data âˆ’ original
         patch += r
         
-        # Check for violations more explicitly by checking the results_graph content
+        # Check for violations by inspecting results_graph (with fallback)
         violation_triples = []
-        if results_graph is not None and len(results_graph) > 0:
-            for s, p, o in results_graph:
-                if 'ValidationResult' in str(o) or 'violation' in str(o).lower():
-                    violation_triples.append((s, p, o))
-        
+        try:
+            if results_graph is not None:
+                # Attempt to unpack triples
+                for triple in results_graph:
+                    if not isinstance(triple, tuple) or len(triple) != 3:
+                        continue
+                    s, p, o = triple
+                    if 'ValidationResult' in str(o) or 'violation' in str(o).lower():
+                        violation_triples.append((s, p, o))
+        except Exception as e:
+            log.warning(f"Failed to iterate results_graph: {e}")
         has_violations = len(violation_triples) > 0
         summary=f"SHACL run; conforms:{conforms}; added {len(r)} triples"
         

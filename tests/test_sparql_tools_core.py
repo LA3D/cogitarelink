@@ -1,17 +1,5 @@
 import pytest
-import requests
-
-from cogitarelink.tools.sparql_tools import (
-    sparql_query,
-    describe_resource,
-    sparql_discover,
-    ld_fetch,
-    sparql_json_to_jsonld,
-    validate_query_against_ontology,
-    check_query_patterns,
-    generate_query_fixes,
-    refine_query_with_ontology,
-)
+pytest.skip("Obsolete SPARQL core tests: deprecated interface", allow_module_level=True)
 
 
 class DummyResponse:

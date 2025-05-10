@@ -4,91 +4,35 @@
 
 # %% ../../63_sparql_tools.ipynb 2
 from __future__ import annotations
-import os
 import json
 import re
 import httpx
 from typing import Dict, List, Any, Optional, Union, Tuple, Callable
-from urllib.parse import urlparse
-
-try:
-    from rdflib import Graph, RDF, RDFS, URIRef, Literal, Namespace, Dataset
-    from rdflib.plugins.sparql import prepareQuery
-    from rdflib.plugins.sparql.parser import parseQuery
-    from rdflib.plugins.sparql.algebra import translateQuery
-    from sparqlwrapper import SPARQLWrapper, JSON, XML, CSV, TSV
-    _HAS_RDFLIB = True
-except ImportError:
-    _HAS_RDFLIB = False
-
-from ..core.debug import get_logger
+from rdflib import Graph
+from rdflib.namespace import RDF
+from ..reason.prov import wrap_patch_with_prov
 from ..core.graph import GraphManager
+_HAS_RDFLIB = True
+
+#| export
+from ..core.debug import get_logger
 
 # %% auto 0
-__all__ = ['log', 'parse_sparql_query', 'build_graph_from_query', 'sparql_parser_tools', 'sparql_validator_tools',
-           'sparql_execution_tools', 'SPARQLToolAgent', 'sparql_query', 'ld_fetch', 'sparql_json_to_jsonld',
-           'sparql_discover', 'check_query_patterns', 'generate_query_fixes', 'refine_query_with_ontology']
+__all__ = [
+    'log',
+    'sparql_query',
+    'ld_fetch',
+    'sparql_json_to_jsonld',
+    'sparql_discover'
+]
 
 # %% ../../63_sparql_tools.ipynb 3
 log = get_logger("sparql")
 
 # %% ../../63_sparql_tools.ipynb 4
-from ..reason.obqc import _parse_sparql_query, _bgp_to_graph
-import json
-from rdflib import Graph
-import cogitarelink.tools.sparql as _sp
-from .sparql_tools import validate_query_against_ontology
-
-def parse_sparql_query(q:str)->dict:
-    return _parse_sparql_query(q)
-
-def build_graph_from_query(q:str)->dict:
-    g = _bgp_to_graph(q)
-    jsonld = json.loads(g.serialize(format='json-ld'))
-    return {'success':True, 'jsonld':jsonld, 'triples_count':len(g)}
-
-def sparql_parser_tools():
-    return {
-        'parse_sparql_query': parse_sparql_query,
-        'build_graph_from_query': build_graph_from_query
-    }
-
-def sparql_validator_tools():
-    return {
-        'validate_query_against_ontology': validate_query_against_ontology,
-        'check_query_patterns': _sp.check_query_patterns,
-        'generate_query_fixes': _sp.generate_query_fixes,
-        'refine_query_with_ontology': _sp.refine_query_with_ontology
-    }
-
-def sparql_execution_tools():
-    def execute_local_query(q:str, ttl:str)->dict:
-        g = Graph().parse(data=ttl, format='turtle')
-        res = g.query(q)
-        return {'success':True, 'query_type':'SELECT',
-                'results':[ {str(v):str(row[v]) for v in row.labels} for row in res ]}
-    return {'execute_local_query': execute_local_query}
-
-class SPARQLToolAgent:
-    def __init__(self):
-        self.parsers = sparql_parser_tools()
-        self.validators = sparql_validator_tools()
-        self.execs = sparql_execution_tools()
-    def end_to_end_query(self, query, data_graph,
-                        ontology_ttl=None,
-                        validate_first=False,
-                        auto_refine=False):
-        workflow, q = [], query
-        if validate_first:
-            v = self.validators['validate_query_against_ontology'](q, ontology_ttl)
-            workflow.append({'step':'validation','result':v})
-            if auto_refine:
-                r = self.validators['refine_query_with_ontology'](q, ontology_ttl)
-                q = r.get('refined_query',q)
-                workflow.append({'step':'refinement','result':r})
-        exec_res = self.execs['execute_local_query'](q, data_graph)
-        workflow.append({'step':'execution','result':exec_res})
-        return {'workflow':workflow}
+"""
+Core SPARQL tools: sparql_query, ld_fetch, sparql_discover, sparql_json_to_jsonld.
+"""
 
 # %% ../../63_sparql_tools.ipynb 5
 def sparql_query(
@@ -405,8 +349,6 @@ def sparql_json_to_jsonld(
     Returns:
         A JSON-LD string representing the result set.
     """
-    if not _HAS_RDFLIB:
-        raise ImportError("RDFLib is required for JSON-LD processing")
     
     import json
     from datetime import datetime
@@ -511,54 +453,24 @@ def sparql_json_to_jsonld(
 # %% ../../63_sparql_tools.ipynb 8
 def sparql_discover(
     endpoint_url: str,
-    method: str = "all",
     timeout: int = 30,
 ) -> Dict[str, Any]:
     """
-    Discover SPARQL endpoint capabilities via VoID, Service Description, and introspection.
-
-    Args:
-        endpoint_url: URL of the SPARQL endpoint
-        method: One of 'void', 'service-description', 'introspection', or 'all'
-        timeout: HTTP request timeout in seconds
-
-    Returns:
-        A dict with endpoint metadata, prefixes, and sample datasets.
+    Discover a small sample of predicates via a lightweight SPARQL introspection query.
     """
-    if not _HAS_RDFLIB:
-        raise ImportError("RDFLib is required for SPARQL endpoint discovery")
-    
-    result = {
-        "endpoint": endpoint_url,
-        "success": False,
-        "method": method,
-        "prefixes": {}
-    }
-    
-    # Try discovery methods based on the requested method
-    if method in ('void', 'all'):
-        void_result = _discover_void(endpoint_url, timeout)
-        if void_result:
-            result.update(void_result)
-            result["success"] = True
-    
-    if method in ('service-description', 'all'):
-        service_result = _discover_service_description(endpoint_url, timeout)
-        if service_result:
-            result.update(service_result)
-            result["success"] = True
-    
-    if method in ('introspection', 'all'):
-        introspection_result = _discover_introspection(endpoint_url, timeout)
-        if introspection_result:
-            result.update(introspection_result)
-            result["success"] = True
-    
-    # Extract common prefixes
-    if 'sample_predicates' in result:
-        result['prefixes'].update(_extract_prefixes_from_uris(result['sample_predicates']))
-    
-    return result
+    introspect = (
+        "SELECT DISTINCT ?p WHERE { ?s ?p ?o } LIMIT 20"
+    )
+    res = sparql_query(
+        endpoint_url=endpoint_url,
+        query=introspect,
+        query_type="SELECT",
+        result_format="json",
+        store_result=False,
+        timeout=timeout
+    )
+    preds = [b.get("p", {}).get("value") for b in res.get("results", [])]
+    return {"endpoint": endpoint_url, "predicates": preds}
 
 def _discover_void(endpoint_url: str, timeout: int) -> Optional[Dict[str, Any]]:
     """Discover endpoint using VoID description."""
@@ -733,319 +645,53 @@ def _discover_introspection(endpoint_url: str, timeout: int) -> Optional[Dict[st
         log.warning(f"Introspection discovery failed: {str(e)}")
         return None
 
-def _extract_prefixes_from_uris(uris: List[str]) -> Dict[str, str]:
-    """Extract common namespace prefixes from URIs."""
-    from urllib.parse import urlparse
-    
-    # Common prefixes to look for
-    known_prefixes = {
-        "http://www.w3.org/1999/02/22-rdf-syntax-ns#": "rdf",
-        "http://www.w3.org/2000/01/rdf-schema#": "rdfs",
-        "http://www.w3.org/2001/XMLSchema#": "xsd",
-        "http://www.w3.org/2004/02/skos/core#": "skos",
-        "http://www.w3.org/ns/prov#": "prov",
-        "http://schema.org/": "schema",
-        "http://purl.org/dc/terms/": "dcterms",
-        "http://purl.org/dc/elements/1.1/": "dc",
-        "http://xmlns.com/foaf/0.1/": "foaf",
-        "http://www.wikidata.org/entity/": "wd",
-        "http://www.wikidata.org/prop/direct/": "wdt",
-        "http://www.wikidata.org/prop/": "p",
-        "http://www.wikidata.org/prop/statement/": "ps",
-        "http://www.wikidata.org/prop/qualifier/": "pq"
-    }
-    
-    prefixes = {}
-    
-    # Check each URI against known prefixes
-    for uri in uris:
-        for namespace, prefix in known_prefixes.items():
-            if uri.startswith(namespace):
-                prefixes[prefix] = namespace
-    
-    # Try to derive other prefixes from URI patterns
-    namespace_counts = {}
-    for uri in uris:
-        if '#' in uri:
-            namespace = uri.split('#')[0] + '#'
-            namespace_counts[namespace] = namespace_counts.get(namespace, 0) + 1
-        else:
-            # Take up to the last path segment
-            parts = uri.split('/')
-            if len(parts) > 3:  # More than just http://domain
-                namespace = '/'.join(parts[:-1]) + '/'
-                namespace_counts[namespace] = namespace_counts.get(namespace, 0) + 1
-    
-    # Add common namespaces that appear multiple times
-    for namespace, count in namespace_counts.items():
-        if count >= 3 and namespace not in known_prefixes.values():
-            # Generate a prefix from the domain name
-            domain = urlparse(namespace).netloc.split('.')[-2]
-            if domain and domain not in prefixes:
-                prefixes[domain] = namespace
-    
-    return prefixes
+ # Prefix extraction helper removed: agents should derive prefixes at runtime if needed
 
 # %% ../../63_sparql_tools.ipynb 9
-def check_query_patterns(
-    query: str,
-) -> Dict[str, Any]:
+def check_query_patterns(query: str) -> Dict[str, Any]:
     """
-    Quick lint checks for SPARQL query patterns (unbound vars, missing LIMIT, etc.).
-
-    Args:
-        query: SPARQL query string
-
-    Returns:
-        A dict with detected pattern issues.
+    Basic syntax and safety checks for a SPARQL query.
+    Uses RDFlib to validate syntax, and warns if SELECT/CONSTRUCT queries lack a LIMIT.
     """
     if not _HAS_RDFLIB:
         raise ImportError("RDFLib is required for SPARQL query analysis")
-    
-    # Parse the query to extract its components
+    from rdflib.plugins.sparql.parser import parseQuery
     try:
-        from rdflib.plugins.sparql.parser import parseQuery
-        from rdflib.plugins.sparql.algebra import translateQuery
-        
-        parsed_query = parseQuery(query)
-        algebra = translateQuery(parsed_query)
-        
-        # Extract query type
-        query_type = algebra.name  # e.g., "SelectQuery", "AskQuery", etc.
-        
-        # Initialize results structure
-        result = {
-            "success": True,
-            "query_type": query_type,
-            "warnings": [],
-            "suggestions": []
-        }
-        
-        # Check for common patterns/issues
-        variables = set()
-        bound_variables = set()
-        triple_patterns = []
-        
-        # Extract variables and triple patterns
-        if hasattr(algebra, 'PV'):
-            variables = set(str(v) for v in algebra.PV)
-        
-        # Extract triple patterns and record bound variables
-        _extract_patterns_and_bindings(algebra, triple_patterns, bound_variables)
-        
-        # Check 1: Unbound variables
-        unbound_vars = variables - bound_variables
-        if unbound_vars:
-            result["warnings"].append({
-                "type": "unbound_variables",
-                "message": f"Variables {', '.join(unbound_vars)} are used in projection but not bound in any triple pattern",
-                "severity": "high"
-            })
-            result["suggestions"].append(
-                f"Add triple patterns that bind {', '.join(unbound_vars)}."
-            )
-        
-        # Check 2: Cartesian products
-        if len(triple_patterns) > 1:
-            groups = _find_connected_groups(triple_patterns, variables)
-            if len(groups) > 1:
-                result["warnings"].append({
-                    "type": "cartesian_product",
-                    "message": f"Query contains a Cartesian product with {len(groups)} disjoint groups",
-                    "severity": "high"
-                })
-                result["suggestions"].append(
-                    "Add joins between the disjoint groups to prevent Cartesian products."
-                )
-        
-        # Check 3: Missing LIMIT in SELECT/CONSTRUCT queries
-        if query_type in ["SelectQuery", "ConstructQuery"] and "LIMIT" not in query.upper():
-            result["warnings"].append({
+        # Syntax validation
+        parseQuery(query)
+        # Determine query type
+        qt = "UNKNOWN"
+        if re.search(r"\bSELECT\b", query, re.IGNORECASE):
+            qt = "SELECT"
+        elif re.search(r"\bASK\b", query, re.IGNORECASE):
+            qt = "ASK"
+        elif re.search(r"\bCONSTRUCT\b", query, re.IGNORECASE):
+            qt = "CONSTRUCT"
+        elif re.search(r"\bDESCRIBE\b", query, re.IGNORECASE):
+            qt = "DESCRIBE"
+        # Prepare response
+        warnings: List[Dict[str, Any]] = []
+        suggestions: List[str] = []
+        if qt in ("SELECT", "CONSTRUCT") and "LIMIT" not in query.upper():
+            warnings.append({
                 "type": "missing_limit",
                 "message": "Query does not include a LIMIT clause, which could return too many results",
                 "severity": "medium"
             })
-            result["suggestions"].append(
-                "Add a LIMIT clause to avoid potentially large result sets."
-            )
-        
-        # Check 4: Missing filters for literals
-        has_literals = any("\"" in tp or "'" in tp for tp in triple_patterns)
-        has_filters = "FILTER" in query.upper()
-        if has_literals and not has_filters:
-            result["warnings"].append({
-                "type": "literal_without_filter",
-                "message": "Query contains literals but no FILTER clause, consider using filters for more flexible matching",
-                "severity": "low"
-            })
-            result["suggestions"].append(
-                "Consider using FILTER with regex() or str() functions for flexible literal matching."
-            )
-        
-        return result
-    
+            suggestions.append("Add a LIMIT clause to avoid potentially large result sets.")
+        return {
+            "success": True,
+            "query_type": qt,
+            "warnings": warnings,
+            "suggestions": suggestions
+        }
     except Exception as e:
-        # Fall back to regex-based analysis for simpler checks
-        return _regex_check_patterns(query)
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
-def _extract_patterns_and_bindings(algebra, triple_patterns, bound_variables):
-    """
-    Recursively extract triple patterns and bound variables from SPARQL algebra.
-    
-    Args:
-        algebra: SPARQL algebra node
-        triple_patterns: List to collect triple patterns
-        bound_variables: Set to collect bound variables
-    """
-    # Basic Graph Pattern
-    if hasattr(algebra, 'triples') and algebra.__class__.__name__ == 'BGP':
-        for s, p, o in algebra.triples:
-            triple_str = f"{s} {p} {o}"
-            triple_patterns.append(triple_str)
-            
-            # Record bound variables
-            for term in (s, p, o):
-                if str(term).startswith('?'):
-                    bound_variables.add(str(term))
-    
-    # Explore nested patterns
-    if hasattr(algebra, 'p'):
-        _extract_patterns_and_bindings(algebra.p, triple_patterns, bound_variables)
-    
-    # Binary operations (like Join, LeftJoin, Union)
-    if hasattr(algebra, 'p1') and hasattr(algebra, 'p2'):
-        _extract_patterns_and_bindings(algebra.p1, triple_patterns, bound_variables)
-        _extract_patterns_and_bindings(algebra.p2, triple_patterns, bound_variables)
-    
-    # Group patterns
-    if hasattr(algebra, 'p') and isinstance(algebra.p, list):
-        for pattern in algebra.p:
-            _extract_patterns_and_bindings(pattern, triple_patterns, bound_variables)
 
-def _find_connected_groups(triple_patterns, variables):
-    """
-    Find connected groups of triple patterns to detect Cartesian products.
-    
-    Args:
-        triple_patterns: List of triple pattern strings
-        variables: Set of all variables
-    
-    Returns:
-        List of sets of connected triple patterns
-    """
-    # Extract variables from each triple pattern
-    pattern_vars = []
-    for pattern in triple_patterns:
-        vars_in_pattern = set()
-        for term in pattern.split():
-            if term.startswith('?'):
-                vars_in_pattern.add(term)
-        pattern_vars.append(vars_in_pattern)
-    
-    # Group connected patterns
-    groups = []
-    remaining = set(range(len(triple_patterns)))
-    
-    while remaining:
-        # Start a new group with the first remaining pattern
-        group_indices = {next(iter(remaining))}
-        group_vars = set().union(*[pattern_vars[i] for i in group_indices])
-        
-        # Expand the group
-        changed = True
-        while changed:
-            changed = False
-            for i in list(remaining - group_indices):
-                if pattern_vars[i] & group_vars:
-                    group_indices.add(i)
-                    group_vars.update(pattern_vars[i])
-                    changed = True
-        
-        # Add the group and remove its indices from remaining
-        groups.append(group_indices)
-        remaining -= group_indices
-    
-    return groups
-
-def _regex_check_patterns(query: str) -> Dict[str, Any]:
-    """
-    Fallback regex-based pattern checking for SPARQL queries.
-    
-    Args:
-        query: SPARQL query string
-    
-    Returns:
-        Dict with warnings and suggestions
-    """
-    import re
-    
-    result = {
-        "success": True,
-        "warnings": [],
-        "suggestions": []
-    }
-    
-    # Determine query type
-    if re.search(r'\bSELECT\b', query, re.IGNORECASE):
-        result["query_type"] = "SELECT"
-    elif re.search(r'\bASK\b', query, re.IGNORECASE):
-        result["query_type"] = "ASK"
-    elif re.search(r'\bCONSTRUCT\b', query, re.IGNORECASE):
-        result["query_type"] = "CONSTRUCT"
-    elif re.search(r'\bDESCRIBE\b', query, re.IGNORECASE):
-        result["query_type"] = "DESCRIBE"
-    else:
-        result["query_type"] = "UNKNOWN"
-    
-    # Check for missing LIMIT
-    if result["query_type"] in ["SELECT", "CONSTRUCT"] and not re.search(r'\bLIMIT\b', query, re.IGNORECASE):
-        result["warnings"].append({
-            "type": "missing_limit",
-            "message": "Query does not include a LIMIT clause, which could return too many results",
-            "severity": "medium"
-        })
-        result["suggestions"].append(
-            "Add a LIMIT clause to avoid potentially large result sets."
-        )
-    
-    # Check for variables used in SELECT but not in WHERE
-    if result["query_type"] == "SELECT":
-        # Extract SELECT variables
-        select_vars_match = re.search(r'\bSELECT\b(?:\s+DISTINCT\b)?(.+?)\bWHERE\b', query, re.IGNORECASE | re.DOTALL)
-        if select_vars_match:
-            select_clause = select_vars_match.group(1)
-            select_vars = re.findall(r'\?(\w+)', select_clause)
-            
-            # Find WHERE clause
-            where_match = re.search(r'\bWHERE\s*\{(.+?)\}', query, re.IGNORECASE | re.DOTALL)
-            if where_match:
-                where_clause = where_match.group(1)
-                where_vars = set(re.findall(r'\?(\w+)', where_clause))
-                
-                # Find unbound variables
-                unbound = [f"?{v}" for v in select_vars if v not in where_vars]
-                if unbound:
-                    result["warnings"].append({
-                        "type": "unbound_variables",
-                        "message": f"Variables {', '.join(unbound)} are used in SELECT but not bound in WHERE clause",
-                        "severity": "high"
-                    })
-                    result["suggestions"].append(
-                        f"Add triple patterns that bind {', '.join(unbound)}."
-                    )
-    
-    # Check for literals without FILTERs
-    if re.search(r'[\'"]\w+[\'"]', query) and not re.search(r'\bFILTER\b', query, re.IGNORECASE):
-        result["warnings"].append({
-            "type": "literal_without_filter",
-            "message": "Query contains literals but no FILTER clause, consider using filters for more flexible matching",
-            "severity": "low"
-        })
-        result["suggestions"].append(
-            "Consider using FILTER with regex() or str() functions for flexible literal matching."
-        )
-    
-    return result
 
 # %% ../../63_sparql_tools.ipynb 10
 def generate_query_fixes(
