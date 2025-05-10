@@ -5,6 +5,7 @@
 # %% ../../07_graph.ipynb 3
 from __future__ import annotations
 from typing import Any, Dict, List, Tuple, Iterable
+import uuid
 
 from .debug import get_logger
 log = get_logger("graph")
