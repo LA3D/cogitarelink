@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Tuple, Iterable
 import uuid
 
 from .debug import get_logger
+from .entity import Entity
 log = get_logger("graph")
 
 # optional rdflib
