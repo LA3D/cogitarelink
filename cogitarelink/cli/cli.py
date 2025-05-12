@@ -186,6 +186,41 @@ def cli_main():
     
     # Create default agent
     agent = Agent()
+    # Register SPARQL tools if available
+    try:
+        from cogitarelink.tools.sparql import (
+            SPARQLToolAgent,
+            sparql_query,
+            ld_fetch,
+            sparql_json_to_jsonld,
+            sparql_discover
+        )
+        from cogitarelink.tools.sparql import describe_resource
+        sparql_agent = SPARQLToolAgent()
+        # Parser helpers
+        for name, fn in sparql_agent.parsers.items():
+            agent.register_tool(fn, name=name, description=fn.__doc__)
+        # Validator helpers
+        for name, fn in sparql_agent.validators.items():
+            agent.register_tool(fn, name=name, description=fn.__doc__)
+        # Execution helpers
+        for name, fn in sparql_agent.execs.items():
+            agent.register_tool(fn, name=name, description=fn.__doc__)
+        # Top-level SPARQL functions
+        agent.register_tool(sparql_query, name="sparql_query", description=sparql_query.__doc__)
+        agent.register_tool(ld_fetch, name="ld_fetch", description=ld_fetch.__doc__)
+        agent.register_tool(sparql_json_to_jsonld, name="sparql_json_to_jsonld", description=sparql_json_to_jsonld.__doc__)
+        agent.register_tool(sparql_discover, name="sparql_discover", description=sparql_discover.__doc__)
+        # Convenience DESCRIBE wrapper
+        agent.register_tool(describe_resource, name="describe_resource", description=describe_resource.__doc__)
+        # End-to-end SPARQL workflow
+        agent.register_tool(
+            sparql_agent.end_to_end_query,
+            name="end_to_end_query",
+            description=SPARQLToolAgent.end_to_end_query.__doc__
+        )
+    except Exception as e:
+        log.error(f"Failed to register SPARQL tools: {e}")
     
     if args.version:
         print(f"CogitareLink version: {agent.run_tool('get_version')}")

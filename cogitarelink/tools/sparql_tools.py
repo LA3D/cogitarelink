@@ -12,6 +12,7 @@ from cogitarelink.core.graph import GraphManager
 from cogitarelink.core.debug import get_logger
 from cogitarelink.integration.retriever import LODRetriever
 from cogitarelink.reason.obqc import check_query as obqc_check_query
+from cogitarelink.tools.sparql import sparql_query
 
 log = get_logger(__name__)
 
@@ -73,7 +74,17 @@ def describe_resource(
     Returns:
         A dict as returned by sparql_query.
     """
-    raise NotImplementedError
+    # Build DESCRIBE query for the given URI
+    describe_q = f"DESCRIBE <{uri}>"
+    # Delegate to sparql_query for execution, parsing, and optional ingestion
+    return sparql_query(
+        endpoint_url=endpoint_url,
+        query=describe_q,
+        query_type="DESCRIBE",
+        result_format=result_format,
+        store_result=store_result,
+        graph_id=(graph_id or uri),
+    )
 
 def sparql_discover(
     endpoint_url: str,

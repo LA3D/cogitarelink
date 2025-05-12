@@ -963,7 +963,7 @@ describe_resource(
   store_result=True
 )
 ```
-
+Tje 
 ### For custom graph patterns (CONSTRUCT):
 ```
 sparql_query(

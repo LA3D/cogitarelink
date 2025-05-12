@@ -16,11 +16,15 @@ _HAS_RDFLIB = True
 
 from ..core.debug import get_logger
 from ..core.graph import GraphManager
+# SPARQLWrapper components for remote SPARQL endpoint querying
+from SPARQLWrapper import SPARQLWrapper
+from SPARQLWrapper.Wrapper import JSON, XML, CSV, TSV, N3, TURTLE, RDF
 
 # %% auto 0
 __all__ = ['log', 'parse_sparql_query', 'build_graph_from_query', 'sparql_parser_tools', 'sparql_validator_tools',
-           'sparql_execution_tools', 'SPARQLToolAgent', 'sparql_query', 'ld_fetch', 'sparql_json_to_jsonld',
-           'sparql_discover', 'check_query_patterns', 'generate_query_fixes', 'refine_query_with_ontology']
+           'sparql_execution_tools', 'SPARQLToolAgent', 'sparql_query', 'ld_fetch', 'describe_resource',
+           'sparql_json_to_jsonld', 'sparql_discover', 'check_query_patterns', 'generate_query_fixes',
+           'refine_query_with_ontology']
 
 # %% ../../63_sparql_tools.ipynb 4
 log = get_logger("sparql")
@@ -29,7 +33,7 @@ log = get_logger("sparql")
 from ..reason.obqc import _parse_sparql_query, _bgp_to_graph
 import json
 from rdflib import Graph
-import cogitarelink.tools.sparql as _sp
+import cogitarelink.tools.sparql_tools as _sp
 from .sparql_tools import validate_query_against_ontology
 
 def parse_sparql_query(q:str)->dict:
@@ -137,14 +141,21 @@ def sparql_query(
             sparql.setReturnFormat(JSON)
             result_format = "json"
     else:  # CONSTRUCT or DESCRIBE
-        if result_format.lower() == "json-ld":
-            sparql.addCustomParameter("format", "application/ld+json")
-        elif result_format.lower() == "turtle":
-            sparql.addCustomParameter("format", "text/turtle")
-        elif result_format.lower() == "n-triples":
-            sparql.addCustomParameter("format", "application/n-triples")
-        elif result_format.lower() == "xml":
-            sparql.addCustomParameter("format", "application/rdf+xml")
+        # Graph query return formats
+        fmt = result_format.lower()
+        if fmt == "turtle":
+            sparql.setReturnFormat(TURTLE)
+        elif fmt in ("n-triples", "nt", "ntriples"):
+            sparql.setReturnFormat(N3)
+        elif fmt == "json-ld":
+            # JSON-LD output: request Turtle (client-side conversion to JSON-LD)
+            sparql.setReturnFormat(TURTLE)
+        elif fmt == "xml":
+            # RDF/XML
+            sparql.setReturnFormat(RDF)
+        else:
+            # Fallback to Turtle
+            sparql.setReturnFormat(TURTLE)
     
     try:
         # Execute the query
@@ -191,35 +202,51 @@ def sparql_query(
                 "data_size": len(content)
             }
             
-            # Store result if requested
-            if store_result:
-                # Parse the RDF content
-                g = Graph()
-                
-                if result_format.lower() == "json-ld":
-                    g.parse(data=content, format="json-ld")
-                elif result_format.lower() == "turtle":
-                    g.parse(data=content, format="turtle")
-                elif result_format.lower() == "n-triples":
-                    g.parse(data=content, format="nt")
-                elif result_format.lower() == "xml":
-                    g.parse(data=content, format="xml")
-                
-                # Get triples count
-                triple_count = len(g)
-                
-                # Store in GraphManager (if available)
-                gm = GraphManager(use_rdflib=True)
-                
-                # Convert to N-Quads for ingestion
-                nquads = g.serialize(format="nquads")
-                gm.ingest_nquads(nquads, graph_id=graph_id)
-                
-                result["stored"] = True
-                result["triple_count"] = triple_count
-                result["graph_id"] = graph_id
+        # Store result if requested (ingest into GraphManager)
+        if store_result:
+            g = Graph()
+            # Determine parse format
+            pf = result_format.lower()
+            if pf in ("json-ld",):
+                g.parse(data=content, format="json-ld")
+            elif pf == "turtle":
+                g.parse(data=content, format="turtle")
+            elif pf in ("n-triples", "nt", "ntriples"):
+                g.parse(data=content, format="nt")
+            elif pf == "xml":
+                g.parse(data=content, format="xml")
             else:
-                result["data"] = content
+                g.parse(data=content, format="turtle")
+            
+            # Ingest into GraphManager
+            triple_count = len(g)
+            gm = GraphManager(use_rdflib=True)
+            nquads = g.serialize(format="nquads")
+            gm.ingest_nquads(nquads, graph_id=graph_id)
+            
+            result["stored"] = True
+            result["triple_count"] = triple_count
+            result["graph_id"] = graph_id
+        else:
+            # Parse returned RDF into JSON-LD for agent consumption
+            g = Graph()
+            # Parse returned RDF into JSON-LD for agent consumption
+            pf = result_format.lower()
+            # Determine parse format (endpoint returns Turtle/N-Triples/XML, not JSON-LD)
+            if pf == "turtle":
+                parse_fmt = "turtle"
+            elif pf in ("n-triples", "nt", "ntriples"):
+                parse_fmt = "nt"
+            elif pf == "xml":
+                parse_fmt = "xml"
+            else:
+                # fallback (for json-ld request or unknown): assume Turtle
+                parse_fmt = "turtle"
+            g.parse(data=content, format=parse_fmt)
+            # Serialize to JSON-LD
+            jsonld_str = g.serialize(format="json-ld")
+            result["format"] = "json-ld"
+            result["jsonld"] = json.loads(jsonld_str)
                 
         return result
         
@@ -383,7 +410,33 @@ def ld_fetch(
             "uri": uri
         }
 
-# %% ../../63_sparql_tools.ipynb 11
+# %% ../../63_sparql_tools.ipynb 9
+def describe_resource(
+    endpoint_url: str,
+    uri: str,
+    result_format: str = "json-ld",
+    store_result: bool = False,
+    graph_id: Optional[str] = None,
+    timeout: int = 30,
+) -> Dict[str, Any]:
+    """
+    Convenience wrapper to DESCRIBE a resource at a SPARQL endpoint.
+    Returns JSON-LD by default and can ingest into memory.
+    """
+    # Build DESCRIBE query
+    desc_q = f"DESCRIBE <{uri}>"
+    # Delegate to core sparql_query
+    return sparql_query(
+        endpoint_url=endpoint_url,
+        query=desc_q,
+        query_type="DESCRIBE",
+        result_format=result_format,
+        store_result=store_result,
+        graph_id=(graph_id or uri),
+        timeout=timeout
+    )
+
+# %% ../../63_sparql_tools.ipynb 12
 def sparql_json_to_jsonld(
     sparql_json: str,
     base_uri: Optional[str] = None,
@@ -499,7 +552,7 @@ def sparql_json_to_jsonld(
     
     return json.dumps(jsonld, indent=2)
 
-# %% ../../63_sparql_tools.ipynb 12
+# %% ../../63_sparql_tools.ipynb 13
 def sparql_discover(
     endpoint_url: str,
     timeout: int = 30,
@@ -520,6 +573,58 @@ def sparql_discover(
     )
     preds = [b.get("p", {}).get("value") for b in res.get("results", [])]
     return {"endpoint": endpoint_url, "predicates": preds}
+
+# %% ../../63_sparql_tools.ipynb 14
+def describe_resource(
+    endpoint_url: str,
+    uri: str,
+    result_format: str = "json-ld",
+    store_result: bool = False,
+    graph_id: Optional[str] = None,
+    timeout: int = 30,
+) -> Dict[str, Any]:
+    """
+    Convenience wrapper to DESCRIBE a resource at a SPARQL endpoint.
+    Returns JSON-LD by default and can ingest into memory when store_result=True.
+    """
+    # Build DESCRIBE query for the given URI
+    desc_q = f"DESCRIBE <{uri}>"
+    # Delegate to sparql_query
+    return sparql_query(
+        endpoint_url=endpoint_url,
+        query=desc_q,
+        query_type="DESCRIBE",
+        result_format=result_format,
+        store_result=store_result,
+        graph_id=(graph_id or uri),
+        timeout=timeout,
+    )
+
+# %% ../../63_sparql_tools.ipynb 15
+def describe_resource(
+    endpoint_url: str,
+    uri: str,
+    result_format: str = "json-ld",
+    store_result: bool = False,
+    graph_id: Optional[str] = None,
+    timeout: int = 30,
+) -> Dict[str, Any]:
+    """
+    Convenience wrapper to DESCRIBE a resource at a SPARQL endpoint.
+    Returns JSON-LD by default and can ingest the result into memory.
+    """
+    # Build DESCRIBE query for the given URI
+    desc_q = f"DESCRIBE <{uri}>"
+    # Delegate to the core sparql_query
+    return sparql_query(
+        endpoint_url=endpoint_url,
+        query=desc_q,
+        query_type="DESCRIBE",
+        result_format=result_format,
+        store_result=store_result,
+        graph_id=(graph_id or uri),
+        timeout=timeout
+    )
 
 def _discover_void(endpoint_url: str, timeout: int) -> Optional[Dict[str, Any]]:
     """Discover endpoint using VoID description."""
@@ -696,7 +801,7 @@ def _discover_introspection(endpoint_url: str, timeout: int) -> Optional[Dict[st
 
  # Prefix extraction helper removed: agents should derive prefixes at runtime if needed
 
-# %% ../../63_sparql_tools.ipynb 14
+# %% ../../63_sparql_tools.ipynb 17
 def check_query_patterns(query: str) -> Dict[str, Any]:
     """
     Basic syntax and safety checks for a SPARQL query.
@@ -742,7 +847,7 @@ def check_query_patterns(query: str) -> Dict[str, Any]:
 
 
 
-# %% ../../63_sparql_tools.ipynb 15
+# %% ../../63_sparql_tools.ipynb 18
 def generate_query_fixes(
     query: str,
     validation_result: Dict[str, Any],
@@ -901,7 +1006,7 @@ def _fix_limit_clause(query: str) -> str:
             flags=re.DOTALL
         )
 
-# %% ../../63_sparql_tools.ipynb 16
+# %% ../../63_sparql_tools.ipynb 19
 def refine_query_with_ontology(
     query: str,
     ontology_ttl: Optional[str] = None,
