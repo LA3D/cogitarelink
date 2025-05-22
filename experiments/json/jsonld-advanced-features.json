@@ -1,0 +1,95 @@
+{
+  "@context": {
+    "@version": 1.1,
+    "schema": "http://schema.org/",
+    "ex": "http://example.org/vocab#",
+    "name": "schema:name",
+    "description": "schema:description",
+    "price": "schema:price",
+    "availability": "schema:availability",
+    "specs": "ex:specifications",
+    "weight": {"@id": "ex:weight", "@protected": true},
+    "dimensions": "ex:dimensions",
+    "reviews": "ex:reviews",
+    "rating": "ex:rating",
+    "comment": "ex:comment",
+    "author": "ex:author",
+    "product": "schema:Product",
+    "status": {"@id": "ex:status", "@type": "@vocab"},
+    "sys": {"@id": "ex:systemInfo", "@nest": true},
+    "metadata": {"@id": "ex:metadata", "@nest": true},
+    "@nest": "@nest",
+    "@propagate": false,
+    "@type": {
+      "Product": {
+        "@context": {
+          "sku": "schema:sku",
+          "productId": "schema:productID",
+          "category": "schema:category"
+        }
+      },
+      "Review": {
+        "@context": {
+          "reviewDate": "schema:datePublished",
+          "reviewRating": "schema:reviewRating"
+        }
+      }
+    }
+  },
+  "@graph": [
+    {
+      "@id": "http://example.org/product/1",
+      "@type": "Product",
+      "name": "Advanced Smartphone",
+      "description": "Next-gen model with AI features",
+      "price": 1299.99,
+      "sku": "SP-12345-AI",
+      "productId": "ABC123456789",
+      "category": "Electronics",
+      "availability": "In Stock",
+      "specs": {
+        "weight": "160g",
+        "dimensions": "15 x 7 x 0.7 cm"
+      },
+      "sys:createdAt": "2025-05-20T10:00:00Z",
+      "sys:heuristicWeight": 732,
+      "sys:evictAfter": 3,
+      "metadata:sources": ["inventory", "catalog"],
+      "metadata:lastUpdated": "2025-05-19T23:15:00Z"
+    },
+    {
+      "@id": "http://example.org/product/2",
+      "@type": "Product",
+      "name": "Smart Speaker",
+      "description": "Voice-controlled home assistant",
+      "price": 149.99,
+      "sku": "SS-98765-VA",
+      "productId": "XYZ987654321",
+      "category": "Smart Home",
+      "availability": "In Stock",
+      "specs": {
+        "weight": "350g",
+        "dimensions": "10 x 10 x 15 cm"
+      },
+      "sys:createdAt": "2025-05-18T09:30:00Z",
+      "sys:heuristicWeight": 598,
+      "sys:evictAfter": 5,
+      "metadata:sources": ["inventory", "reviews"]
+    },
+    {
+      "@id": "http://example.org/review/1",
+      "@type": "Review",
+      "reviewDate": "2025-04-15",
+      "author": "TechExpert",
+      "rating": 4.8,
+      "reviewRating": {
+        "@type": "Rating",
+        "ratingValue": "4.8",
+        "bestRating": "5"
+      },
+      "comment": "Incredible AI capabilities and battery life",
+      "metadata:verified": true,
+      "metadata:sentiment": "positive"
+    }
+  ]
+}

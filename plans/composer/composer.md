@@ -13,7 +13,8 @@ cogitarelink/
     materialiser.py      # token‑budgeted serialisation of entities
     committer.py         # parses LLM output and writes back
   integration/
-    code_indexer.py      # optional: tree‑sitter / ripgrep symbol index
+    retriever.py         # hybrid graph + symbol + embedding search (cogitarelink/integration/retriever.py)
+    code_indexer.py      # optional: tree-sitter / ripgrep symbol index
 
 Layer	Responsibility	Key abstraction
 Retrieval	Find the right nodes (graph triples, code symbols, doc blobs).	Retriever.fetch(query, k, filters…) → List[Entity]
@@ -29,7 +30,7 @@ Committer	Detect structured sections in the LLM’s reply (jsonld, patch, etc.),
 # agent/context_window.py
 from typing import List
 from cogitarelink.agent.materialiser import Materialiser
-from cogitarelink.agent.retrieval   import Retriever
+from cogitarelink.integration.retriever import LODRetriever as Retriever
 from cogitarelink.core.tokenizer    import count_tokens  # thin wrapper around tiktoken/anthropic
 
 MAX_TOKENS = 12_000          # leave headroom for generation
@@ -353,3 +354,113 @@ Recap
 	•	Optional dependencies – no heavy imports unless the user asks for them.
 
 With this scaffold Cogitarelink remains a semantic‑memory micro‑kernel, while the new agent package lets any qorchestration stack page knowledge in/out—​today’s GPT function‑calling, tomorrow’s totally different paradigm—​without refactor pain.
+
+## Managing the context window
+How Codex CLI / Claude Code keep a handle on their context windows
+
+(and what that means for JSON‑first workflows like Cogitarelink)
+
+⸻
+
+1 · They don’t measure tokens—​they measure “chunk weight”
+
+Both Codex CLI and Anthropic’s Claude‑Code shell wrap a model that ultimately counts tokens, but the wrapper lives one abstraction higher:
+
+What they feed the model	How they decide “too much”
+File fragments (whole files, diff hunks, docstrings)	Lines or bytes per fragment, accumulated until a soft budget (e.g. ≈ 20 kB or ≈ 800 lines)
+Tool output (e.g. git status, pytest trace)	Same byte/line heuristics; truncate oldest or least‑important entries
+Inline JSON / logs	Keep complete objects up to N objects or N kB; drop the tail or summarise
+
+Because most source text is ~4 chars per token, a “20 kB” budget lands them safely under 8–9 k tokens without the wrapper ever running a tokenizer.
+
+⸻
+
+2 · What happens when the tool is jq on a big JSON blob?
+	1.	Pre‑filter with jq – The wrapper runs a jq query that already selects only the key paths the user (or the LLM) asked for.
+Example: jq '.items[] | {id, title, status}' large.json
+Now you stream records, not the whole file.
+	2.	Chunk & weigh – Each JSON object (or array slice) is treated as a self‑contained chunk.
+Weight = min(bytes, lines); stop adding chunks when the running total crosses the soft budget.
+	3.	Late shrink – If the final string still looks large (e.g. > N bytes) they either
+	•	collapse pretty‑printing to .compact_output,
+	•	drop infrequent keys, or
+	•	summarise the tail:
+
+// …276 similar objects omitted…
+
+
+	4.	Prompt assembly – Chunks are concatenated verbatim; the LLM now sees valid JSON snippets it can reason over.
+
+Take‑away: structure‑aware slicing (via jq) → size‑aware packing → single prompt. No token math required.
+
+⸻
+
+3 · Porting the idea to Cogitarelink’s JSON‑LD memory
+
+Step	Codex/Claude pattern	JSON‑LD‑aware analogue
+Locate	ripgrep, git diff, tree‑sitter	Graph query / SPARQL / provenance hop
+Slice	jq filter, sed -n '1,120p'	ContextProcessor + jq‑style path: `.[”@graph”][]
+Weight	line/byte count	len(json.dumps(obj)) or (#fields + 2·#children)
+Trim	collapse bodies, add “… omitted …”	drop @context, squash @index keys not requested
+Evict	FIFO or LRU	same—​oldest fragment or lowest “query relevance” score
+
+You still bill per token, but the wrapper’s lightweight heuristics keep you below the model limit with zero tokenizer calls during packing.
+
+⸻
+
+4 · Practical code sketch for a structural weight function
+
+def weight(json_obj: dict, hard_cap: int = 4096) -> int:
+    """
+    Fast •O(size_of_obj)• proxy for token cost.
+    1 char ≈ ¼ token for English / JSON keys.
+    Clamp to hard_cap so one monster object never blocks the queue.
+    """
+    rough = len(json.dumps(json_obj, separators=(",", ":")))
+    return min(rough, hard_cap)
+
+Use this in a greedy packer:
+
+picked, total = [], 0
+for obj in candidate_objects:
+    w = weight(obj)
+    if total + w > BYTE_BUDGET:
+        break
+    picked.append(obj); total += w
+
+Only after you build the final string do you call tiktoken once for a safety check; if you overflow, remove tail objects until you fit.
+
+⸻
+
+5 · Why this is usually “good enough”
+	•	Speed – Serialising JSON and checking byte length is orders of magnitude faster than tokenizing 30 × objects individually.
+	•	Stability – Byte/line counts are deterministic across models and future tokenizer changes.
+	•	Transparency – Humans can see “≈ 18 kB context used” in logs without thinking about tokens.
+
+⸻
+
+6 · Suggested wrapper contract for your Composer
+
+memory.materialise(
+    query      = ".['@graph'][] | select(.id==iri)",
+    max_bytes  = 20_000,
+    max_chunks = 30,
+    compaction = "smallest-context",   # drop @context if overflow
+) -> str   # paste‑ready JSON‑LD snippet
+
+	•	max_bytes (heuristic) enforces the soft budget.
+	•	A single tokenizer pass just before the LLM call enforces the hard model limit.
+	•	The caller never reasons about tokens; it only sees bytes/objects.
+
+⸻
+
+TL;DR
+
+Codex CLI and Claude Code stay sane by chunk→weigh→pack using bytes/lines per chunk, not tokens.
+Copy the pattern:
+	1.	Use jq‑style filters (or SPARQL) to cut precise JSON‑LD slices.
+	2.	Weigh each slice with a cheap function (len(json.dumps())).
+	3.	Pack greedily until a soft byte budget.
+	4.	Run one tokenizer check, trim if necessary.
+
+Your Composer will feel as snappy as Codex while still speaking full‑fidelity JSON‑LD.

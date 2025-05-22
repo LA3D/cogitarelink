@@ -1,0 +1,86 @@
+{
+  "@context": {
+    "schema": "http://schema.org/",
+    "ex": "http://example.org/vocab#",
+    "name": "schema:name",
+    "description": "schema:description",
+    "product": "schema:Product",
+    "offers": "schema:offers",
+    "price": "schema:price",
+    "availability": "schema:availability",
+    "specs": "ex:specifications",
+    "weight": "ex:weight",
+    "dimensions": "ex:dimensions",
+    "reviews": "ex:reviews",
+    "rating": "ex:rating",
+    "comment": "ex:comment",
+    "author": "ex:author"
+  },
+  "@graph": [
+    {
+      "@id": "http://example.org/product/1",
+      "@type": "product",
+      "name": "Premium Smartphone",
+      "description": "Latest model with advanced features",
+      "price": 999.99,
+      "availability": "In Stock",
+      "specs": {
+        "weight": "180g",
+        "dimensions": "15 x 7 x 0.8 cm"
+      },
+      "offers": [
+        {
+          "@id": "http://example.org/offer/1a",
+          "price": 899.99,
+          "availability": "Limited Time Offer"
+        },
+        {
+          "@id": "http://example.org/offer/1b",
+          "price": 949.99,
+          "availability": "With 2-year contract"
+        }
+      ]
+    },
+    {
+      "@id": "http://example.org/product/2",
+      "@type": "product",
+      "name": "Wireless Earbuds",
+      "description": "True wireless with noise cancellation",
+      "price": 199.99,
+      "availability": "In Stock",
+      "specs": {
+        "weight": "55g",
+        "dimensions": "5 x 3 x 2 cm" 
+      }
+    },
+    {
+      "@id": "http://example.org/product/3",
+      "@type": "product",
+      "name": "Smart Watch",
+      "description": "Health tracking and notifications",
+      "price": 299.99,
+      "availability": "Pre-order",
+      "specs": {
+        "weight": "45g",
+        "dimensions": "4 x 4 x 1 cm"
+      },
+      "reviews": [
+        {
+          "rating": 4.5,
+          "comment": "Great battery life, comfortable to wear",
+          "author": "User1"
+        },
+        {
+          "rating": 4,
+          "comment": "Nice features but a bit expensive",
+          "author": "User2"
+        },
+        {
+          "rating": 5,
+          "comment": "Perfect fitness companion",
+          "author": "User3"
+        }
+      ]
+    }
+  ]
+}

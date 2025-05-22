@@ -36,11 +36,12 @@ from cogitarelink.core.tokenizer import count_tokens  # thin wrapper around tikt
 ```text
 cogitarelink/
   integration/
+    retriever.py         # hybrid graph + symbol + embedding search (cogitarelink/integration/retriever.py)
     code_indexer.py      # optional: tree‑sitter / ripgrep symbol index
 ```
 【F:plans/composer.md†L16-L18】
 
-**Reality:** The `cogitarelink/integration/` directory contains only `retriever.py`; there is no `code_indexer.py`.
+**Reality:** The `cogitarelink/integration/` directory contains `retriever.py`, but `code_indexer.py` is still missing.
 
 ## 4. Parts that match existing code
 

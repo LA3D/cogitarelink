@@ -1,0 +1,42 @@
+_:B5f4d7064936da267aa08b18abd3e3cd5 <http://example.org/vocab#dimensions> "15 x 7 x 0.8 cm" .
+_:B5f4d7064936da267aa08b18abd3e3cd5 <http://example.org/vocab#weight> "180g" .
+_:B201601d08f12be651fd76ebdb6145e2b <http://example.org/vocab#dimensions> "5 x 3 x 2 cm" .
+_:B201601d08f12be651fd76ebdb6145e2b <http://example.org/vocab#weight> "55g" .
+_:B14042b7b53c3aac7009fb36122fb388f <http://example.org/vocab#author> "User1" .
+_:B14042b7b53c3aac7009fb36122fb388f <http://example.org/vocab#comment> "Great battery life, comfortable to wear" .
+_:B14042b7b53c3aac7009fb36122fb388f <http://example.org/vocab#rating> "4.5E0"^^<http://www.w3.org/2001/XMLSchema#double> .
+_:Be02b8fda956d550871e9ba63446eb43a <http://example.org/vocab#author> "User2" .
+_:Be02b8fda956d550871e9ba63446eb43a <http://example.org/vocab#comment> "Nice features but a bit expensive" .
+_:Be02b8fda956d550871e9ba63446eb43a <http://example.org/vocab#rating> "4"^^<http://www.w3.org/2001/XMLSchema#integer> .
+_:B86ad1f8d20e5ab389de1e223cdc6cef8 <http://example.org/vocab#author> "User3" .
+_:B86ad1f8d20e5ab389de1e223cdc6cef8 <http://example.org/vocab#comment> "Perfect fitness companion" .
+_:B86ad1f8d20e5ab389de1e223cdc6cef8 <http://example.org/vocab#rating> "5"^^<http://www.w3.org/2001/XMLSchema#integer> .
+_:Ba1bb78dea05052934168089b2d76e0b7 <http://example.org/vocab#dimensions> "4 x 4 x 1 cm" .
+_:Ba1bb78dea05052934168089b2d76e0b7 <http://example.org/vocab#weight> "45g" .
+<http://example.org/offer/1a> <http://schema.org/availability> "Limited Time Offer" .
+<http://example.org/offer/1a> <http://schema.org/price> "8.9999E2"^^<http://www.w3.org/2001/XMLSchema#double> .
+<http://example.org/offer/1b> <http://schema.org/availability> "With 2-year contract" .
+<http://example.org/offer/1b> <http://schema.org/price> "9.4999E2"^^<http://www.w3.org/2001/XMLSchema#double> .
+<http://example.org/product/1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Product> .
+<http://example.org/product/1> <http://example.org/vocab#specifications> _:B5f4d7064936da267aa08b18abd3e3cd5 .
+<http://example.org/product/1> <http://schema.org/availability> "In Stock" .
+<http://example.org/product/1> <http://schema.org/description> "Latest model with advanced features" .
+<http://example.org/product/1> <http://schema.org/name> "Premium Smartphone" .
+<http://example.org/product/1> <http://schema.org/offers> <http://example.org/offer/1a> .
+<http://example.org/product/1> <http://schema.org/offers> <http://example.org/offer/1b> .
+<http://example.org/product/1> <http://schema.org/price> "9.9999E2"^^<http://www.w3.org/2001/XMLSchema#double> .
+<http://example.org/product/2> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Product> .
+<http://example.org/product/2> <http://example.org/vocab#specifications> _:B201601d08f12be651fd76ebdb6145e2b .
+<http://example.org/product/2> <http://schema.org/availability> "In Stock" .
+<http://example.org/product/2> <http://schema.org/description> "True wireless with noise cancellation" .
+<http://example.org/product/2> <http://schema.org/name> "Wireless Earbuds" .
+<http://example.org/product/2> <http://schema.org/price> "1.9999E2"^^<http://www.w3.org/2001/XMLSchema#double> .
+<http://example.org/product/3> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Product> .
+<http://example.org/product/3> <http://example.org/vocab#reviews> _:B14042b7b53c3aac7009fb36122fb388f .
+<http://example.org/product/3> <http://example.org/vocab#reviews> _:Be02b8fda956d550871e9ba63446eb43a .
+<http://example.org/product/3> <http://example.org/vocab#reviews> _:B86ad1f8d20e5ab389de1e223cdc6cef8 .
+<http://example.org/product/3> <http://example.org/vocab#specifications> _:Ba1bb78dea05052934168089b2d76e0b7 .
+<http://example.org/product/3> <http://schema.org/availability> "Pre-order" .
+<http://example.org/product/3> <http://schema.org/description> "Health tracking and notifications" .
+<http://example.org/product/3> <http://schema.org/name> "Smart Watch" .
+<http://example.org/product/3> <http://schema.org/price> "2.9999E2"^^<http://www.w3.org/2001/XMLSchema#double> .
